@@ -2,6 +2,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../utils/api";
 import SelectRoleTablet from "../components/tablet/SelectRoleTablet";
+import SelectRoleMobile from "../components/mobile/SelectRoleMobile"; // <— YANGI
 
 export default function RoleSelectPage() {
     const navigate = useNavigate();
@@ -14,22 +15,21 @@ export default function RoleSelectPage() {
         }
 
         try {
-            await api.post(`api/auth/register/step4/${userId}/`, {
-                role: role
-            });
+            await api.post(`api/auth/register/step4/${userId}/`, { role });
 
-            // Har bir rol uchun navigate
+            // Har bir rol uchun navigate (hozircha ikkalasi ham login-ga)
             if (role === "JOB_SEEKER" || role === "EMPLOYER") {
                 navigate("/login");
             }
         } catch (err) {
-            console.error("Xatolik:", err.response);
-            alert("Xatolik yuz berdi: " + (err.response?.data?.detail || "Nomaʼlum xato"));
+            console.error("Xatolik:", err?.response);
+            alert("Xatolik yuz berdi: " + (err?.response?.data?.detail || "Nomaʼlum xato"));
         }
     };
 
     return (
         <>
+            {/* Desktop (lg+) */}
             <div className="hidden lg:flex min-h-screen flex items-center justify-center bg-white px-4">
                 <div className="flex flex-col md:flex-row gap-8">
                     {/* Job Seeker */}
@@ -52,9 +52,14 @@ export default function RoleSelectPage() {
                 </div>
             </div>
 
-            {/* Tablet */}
-            <div className="block lg:hidden">
-                <SelectRoleTablet />
+            {/* Tablet only (md) */}
+            <div className="hidden md:block lg:hidden">
+                <SelectRoleTablet onSelect={handleSelect} />
+            </div>
+
+            {/* Mobile (sm va past) */}
+            <div className="block md:hidden">
+                <SelectRoleMobile onSelect={handleSelect} />
             </div>
         </>
     );

@@ -7,6 +7,10 @@ import {
     removeSavedVacancy,
     fetchApplications,
 } from "../utils/activity";
+import ResponsivePage from "../components/ResponsivePage";
+import ProfilePageTablet from "../components/tablet/ProfileTabletPage.jsx";
+import ActivityTablet from "../components/tablet/ActivityTablet.jsx";
+import ActivityMobile from "../components/mobile/ActivityMobile.jsx";
 
 // ==========================
 // COMPONENT START
@@ -139,7 +143,19 @@ export default function Activity() {
     };
 
     return (
-        <div className="font-sans relative">
+        <>
+            <ResponsivePage>
+                {/* MOBILE */}
+                <div className="block md:hidden">
+                    <ActivityMobile />
+                </div>
+
+                {/* TABLET */}
+                <div className="hidden md:block lg:hidden">
+                    <ActivityTablet />
+                </div>
+
+            <div className="hidden lg:block font-sans relative">
             {/* ==========================
                         NAVBAR
             ========================== */}
@@ -208,7 +224,7 @@ export default function Activity() {
                     </div>
 
 
-                    {/* Mobile flag + burger */}
+                    {/* mobile flag + burger */}
                     <div className="md:hidden flex items-center gap-3 pr-4 sm:pr-6 pt-2">
                         <div className="relative flex items-center gap-1 cursor-pointer"
                              onClick={() => setShowLang(!showLang)}>
@@ -253,7 +269,7 @@ export default function Activity() {
                     </div>
                 </div>
 
-                {/* Mobile dropdown menu */}
+                {/* mobile dropdown menu */}
                 {showMobileMenu && (
                     <div
                         className="absolute top-[70px] left-0 w-full bg-white shadow-md flex flex-col items-center gap-2 py-4 z-50">
@@ -430,6 +446,9 @@ export default function Activity() {
                 </div>
             </footer>
         </div>
+            </ResponsivePage>
+
+        </>
     );
 }
 

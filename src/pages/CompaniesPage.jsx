@@ -1,24 +1,11 @@
 import React, { useState, useEffect } from "react";
-import Select from "react-select";
-import { Link } from "react-router-dom";
-import { Star } from "lucide-react";
-import CompanyModal from "../components/CompanyModal"; // to‘g‘ri path yoz
-import ProfileDropdownJobSeeker from "../components/ProfileDropdownJobSeeker.jsx";
+import CompanyModal from "../components/CompanyModal";
 import api from "../utils/api";
 import { useLocation, useNavigate } from "react-router-dom";
-
-
-import {
-    FaCalculator,
-    FaGraduationCap,
-    FaCogs,
-    FaBriefcase,
-    FaHeartbeat,
-    FaLaptopCode,
-    FaIndustry,
-    FaGavel
-} from "react-icons/fa";
+import CopmanyPage from "../components/tablet/CompaniesTabletPage.jsx";
 import ProfileDropdown from "../components/ProfileDropdown";
+import VacanciesPageTablet from "../components/tablet/VacanciesPageTablet.jsx";
+import CompaniesMobilePage from "../components/mobile/CompaniesMobilePage.jsx";
 
 // ==========================
 // COMPONENT START
@@ -166,7 +153,17 @@ export default function LandingPage() {
     // RETURN JSX
     // ==========================
     return (
-        <main className="font-sans relative">
+        <>
+            <div className="block md:hidden">
+                <CompaniesMobilePage />
+            </div>
+
+            {/* TABLET — faqat md..lg */}
+            <div className="hidden md:block lg:hidden">
+                <CopmanyPage />
+            </div>
+
+        <main className="hidden lg:block font-sans relative">
             {/* ==========================
                         NAVBAR
             ========================== */}
@@ -214,7 +211,7 @@ export default function LandingPage() {
 
                     </div>
 
-                    {/* Mobile flag + burger */}
+                    {/* mobile flag + burger */}
                     <div className="md:hidden flex items-center gap-3 pr-4 sm:pr-6 pt-2">
                         <div className="relative flex items-center gap-1 cursor-pointer" onClick={() => setShowLang(!showLang)}>
                             <img src={selectedLang.flag} alt={selectedLang.code} className="w-6 h-4 object-cover" />
@@ -248,7 +245,7 @@ export default function LandingPage() {
                     </div>
                 </div>
 
-                {/* Mobile dropdown menu */}
+                {/* mobile dropdown menu */}
                 {showMobileMenu && (
                     <div className="absolute top-[70px] left-0 w-full bg-white shadow-md flex flex-col items-center gap-2 py-4 z-50">
                         <a href="/community"
@@ -571,5 +568,6 @@ export default function LandingPage() {
                 </div>
             </footer>
         </main>
+        </>
     );
 }

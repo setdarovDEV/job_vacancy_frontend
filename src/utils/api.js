@@ -1,60 +1,75 @@
-// src/utils/api.js
+// utils/api.js
 import axios from "axios";
 
-// Asosiy axios instansiya
-const api = axios.create({
-    baseURL: "http://localhost:8000",
+const API_BASE = import.meta?.env?.VITE_API_URL || "http://127.0.0.1:8000";
+
+export const api = axios.create({
+    baseURL: API_BASE,
+    // withCredentials: false  // JWT uchun odatda kerak emas
 });
 
-// Refresh uchun alohida axios instansiya (interceptorlarsiz)
-const refreshApi = axios.create({
-    baseURL: "http://localhost:8000",
+// Request: access tokenni headerga qo'yish
+api.interceptors.request.use((config) => {
+    const access = localStorage.getItem("access") || localStorage.getItem("access_token");
+    if (access) {
+        config.headers.Authorization = `Bearer ${access}`;
+    }
+    return config;
 });
 
-// Har bir requestdan oldin access_token ni qo‘sh
-api.interceptors.request.use(
-    (config) => {
-        const token = localStorage.getItem("access_token");
-        if (token) {
-            config.headers["Authorization"] = `Bearer ${token}`;
-        }
-        return config;
-    },
-    (error) => Promise.reject(error)
-);
+// Response: 401 bo'lsa refresh qilib qayta urinish
+let isRefreshing = false;
+let pending = [];
 
-// Agar 401 bo‘lsa → token yangilash logikasi
+function onRefreshed(newToken) {
+    pending.forEach((cb) => cb(newToken));
+    pending = [];
+}
+
 api.interceptors.response.use(
-    (response) => response,
+    (res) => res,
     async (error) => {
-        const originalRequest = error.config;
+        const status = error?.response?.status;
+        const original = error.config;
 
-        if (
-            error.response?.status === 401 &&
-            !originalRequest._retry &&
-            !originalRequest.url.includes("/auth/refresh/")
-        ) {
-            originalRequest._retry = true;
+        if (status === 401 && !original._retry) {
+            original._retry = true;
+
+            const refresh = localStorage.getItem("refresh") || localStorage.getItem("refresh_token");
+            if (!refresh) {
+                // logout/redirect logic bo'lishi mumkin
+                return Promise.reject(error);
+            }
+
+            if (isRefreshing) {
+                // refresh tugaguncha navbatda turamiz
+                return new Promise((resolve) => {
+                    pending.push((token) => {
+                        original.headers.Authorization = `Bearer ${token}`;
+                        resolve(api.request(original));
+                    });
+                });
+            }
 
             try {
-                const refresh_token = localStorage.getItem("refresh_token");
-
-                const res = await refreshApi.post("/api/auth/refresh/", {
-                    refresh: refresh_token,
-                });
-
-                const new_access_token = res.data.access;
-                localStorage.setItem("access_token", new_access_token);
-
-                originalRequest.headers["Authorization"] = `Bearer ${new_access_token}`;
-                return api(originalRequest);
-            } catch (refreshErr) {
-                console.error("Token yangilash xatosi:", refreshErr);
-
-                // Logout
+                isRefreshing = true;
+                const { data } = await axios.post(`${API_BASE}/api/auth/refresh/`, { refresh });
+                const newAccess = data?.access || data?.access_token;
+                if (newAccess) {
+                    localStorage.setItem("access", newAccess);
+                    localStorage.setItem("access_token", newAccess);
+                    api.defaults.headers.common.Authorization = `Bearer ${newAccess}`;
+                    onRefreshed(newAccess);
+                    return api.request(original);
+                }
+            } catch (e) {
+                // refresh ham o'tmadi -> logout
+                localStorage.removeItem("access");
                 localStorage.removeItem("access_token");
+                localStorage.removeItem("refresh");
                 localStorage.removeItem("refresh_token");
-                window.location.href = "/login";
+            } finally {
+                isRefreshing = false;
             }
         }
 

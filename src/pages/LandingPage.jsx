@@ -11,6 +11,7 @@ import {
     FaGavel
 } from "react-icons/fa";
 import LandingTablet from "../components/tablet/LandingTablet.jsx";
+import LandingMobile from "../components/mobile/LandingMobile.jsx";
 
 
 // ==========================
@@ -219,7 +220,7 @@ export default function LandingPage() {
                             </a>
                         </div>
 
-                        {/* Mobile flag + burger */}
+                        {/* mobile flag + burger */}
                         <div className="md:hidden flex items-center gap-3 pr-4 sm:pr-6 pt-2">
                             <div className="relative flex items-center gap-1 cursor-pointer" onClick={() => setShowLang(!showLang)}>
                                 <img src={selectedLang.flag} alt={selectedLang.code} className="w-6 h-4 object-cover" />
@@ -280,39 +281,6 @@ export default function LandingPage() {
                 </div>
 
 
-                {/* MOBILE / TABLET */}
-                <div className="md:hidden absolute top-[80px] left-1/2 -translate-x-1/2 z-50 w-[85%] max-w-[344px]">
-                    {!showSearch ? (
-                        <button
-                            onClick={() => setShowSearch(true)}
-                            className="bg-white p-2 rounded-full shadow-md focus:outline-none flex items-center justify-center"
-                        >
-                            <svg className="w-6 h-6" stroke="#3066BE" fill="none" viewBox="0 0 24 24" strokeWidth="2">
-                                <path strokeLinecap="round" strokeLinejoin="round"
-                                      d="M21 21l-4.35-4.35M15 15A7.5 7.5 0 104.5 4.5 7.5 7.5 0 0015 15z" />
-                            </svg>
-                        </button>
-                    ) : (
-                        <div className="relative flex h-[47px] items-center border-2 border-white rounded-md px-4">
-                            <svg className="w-6 h-6 mr-2" stroke="white" fill="none" viewBox="0 0 24 24" strokeWidth="2">
-                                <path strokeLinecap="round" strokeLinejoin="round"
-                                      d="M21 21l-4.35-4.35M15 15A7.5 7.5 0 104.5 4.5 7.5 7.5 0 0015 15z" />
-                            </svg>
-                            <input
-                                type="text"
-                                placeholder={texts[langCode].search}
-                                className="flex-1 bg-transparent text-white placeholder-white border-none focus:outline-none"
-                            />
-                            <button
-                                onClick={() => setShowSearch(false)}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 text-white text-2xl bg-transparent border-none focus:outline-none"
-                            >
-                                ✕
-                            </button>
-                        </div>
-                    )}
-                </div>
-
                 {/* ==========================
                         HERO SECTION
                 ========================== */}
@@ -320,7 +288,7 @@ export default function LandingPage() {
                     className="relative bg-cover bg-center min-h-[100vh] flex flex-col justify-center items-center text-center"
                     style={{
                         backgroundImage: `url('/hero.png')`,
-                        clipPath: "ellipse(80% 100% at 50% 0)"
+                        clipPath: "ellipse(100% 100% at 50% 0)"
                     }}
                 >
                     <div className="absolute inset-0 bg-blue-900 opacity-50"
@@ -910,10 +878,23 @@ export default function LandingPage() {
                 </footer>
         </div>
 
-    <div className="block lg:hidden">
-        <LandingTablet />
-    </div>
-</>
+            <div className="hidden md:block lg:hidden">
+                <LandingTablet />
+            </div>
+
+            {/* Mobile ONLY (sm) */}
+            <div className="block md:hidden">
+                <LandingMobile
+                    selectedLang={selectedLang}
+                    setSelectedLang={setSelectedLang}
+                    texts={texts}
+                    categoriesTexts={categoriesTexts}
+                    optionsRegion={optionsRegion}
+                    optionsSalary={optionsSalary}
+                    optionsPlan={optionsPlan}
+                />
+            </div>
+        </>
     );
 }
 

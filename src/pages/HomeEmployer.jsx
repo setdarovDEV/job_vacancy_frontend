@@ -8,6 +8,9 @@ import ChangeProfileImageModal from "../components/AvatarUploadModal.jsx";
 import CreateCompanyModal from "../components/CreateCompanyModal.jsx";
 import axios from "axios";
 import api from "../utils/api";
+import ProfilePageTablet from "../components/tablet/ProfileTabletPage.jsx";
+import HomeEmployerTablet from "../components/tablet/HomeEmployer.jsx";
+import HomeEmployerMobile from "../components/mobile/HomeEmployerMobile.jsx";
 
 export default function HomeEmployer() {
     // ==========================
@@ -390,7 +393,14 @@ export default function HomeEmployer() {
 
 
     return (
-        <div className="font-sans relative">
+        <>
+            <div className="block md:hidden">
+                <HomeEmployerMobile />
+            </div>
+        <div className="hidden md:block">
+            <HomeEmployerTablet />
+        </div>
+        <div className="hidden lg:block font-sans relative">
             {/* ==========================
                         NAVBAR
             ========================== */}
@@ -437,7 +447,7 @@ export default function HomeEmployer() {
                         <ProfileDropdown />
                     </div>
 
-                    {/* Mobile flag + burger */}
+                    {/* mobile flag + burger */}
                     <div className="md:hidden flex items-center gap-3 pr-4 sm:pr-6 pt-2">
                         <div className="relative flex items-center gap-1 cursor-pointer" onClick={() => setShowLang(!showLang)}>
                             <img src={selectedLang.flag} alt={selectedLang.code} className="w-6 h-4 object-cover" />
@@ -471,7 +481,7 @@ export default function HomeEmployer() {
                     </div>
                 </div>
 
-                {/* Mobile dropdown menu */}
+                {/* mobile dropdown menu */}
                 {showMobileMenu && (
                     <div className="absolute top-[70px] left-0 w-full bg-white shadow-md flex flex-col items-center gap-2 py-4 z-50">
                         <a href="/community"
@@ -916,5 +926,6 @@ export default function HomeEmployer() {
                 </div>
             </footer>
         </div>
+        </>
     );
 }

@@ -8,7 +8,7 @@ import UserSearch from "../components/UserSearch";
 import ProfileDropdown from "../components/ProfileDropdown.jsx";
 import DashboardTablet from "../components/tablet/DashboardTablet.jsx";
 import CommunityTablet from "../components/tablet/CommunityTabletPage.jsx";
-
+import CommunityMobile from "../components/mobile/CommunityMobile.jsx"
 
 // ==========================
 // COMPONENT START
@@ -470,7 +470,7 @@ export default function CommunityPage() {
 
                     </div>
 
-                    {/* Mobile flag + burger */}
+                    {/* mobile flag + burger */}
                     <div className="md:hidden flex items-center gap-3 pr-4 sm:pr-6 pt-2">
                         <div className="relative flex items-center gap-1 cursor-pointer"
                              onClick={() => setShowLang(!showLang)}>
@@ -516,7 +516,7 @@ export default function CommunityPage() {
                     </div>
                 </div>
 
-                {/* Mobile dropdown menu */}
+                {/* mobile dropdown menu */}
                 {showMobileMenu && (
                     <div
                         className="absolute top-[70px] left-0 w-full bg-white shadow-md flex flex-col items-center gap-2 py-4 z-50">
@@ -953,8 +953,18 @@ export default function CommunityPage() {
                 </div>
             </footer>
         </div>
-            <div className="block lg:hidden">
+            {/* Tablet only: md ≤ width < lg */}
+            <div className="hidden md:block lg:hidden">
                 <CommunityTablet />
+            </div>
+
+            {/* Mobile only: width < md */}
+            <div className="block md:hidden">
+                <CommunityMobile
+                    texts={texts}
+                    selectedLang={selectedLang}
+                    setSelectedLang={setSelectedLang}
+                />
             </div>
         </>
     );

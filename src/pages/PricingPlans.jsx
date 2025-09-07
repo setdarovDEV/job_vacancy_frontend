@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import ProfileDropdown from "../components/ProfileDropdown.jsx";
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
+import PricingPlansTablet from "../components/tablet/PricingPlansTablet.jsx";
+import PricingPlansMobile from "../components/mobile/PricingPlansMobile.jsx";
 
 
 // ==========================
@@ -129,7 +131,14 @@ export default function PricingPlans({ currentPlan = "basic", onSelect = () => {
     };
 
     return (
-        <div className="font-sans relative bg-white">
+        <>
+            <div className="hidden md:block lg:hidden">
+                <PricingPlansTablet />
+            </div>
+            <div className="block md:hidden">
+                <PricingPlansMobile />
+            </div>
+        <div className="hidden lg:block font-sans relative bg-white">
             {/* ==========================
                         NAVBAR
             ========================== */}
@@ -198,7 +207,7 @@ export default function PricingPlans({ currentPlan = "basic", onSelect = () => {
                     </div>
 
 
-                    {/* Mobile flag + burger */}
+                    {/* mobile flag + burger */}
                     <div className="md:hidden flex items-center gap-3 pr-4 sm:pr-6 pt-2">
                         <div className="relative flex items-center gap-1 cursor-pointer"
                              onClick={() => setShowLang(!showLang)}>
@@ -243,7 +252,7 @@ export default function PricingPlans({ currentPlan = "basic", onSelect = () => {
                     </div>
                 </div>
 
-                {/* Mobile dropdown menu */}
+                {/* mobile dropdown menu */}
                 {showMobileMenu && (
                     <div
                         className="absolute top-[70px] left-0 w-full bg-white shadow-md flex flex-col items-center gap-2 py-4 z-50">
@@ -375,6 +384,7 @@ export default function PricingPlans({ currentPlan = "basic", onSelect = () => {
                 </div>
             </footer>
         </div>
+        </>
     );
 }
 

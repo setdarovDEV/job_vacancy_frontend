@@ -141,7 +141,6 @@ export default function LandingTablet() {
     return (
         <>
             <NavbarTablet />
-
             <section
                 className="relative bg-cover bg-center min-h-[80vh] flex flex-col justify-center items-center text-center"
                 style={{

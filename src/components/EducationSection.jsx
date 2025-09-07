@@ -62,7 +62,7 @@ export default function EducationSection({isEditable}) {
     };
 
     return (
-        <div className="pb-4 px-4 py-3 mb-[30px]">
+        <div className="px-3 md:px-0 py-3 md:py-4 mb-4 md:mb-6 rounded-xl">
             <div className="flex justify-between items-center">
                 <h3 className="text-[24px] leading-[36px] font-bold text-black">Образование</h3>
                 <div className="flex gap-2">
@@ -115,7 +115,7 @@ export default function EducationSection({isEditable}) {
                     </div>
                 ))
             ) : (
-                <p className="text-center text-[#AEAEAE] mt-4">Ma'lumotlar topilmadi.</p>
+                <p className="text-left text-[#AEAEAE] mt-4">Ma'lumotlar topilmadi.</p>
             )}
 
             {/* FORM — Add/Edit */}

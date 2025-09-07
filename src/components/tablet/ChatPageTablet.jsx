@@ -3,6 +3,7 @@ import { chatApi } from "../../services/chatApi";
 import { ChatWS } from "../../services/chatWS";
 import api from "../../utils/api.js";
 import NavbarTabletLogin from "./NavbarTabletLogIn.jsx";
+import UserSearch from "./UserSearchTablet.jsx";
 
 export default function ChatPageTablet() {
     const [selectedLang, setSelectedLang] = useState({ flag: "/ru.png", code: "RU" });
@@ -25,10 +26,17 @@ export default function ChatPageTablet() {
     const fileRef = useRef(null);
     const endRef = useRef(null);
     const msgBoxRef = useRef(null);
+    const [selectedUser, setSelectedUser] = useState(null);
 
     const formatName = (s) => String(s).split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
     const displayName = useMemo(() => formatName(peer?.full_name || peer?.username || peer?.email || ""), [peer]);
     const isMineMsg = (m) => String(m.user_id) === meIdStr;
+
+
+    const handlePickUser = (u) => {
+        setSelectedUser(u);
+        fetchPost({ authorId: u.id, page: 1 });   // ✅ page=1 dan boshlaymiz
+    };
 
     const texts = {
         RU: {
@@ -122,9 +130,67 @@ export default function ChatPageTablet() {
     const langCode = selectedLang?.code === "GB" ? "EN" : selectedLang?.code || "RU";
 
     return (
-        <div className="font-sans relative bg-white px-4">
+        <>
             <NavbarTabletLogin />
-            <div className="w-full max-w-[1440px] mx-auto py-6 flex flex-col md:flex-row gap-4 min-h-[calc(100vh-160px)] pb-[84px]">
+            {/* ========================== */}
+            {/* SEARCH BLOK — TABLET       */}
+            {/* ========================== */}
+            <div className="bg-white  md:mt-[90px] md:block mr-[10px] lg:hidden">
+                <div className="mx-auto max-w-[960px] mt-[-80px] px-4 py-3">
+                    {/* Qator: qidiruv (markazda) + ikonlar */}
+                    <div className="flex items-center justify-between gap-3">
+                        {/* Qidiruv */}
+                        <div className="flex-1 flex justify-center">
+                            <div className="w-full max-w-[420px]">
+                                <UserSearch onSelect={handlePickUser} />
+                            </div>
+                        </div>
+
+                        {/* O‘ngdagi ikonlar */}
+                        <div className="flex items-center gap-3 shrink-0">
+                            {/* Bell */}
+                            <button className="relative p-2 rounded-md hover:bg-gray-100 bg-white text-black" aria-label="Notifications">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth="2"
+                                        d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14V9a6 6 0 10-12 0v5c0 .386-.146.735-.405 1.005L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+                                    />
+                                </svg>
+                                <span className="absolute -top-1 -right-1 w-[18px] h-[18px] rounded-full bg-red-600 text-white text-[10px] grid place-items-center">
+            1
+          </span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Tanlangan user filtri (chip) */}
+                    {selectedUser && (
+                        <div className="mt-2 flex items-center gap-2 text-[13px]">
+                            <span className="text-black">Filtr:</span>
+                            <img
+                                src={mediaUrl(selectedUser.avatar_url ?? "", "/profile.png")}
+                                className="w-5 h-5 rounded-full object-cover"
+                                alt=""
+                            />
+                            <span className="text-[#3066BE] truncate">@{selectedUser.username}</span>
+
+                            <button
+                                className="ml-auto h-8 px-3 rounded-md border border-[#3066BE] text-[#3066BE] bg-white hover:bg-[#F5F8FF] transition"
+                                onClick={() => {
+                                    setSelectedUser(null);
+                                    fetchPosts();
+                                }}
+                            >
+                                Tozalash
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+        <div className="font-sans relative bg-white px-4">
+            <div className="w-full max-w-[1440px] mx-auto mb-[-80px] py-6 flex flex-col md:flex-row gap-4 min-h-[calc(100vh-0px)] pb-[84px]">
                 {/* LEFT - Chat list */}
                 <div className="w-full md:w-[40%] bg-white border rounded-2xl p-4 flex flex-col">
                     <h2 className="text-[28px] md:text-[34px] font-bold text-black mb-4">Сообщения</h2>
@@ -155,8 +221,8 @@ export default function ChatPageTablet() {
                 </div>
 
                 {/* RIGHT - Messages */}
-                <div className="flex-1 bg-[#F4F6FA] border rounded-2xl flex flex-col">
-                    <div className="flex items-center gap-3 p-4 border-b">
+                <div className="flex-1 bg-[#F7F7F7] border-none rounded-2xl flex flex-col">
+                    <div className="flex items-center gap-3 p-4">
                         <img src={peer?.avatar || "/profile.png"} className="w-[42px] h-[42px] rounded-full object-cover" />
                         <div>
                             <h3 className="font-semibold text-[16px] md:text-[18px] text-black">{displayName}</h3>
@@ -200,12 +266,12 @@ export default function ChatPageTablet() {
                         <div ref={endRef} />
                     </div>
 
-                    <div className="p-4 border-t flex flex-col gap-3 bg-[#F4F6FA]">
+                    <div className="p-4 flex flex-col gap-3 bg-[#F7F7F7]">
                         <input
                             ref={inputRef}
                             type="text"
                             placeholder="Напишите сообщение..."
-                            className="w-full px-4 py-2 rounded-xl bg-white text-black border border-gray-300"
+                            className="w-full px-4 py-2 rounded-xl bg-[#F7F7F7] text-black border-none"
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
                             disabled={!activeRoom}
@@ -218,16 +284,17 @@ export default function ChatPageTablet() {
                         />
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                                <button onClick={() => fileRef.current?.click()} disabled={!activeRoom}>
-                                    <i className="fas fa-paperclip text-[#3066BE] text-xl"></i>
+                                <button onClick={() => fileRef.current?.click()} disabled={!activeRoom} className="bg-[#F7F7F7] border-none">
+                                    <i className="fas fa-paperclip text-[#3066BE] border-none bg-[#F7F7F7] text-xl"></i>
                                 </button>
-                                <button disabled={!activeRoom}>
+                                <button disabled={!activeRoom} className="bg-[#F7F7F7] border-none">
                                     <i className="far fa-smile text-[#3066BE] text-xl"></i>
                                 </button>
                             </div>
                             <button
                                 disabled={!activeRoom || sending || (!input.trim() && !file)}
                                 title={!activeRoom ? "Avval chatni oching" : "Yuborish"}
+                                className="bg-[#F7F7F7] border-none"
                             >
                                 <i className="fas fa-paper-plane text-[#3066BE] text-xl"></i>
                             </button>
@@ -235,66 +302,67 @@ export default function ChatPageTablet() {
                     </div>
                 </div>
             </div>
+        </div>
 
-            <footer className="relative overflow-hidden md:block lg:hidden mt-[50px]">
-                {/* Background */}
-                <img
-                    src="/footer-bg.png"
-                    alt="Footer background"
-                    className="absolute inset-0 w-full h-full object-cover z-0"
-                />
-                <div className="absolute inset-0 bg-[#3066BE]/55 z-10" />
 
-                {/* Content */}
-                <div className="relative z-20 max-w-[960px] mx-auto px-4 py-8 text-white">
-                    {/* Top area */}
-                    <div className="flex flex-col gap-6">
-                        {/* Logo */}
-                        <h2 className="text-[36px] font-black">
-                            {texts?.[langCode]?.logo || "Community"}
-                        </h2>
+    <footer className="relative overflow-hidden md:block lg:hidden mt-[50px] w-full">
+        {/* Background */}
+        <img
+            src="/footer-bg.png"
+            alt="Footer background"
+            className="absolute inset-0 w-full h-full object-cover z-0"
+        />
+        <div className="absolute inset-0 bg-[#3066BE]/55 z-10" />
 
-                        {/* Links (2 columns) */}
-                        <div className="grid grid-cols-2 text-white gap-x-10 gap-y-3">
-                            {texts?.[langCode]?.links?.slice(0, 4).map((link, i) => (
-                                <a
-                                    key={`l-${i}`}
-                                    href="#"
-                                    className="flex items-center text-white gap-2 text-[15px] hover:text-[#E7ECFF] transition-colors"
-                                >
-                                    <span>›</span> {link}
-                                </a>
-                            ))}
-                            {texts?.[langCode]?.links?.slice(4).map((link, i) => (
-                                <a
-                                    key={`r-${i}`}
-                                    href="#"
-                                    className="flex items-center text-white gap-2 text-[15px] hover:text-[#E7ECFF] transition-colors"
-                                >
-                                    <span>›</span> {link}
-                                </a>
-                            ))}
-                        </div>
-                    </div>
+        {/* Content */}
+        <div className="relative z-20 w-full px-6 py-8 text-white">
+            {/* Top area */}
+            <div className="flex flex-col gap-6">
+                {/* Logo */}
+                <h2 className="text-[36px] font-black">
+                    {texts?.[langCode]?.logo || "Community"}
+                </h2>
 
-                    {/* Bottom bar */}
-                    <div className="mt-6 bg-[#3066BE]/70 rounded-[10px] px-4 py-4">
-                        <div className="flex flex-wrap items-center justify-between gap-4">
-                            <p className="text-[13px] leading-snug">
-                                {texts?.[langCode]?.copyright}
-                            </p>
+                {/* Links (2 columns) */}
+                <div className="grid grid-cols-2 text-white gap-x-10 gap-y-3">
+                    {texts?.[langCode]?.links?.slice(0, 4).map((link, i) => (
+                        <a
+                            key={`l-${i}`}
+                            href="#"
+                            className="flex items-center text-white gap-2 text-[15px] hover:text-[#E7ECFF] transition-colors"
+                        >
+                            <span>›</span> {link}
+                        </a>
+                    ))}
+                    {texts?.[langCode]?.links?.slice(4).map((link, i) => (
+                        <a
+                            key={`r-${i}`}
+                            href="#"
+                            className="flex items-center text-white gap-2 text-[15px] hover:text-[#E7ECFF] transition-colors"
+                        >
+                            <span>›</span> {link}
+                        </a>
+                    ))}
+                </div>
+            </div>
 
-                            <div className="flex items-center gap-4 text-[20px]">
-                                <a href="#" className="text-white hover:opacity-90"><i className="fab fa-whatsapp" /></a>
-                                <a href="#" className="text-white hover:opacity-90"><i className="fab fa-instagram" /></a>
-                                <a href="#" className="text-white hover:opacity-90"><i className="fab fa-facebook" /></a>
-                                <a href="#" className="text-white hover:opacity-90"><i className="fab fa-twitter" /></a>
-                            </div>
-                        </div>
+            {/* Bottom bar */}
+            <div className="mt-6 bg-[#3066BE]/70 rounded-[10px] px-4 py-4 w-full">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                    <p className="text-[13px] leading-snug">
+                        {texts?.[langCode]?.copyright}
+                    </p>
+
+                    <div className="flex items-center gap-4 text-[20px]">
+                        <a href="#" className="text-white hover:opacity-90"><i className="fab fa-whatsapp" /></a>
+                        <a href="#" className="text-white hover:opacity-90"><i className="fab fa-instagram" /></a>
+                        <a href="#" className="text-white hover:opacity-90"><i className="fab fa-facebook" /></a>
+                        <a href="#" className="text-white hover:opacity-90"><i className="fab fa-twitter" /></a>
                     </div>
                 </div>
-            </footer>
-
+            </div>
         </div>
+    </footer>
+    </>
     );
 }

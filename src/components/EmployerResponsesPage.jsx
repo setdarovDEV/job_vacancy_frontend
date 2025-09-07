@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from "react";
+import  React, {useEffect, useState} from "react";
 import { useParams } from "react-router-dom";
 import ProfileDropdown from "../components/ProfileDropdown.jsx";
 import {Plus, Pencil, Trash2, PlusCircle, ArrowUpDown, } from "lucide-react";
@@ -11,6 +11,8 @@ import axios from "axios";
 import api from "../utils/api";
 import { fetchJobApplicants, fetchEmployerApplications, normalizeApplicants, fetchApplicantOfApplication } from "../utils/applicationsApi";
 import {chatApi} from "../utils/chat.js";
+import HomeEmployerApplicationsTablet from "./tablet/HomeEmployerApplicationsTablet.jsx";
+import EmployerApplicationsMobile from "./mobile/EmployerApplicationsMobile.jsx";
 
 
 export default function HomeEmployer() {
@@ -349,7 +351,7 @@ export default function HomeEmployer() {
 
     if (loading && items.length === 0) return <div className="text-gray-500">Yuklanmoqda…</div>;
     if (error) return <div className="text-red-500">{error}</div>;
-    if (items.length === 0) return <div className="text-gray-500">Hali ariza yo‘q.</div>;
+    // if (items.length === 0) return <div className="text-gray-500">Hali ariza yo‘q.</div>;
 
     function formatName(name) {
         if (!name) return "—";
@@ -464,484 +466,493 @@ export default function HomeEmployer() {
 
 
     return (
-        <div className="font-sans relative">
-            {/* ==========================
-                        NAVBAR
-            ========================== */}
-            <nav className="fixed top-0 left-0 w-full z-50 bg-[#F4F6FA] shadow-md">
-                <div className="w-full max-w-[1800px] mx-auto flex items-center justify-between px-4 sm:px-6 md:px-10 h-[70px] md:h-[80px] lg:h-[90px]">
-                    {/* Logo */}
-                    <a href="/"><img src="/logo.png" alt="Logo"
-                                     className="w-[80px] h-[55px] md:w-[100px] md:h-[65px] lg:w-[109px] lg:h-[72px] object-contain"/></a>
-                    {/* Center links */}
-                    <div className="hidden md:flex gap-4 md:gap-5 lg:gap-8 font-semibold text-[13px] md:text-[14px] lg:text-[16px] tracking-wide mx-auto">
-                        <a href="/community" className="text-black hover:text-[#3066BE] transition">{texts[langCode].community}</a>
-                        <a href="/vacancies" className="text-black hover:text-[#3066BE] transition">{texts[langCode].vacancies}</a>
-                        <a href="/chat" className="text-black hover:text-[#3066BE] transition">{texts[langCode].chat}</a>
-                        <a href="/companies" className="text-black hover:text-[#3066BE] transition">{texts[langCode].companies}</a>
-                    </div>
-
-                    {/* Right side: flag + login (md va katta) */}
-                    <div className="hidden md:flex items-center gap-2 sm:gap-3 md:gap-4">
-                        {/* Lang selector */}
-                        <div className="relative flex items-center gap-2 cursor-pointer" onClick={() => setShowLang(!showLang)}>
-                            <img src={selectedLang.flag} alt={selectedLang.code} className="w-6 h-4 sm:w-7 sm:h-4 md:w-8 md:h-5 object-cover" />
-                            <svg className="w-3 h-3 sm:w-4 sm:h-4" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" clipRule="evenodd"
-                                      d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" />
-                            </svg>
-                            {showLang && (
-                                <div className="absolute top-full left-0 mt-2 bg-white border rounded shadow-lg w-12 z-50">
-                                    <div onClick={() => { setSelectedLang({ flag: "/ru.png", code: "RU" }); setShowLang(false); }}
-                                         className="hover:bg-gray-100 px-1 py-2 cursor-pointer flex justify-center">
-                                        <img src="/ru.png" alt="RU" className="w-8 h-5" />
-                                    </div>
-                                    <div onClick={() => { setSelectedLang({ flag: "/uz.png", code: "UZ" }); setShowLang(false); }}
-                                         className="hover:bg-gray-100 px-1 py-2 cursor-pointer flex justify-center">
-                                        <img src="/uz.png" alt="UZ" className="w-8 h-5" />
-                                    </div>
-                                    <div onClick={() => { setSelectedLang({ flag: "/uk.png", code: "EN" }); setShowLang(false); }}
-                                         className="hover:bg-gray-100 px-1 py-2 cursor-pointer flex justify-center">
-                                        <img src="/uk.png" alt="EN" className="w-8 h-5" />
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        <ProfileDropdown />
-                    </div>
-
-                    {/* Mobile flag + burger */}
-                    <div className="md:hidden flex items-center gap-3 pr-4 sm:pr-6 pt-2">
-                        <div className="relative flex items-center gap-1 cursor-pointer" onClick={() => setShowLang(!showLang)}>
-                            <img src={selectedLang.flag} alt={selectedLang.code} className="w-6 h-4 object-cover" />
-                            <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" clipRule="evenodd"
-                                      d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" />
-                            </svg>
-                            {showLang && (
-                                <div className="absolute top-full left-0 mt-2 bg-white border rounded shadow-lg w-12 z-50">
-                                    <div onClick={() => { setSelectedLang({ flag: "/ru.png", code: "RU" }); setShowLang(false); }}
-                                         className="hover:bg-gray-100 px-1 py-2 cursor-pointer flex justify-center">
-                                        <img src="/ru.png" alt="RU" className="w-8 h-5" />
-                                    </div>
-                                    <div onClick={() => { setSelectedLang({ flag: "/uz.png", code: "UZ" }); setShowLang(false); }}
-                                         className="hover:bg-gray-100 px-1 py-2 cursor-pointer flex justify-center">
-                                        <img src="/uz.png" alt="UZ" className="w-8 h-5" />
-                                    </div>
-                                    <div onClick={() => { setSelectedLang({ flag: "/uk.png", code: "EN" }); setShowLang(false); }}
-                                         className="hover:bg-gray-100 px-1 py-2 cursor-pointer flex justify-center">
-                                        <img src="/uk.png" alt="EN" className="w-8 h-5" />
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                        <button onClick={() => setShowMobileMenu(!showMobileMenu)} className="bg-white p-2 rounded-md focus:outline-none">
-                            <svg className="w-8 h-8" fill="none" stroke="#3066BE" viewBox="0 0 24 24" strokeWidth="2">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-                            </svg>
-                        </button>
-
-                    </div>
-                </div>
-
-                {/* Mobile dropdown menu */}
-                {showMobileMenu && (
-                    <div className="absolute top-[70px] left-0 w-full bg-white shadow-md flex flex-col items-center gap-2 py-4 z-50">
-                        <a href="/community"
-                           className="w-full px-4 py-3 text-center text-black hover:bg-gray-100 hover:text-[#3066BE] transition">
-                            {texts[langCode].community}
-                        </a>
-                        <a href="/vacancies"
-                           className="w-full px-4 py-3 text-center text-black hover:bg-gray-100 hover:text-[#3066BE] transition">
-                            {texts[langCode].vacancies}
-                        </a>
-                        <a href="/chat"
-                           className="w-full px-4 py-3 text-center text-black hover:bg-gray-100 hover:text-[#3066BE] transition">
-                            {texts[langCode].chat}
-                        </a>
-                        <a href="/companies"
-                           className="w-full px-4 py-3 text-center text-black hover:bg-gray-100 hover:text-[#3066BE] transition">
-                            {texts[langCode].companies}
-                        </a>
-                        <button className="mt-3 bg-[#3066BE] text-white px-6 py-2 rounded-md hover:bg-[#274f94] transition text-[15px]">
-                            {texts[langCode].login}
-                        </button>
-                    </div>
-                )}
-
-            </nav>
-
-            {/* ========================== */}
-            {/*        NOTIFICATION        */}
-            {/* ========================== */}
-            <div className="bg-white py-4 mt-[90px] mb-[67px]">
-                <div className="max-w-7xl mx-auto w-full px-4 flex items-center justify-between">
-                    {/* O‘ngdagi iconlar */}
-                    <div className="flex items-center gap-6 ml-6 absolute top-[32px] right-[40px] z-20">
-                        {/* ? icon */}
-                        <div className="cursor-pointer">
-                            <span className="text-2xl text-black">?</span>
-                        </div>
-
-                        {/* Bell */}
-                        <div className="relative cursor-pointer">
-                            <svg className="w-6 h-6 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
-                                      d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14V9a6 6 0 10-12 0v5c0 .386-.146.735-.405 1.005L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                            </svg>
-                            <span className="absolute -top-1 -right-1 bg-red-600 text-white rounded-full w-4 h-4 text-[10px] flex items-center justify-center">1</span>
-                        </div>
-                    </div>
-                </div>
+        <>
+            <div className="hidden md:block lg:hidden ">
+                <HomeEmployerApplicationsTablet />
+            </div>
+            <div className="block md:hidden">
+                <EmployerApplicationsMobile />
             </div>
 
-            {/* ========================== */}
-            {/*            BODY            */}
-            {/* ========================== */}
-            <div className="max-w-7xl w-[1276px] mx-auto px-4 py-8">
-                {/* USER CARD */}
-                <div className="w-full bg-white border border-[#AEAEAE] mt-[67px] h-[1006px] rounded-[25px] overflow-hidden">
-
-                    {/* === TOP PANEL === */}
-                    <div className="w-full h-[136px] px-6 py-4 flex items-center justify-between border-b border-[#AEAEAE]">
-                        {/* LEFT - Avatar + Name + Location */}
-                        <div className="flex items-center gap-4">
-                            <div className="relative w-[70px] h-[70px]">
-                                <img
-                                    key={profileImage}
-                                    src={profileImage || "/user-white.jpg"}
-                                    alt="avatar"
-                                    className="w-full h-full object-cover rounded-full border"
-                                />
-                                <button
-                                    className={`absolute bottom-0 right-0 rounded-full border p-[2px] transition 
-                                          ${isEditable ? "bg-white cursor-pointer" : "bg-gray-100 cursor-not-allowed opacity-50 border-gray-300"}`}
-                                    onClick={() => {
-                                        if (isEditable) setIsAvatarModalOpen(true);
-                                    }}
-                                >
-                                </button>
-                            </div>
-
-                            <div>
-                                <h2 className="text-[24px] font-bold text-black mt-2">
-                                    {user ? capitalizeName(user.full_name) : "Ism yuklanmoqda..."}
-                                </h2>
-                                <p className="text-[15px] text-[#AEAEAE] font-medium flex items-center gap-1">
-                                    <img src="/location.png" alt="loc" className="w-[14px] h-[14px]" />
-                                    {location} – {localTime} местное время
-                                </p>
-                            </div>
+            <div className="hidden lg-block font-sans relative">
+                {/* ==========================
+                            NAVBAR
+                ========================== */}
+                <nav className="fixed top-0 left-0 w-full z-50 bg-[#F4F6FA] shadow-md">
+                    <div className="w-full max-w-[1800px] mx-auto flex items-center justify-between px-4 sm:px-6 md:px-10 h-[70px] md:h-[80px] lg:h-[90px]">
+                        {/* Logo */}
+                        <a href="/"><img src="/logo.png" alt="Logo"
+                                         className="w-[80px] h-[55px] md:w-[100px] md:h-[65px] lg:w-[109px] lg:h-[72px] object-contain"/></a>
+                        {/* Center links */}
+                        <div className="hidden md:flex gap-4 md:gap-5 lg:gap-8 font-semibold text-[13px] md:text-[14px] lg:text-[16px] tracking-wide mx-auto">
+                            <a href="/community" className="text-black hover:text-[#3066BE] transition">{texts[langCode].community}</a>
+                            <a href="/vacancies" className="text-black hover:text-[#3066BE] transition">{texts[langCode].vacancies}</a>
+                            <a href="/chat" className="text-black hover:text-[#3066BE] transition">{texts[langCode].chat}</a>
+                            <a href="/companies" className="text-black hover:text-[#3066BE] transition">{texts[langCode].companies}</a>
                         </div>
 
-                        {/* RIGHT - Buttons */}
-                        <div className="flex gap-3">
-                            <button className="w-[222px] h-[59px] bg-[#3066BE] text-white font-semibold rounded-[10px] hover:bg-[#2452a6] transition">
-                                Настройки профиля
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* === MAIN BODY === */}
-                    <div className="flex max-w-[1176px] mt-[25px] mx-auto w-full h-auto">
-                        {/* === ANNOUNCEMENTS TITLE === */}
-                        <div className="flex items-center justify-between w-full px-6 py-6">
-                            <h3 className="text-[24px] font-bold text-black leading-[36px]">
-                                Отклики
-                            </h3>
-                            <div>
-                                <div
-                                    onClick={() => {
-                                        if (isEditable) setShowModal(true);
-                                    }}
-                                    className={`w-[30px] h-[30px] rounded-full flex items-center justify-center transition 
-                                        ${isEditable
-                                        ? "border-[#3066BE] cursor-pointer bg-white hover:bg-[#3066BE]/10"
-                                        : "border-gray-300 bg-gray-100 cursor-not-allowed opacity-50"
-                                    }`}
-                                >
-                                </div>
-
-
-                                {/* Modal */}
-                                {showModal && (
-                                    <EmployerVacancyModal
-                                        onClose={() => {
-                                            setShowModal(false);
-                                            setSelectedVacancy(null);
-                                        }}
-                                        vacancy={selectedVacancy}
-                                        onSubmit={handleSubmit}
-                                    />
+                        {/* Right side: flag + login (md va katta) */}
+                        <div className="hidden md:flex items-center gap-2 sm:gap-3 md:gap-4">
+                            {/* Lang selector */}
+                            <div className="relative flex items-center gap-2 cursor-pointer" onClick={() => setShowLang(!showLang)}>
+                                <img src={selectedLang.flag} alt={selectedLang.code} className="w-6 h-4 sm:w-7 sm:h-4 md:w-8 md:h-5 object-cover" />
+                                <svg className="w-3 h-3 sm:w-4 sm:h-4" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" clipRule="evenodd"
+                                          d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" />
+                                </svg>
+                                {showLang && (
+                                    <div className="absolute top-full left-0 mt-2 bg-white border rounded shadow-lg w-12 z-50">
+                                        <div onClick={() => { setSelectedLang({ flag: "/ru.png", code: "RU" }); setShowLang(false); }}
+                                             className="hover:bg-gray-100 px-1 py-2 cursor-pointer flex justify-center">
+                                            <img src="/ru.png" alt="RU" className="w-8 h-5" />
+                                        </div>
+                                        <div onClick={() => { setSelectedLang({ flag: "/uz.png", code: "UZ" }); setShowLang(false); }}
+                                             className="hover:bg-gray-100 px-1 py-2 cursor-pointer flex justify-center">
+                                            <img src="/uz.png" alt="UZ" className="w-8 h-5" />
+                                        </div>
+                                        <div onClick={() => { setSelectedLang({ flag: "/uk.png", code: "EN" }); setShowLang(false); }}
+                                             className="hover:bg-gray-100 px-1 py-2 cursor-pointer flex justify-center">
+                                            <img src="/uk.png" alt="EN" className="w-8 h-5" />
+                                        </div>
+                                    </div>
                                 )}
                             </div>
 
+                            <ProfileDropdown />
+                        </div>
+
+                        {/* mobile flag + burger */}
+                        <div className="md:hidden flex items-center gap-3 pr-4 sm:pr-6 pt-2">
+                            <div className="relative flex items-center gap-1 cursor-pointer" onClick={() => setShowLang(!showLang)}>
+                                <img src={selectedLang.flag} alt={selectedLang.code} className="w-6 h-4 object-cover" />
+                                <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" clipRule="evenodd"
+                                          d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" />
+                                </svg>
+                                {showLang && (
+                                    <div className="absolute top-full left-0 mt-2 bg-white border rounded shadow-lg w-12 z-50">
+                                        <div onClick={() => { setSelectedLang({ flag: "/ru.png", code: "RU" }); setShowLang(false); }}
+                                             className="hover:bg-gray-100 px-1 py-2 cursor-pointer flex justify-center">
+                                            <img src="/ru.png" alt="RU" className="w-8 h-5" />
+                                        </div>
+                                        <div onClick={() => { setSelectedLang({ flag: "/uz.png", code: "UZ" }); setShowLang(false); }}
+                                             className="hover:bg-gray-100 px-1 py-2 cursor-pointer flex justify-center">
+                                            <img src="/uz.png" alt="UZ" className="w-8 h-5" />
+                                        </div>
+                                        <div onClick={() => { setSelectedLang({ flag: "/uk.png", code: "EN" }); setShowLang(false); }}
+                                             className="hover:bg-gray-100 px-1 py-2 cursor-pointer flex justify-center">
+                                            <img src="/uk.png" alt="EN" className="w-8 h-5" />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                            <button onClick={() => setShowMobileMenu(!showMobileMenu)} className="bg-white p-2 rounded-md focus:outline-none">
+                                <svg className="w-8 h-8" fill="none" stroke="#3066BE" viewBox="0 0 24 24" strokeWidth="2">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                                </svg>
+                            </button>
+
                         </div>
                     </div>
 
-                    <div className="flex flex-col gap-6">
-                        {items.map((a) => {
-                            const aboutText = a.bio || a.cover_letter || "";
-                            const skills = a.skills && a.skills.length ? a.skills : [];
+                    {/* mobile dropdown menu */}
+                    {showMobileMenu && (
+                        <div className="absolute top-[70px] left-0 w-full bg-white shadow-md flex flex-col items-center gap-2 py-4 z-50">
+                            <a href="/community"
+                               className="w-full px-4 py-3 text-center text-black hover:bg-gray-100 hover:text-[#3066BE] transition">
+                                {texts[langCode].community}
+                            </a>
+                            <a href="/vacancies"
+                               className="w-full px-4 py-3 text-center text-black hover:bg-gray-100 hover:text-[#3066BE] transition">
+                                {texts[langCode].vacancies}
+                            </a>
+                            <a href="/chat"
+                               className="w-full px-4 py-3 text-center text-black hover:bg-gray-100 hover:text-[#3066BE] transition">
+                                {texts[langCode].chat}
+                            </a>
+                            <a href="/companies"
+                               className="w-full px-4 py-3 text-center text-black hover:bg-gray-100 hover:text-[#3066BE] transition">
+                                {texts[langCode].companies}
+                            </a>
+                            <button className="mt-3 bg-[#3066BE] text-white px-6 py-2 rounded-md hover:bg-[#274f94] transition text-[15px]">
+                                {texts[langCode].login}
+                            </button>
+                        </div>
+                    )}
 
-                            return (
-                                <div
-                                    key={a.id}
-                                    className="bg-white border border-[#AEAEAE] rounded-[25px] ml-[56px] p-6 w-full max-w-[1130px] flex flex-col gap-4 shadow-sm"
-                                >
-                                    {/* Top: Avatar + Name + Rating */}
-                                    <div className="flex items-start justify-between">
-                                        <div className="flex items-start gap-4">
-                                            {/* Avatar */}
-                                            <img
-                                                src={a.avatar || "/user-white.jpg"}
-                                                alt={a.name}
-                                                className="w-[64px] h-[64px] object-cover rounded-full"
-                                                onError={(e) => (e.currentTarget.src = "/user-white.jpg")}
-                                            />
-                                            {/* Name & Title */}
-                                            <div>
-                                                <div className="flex items-center gap-2">
-                                                    <h3 className="text-lg font-bold text-[24px] text-black">{formatName(a.name)}</h3>
+                </nav>
+
+                {/* ========================== */}
+                {/*        NOTIFICATION        */}
+                {/* ========================== */}
+                <div className="bg-white py-4 mt-[90px] mb-[67px]">
+                    <div className="max-w-7xl mx-auto w-full px-4 flex items-center justify-between">
+                        {/* O‘ngdagi iconlar */}
+                        <div className="flex items-center gap-6 ml-6 absolute top-[32px] right-[40px] z-20">
+                            {/* ? icon */}
+                            <div className="cursor-pointer">
+                                <span className="text-2xl text-black">?</span>
+                            </div>
+
+                            {/* Bell */}
+                            <div className="relative cursor-pointer">
+                                <svg className="w-6 h-6 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+                                          d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14V9a6 6 0 10-12 0v5c0 .386-.146.735-.405 1.005L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                                </svg>
+                                <span className="absolute -top-1 -right-1 bg-red-600 text-white rounded-full w-4 h-4 text-[10px] flex items-center justify-center">1</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* ========================== */}
+                {/*            BODY            */}
+                {/* ========================== */}
+                <div className="max-w-7xl w-[1276px] mx-auto px-4 py-8">
+                    {/* USER CARD */}
+                    <div className="w-full bg-white border border-[#AEAEAE] mt-[67px] h-[1006px] rounded-[25px] overflow-hidden">
+
+                        {/* === TOP PANEL === */}
+                        <div className="w-full h-[136px] px-6 py-4 flex items-center justify-between border-b border-[#AEAEAE]">
+                            {/* LEFT - Avatar + Name + Location */}
+                            <div className="flex items-center gap-4">
+                                <div className="relative w-[70px] h-[70px]">
+                                    <img
+                                        key={profileImage}
+                                        src={profileImage || "/user-white.jpg"}
+                                        alt="avatar"
+                                        className="w-full h-full object-cover rounded-full border"
+                                    />
+                                    <button
+                                        className={`absolute bottom-0 right-0 rounded-full border p-[2px] transition 
+                                              ${isEditable ? "bg-white cursor-pointer" : "bg-gray-100 cursor-not-allowed opacity-50 border-gray-300"}`}
+                                        onClick={() => {
+                                            if (isEditable) setIsAvatarModalOpen(true);
+                                        }}
+                                    >
+                                    </button>
+                                </div>
+
+                                <div>
+                                    <h2 className="text-[24px] font-bold text-black mt-2">
+                                        {user ? capitalizeName(user.full_name) : "Ism yuklanmoqda..."}
+                                    </h2>
+                                    <p className="text-[15px] text-[#AEAEAE] font-medium flex items-center gap-1">
+                                        <img src="/location.png" alt="loc" className="w-[14px] h-[14px]" />
+                                        {location} – {localTime} местное время
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* RIGHT - Buttons */}
+                            <div className="flex gap-3">
+                                <button className="w-[222px] h-[59px] bg-[#3066BE] text-white font-semibold rounded-[10px] hover:bg-[#2452a6] transition">
+                                    Настройки профиля
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* === MAIN BODY === */}
+                        <div className="flex max-w-[1176px] mt-[25px] mx-auto w-full h-auto">
+                            {/* === ANNOUNCEMENTS TITLE === */}
+                            <div className="flex items-center justify-between w-full px-6 py-6">
+                                <h3 className="text-[24px] font-bold text-black leading-[36px]">
+                                    Отклики
+                                </h3>
+                                <div>
+                                    <div
+                                        onClick={() => {
+                                            if (isEditable) setShowModal(true);
+                                        }}
+                                        className={`w-[30px] h-[30px] rounded-full flex items-center justify-center transition 
+                                            ${isEditable
+                                            ? "border-[#3066BE] cursor-pointer bg-white hover:bg-[#3066BE]/10"
+                                            : "border-gray-300 bg-gray-100 cursor-not-allowed opacity-50"
+                                        }`}
+                                    >
+                                    </div>
+
+
+                                    {/* Modal */}
+                                    {showModal && (
+                                        <EmployerVacancyModal
+                                            onClose={() => {
+                                                setShowModal(false);
+                                                setSelectedVacancy(null);
+                                            }}
+                                            vacancy={selectedVacancy}
+                                            onSubmit={handleSubmit}
+                                        />
+                                    )}
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col gap-6">
+                            {items.map((a) => {
+                                const aboutText = a.bio || a.cover_letter || "";
+                                const skills = a.skills && a.skills.length ? a.skills : [];
+
+                                return (
+                                    <div
+                                        key={a.id}
+                                        className="bg-white border border-[#AEAEAE] rounded-[25px] ml-[56px] p-6 w-full max-w-[1130px] flex flex-col gap-4 shadow-sm"
+                                    >
+                                        {/* Top: Avatar + Name + Rating */}
+                                        <div className="flex items-start justify-between">
+                                            <div className="flex items-start gap-4">
+                                                {/* Avatar */}
+                                                <img
+                                                    src={a.avatar || "/user-white.jpg"}
+                                                    alt={a.name}
+                                                    className="w-[64px] h-[64px] object-cover rounded-full"
+                                                    onError={(e) => (e.currentTarget.src = "/user-white.jpg")}
+                                                />
+                                                {/* Name & Title */}
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <h3 className="text-lg font-bold text-[24px] text-black">{formatName(a.name)}</h3>
+                                                    </div>
+
+                                                    {/* Soha turi */}
+                                                    <p className="text-[15px] text-[#AEAEAE] mt-[4px]">
+                                                        {a.position || "—"}
+                                                    </p>
                                                 </div>
+                                            </div>
 
-                                                {/* Soha turi */}
-                                                <p className="text-[15px] text-[#AEAEAE] mt-[4px]">
-                                                    {a.position || "—"}
-                                                </p>
+                                            {/* Buttons */}
+                                            <div className="flex gap-3 mt-1">
+                                                <button
+                                                    className="px-5 py-1.5 w-[229px] h-[59px] border border-[#3066BE] bg-white text-[#3066BE] rounded-[10px] text-[18px] hover:bg-blue-50"
+                                                    onClick={() => onClickWrite(a.id)}
+                                                    title="Написать"
+                                                >
+                                                    Написать
+                                                </button>
+                                                <button
+                                                    className="px-5 py-1.5 bg-[#3066BE] text-white rounded-lg text-[18px] hover:bg-[#3066BE]"
+                                                    onClick={() => navigate(`/applicants/by-application/${a.id}`)}
+                                                    title="Посмотреть профиль"
+                                                >
+                                                    Посмотреть профиль
+                                                </button>
                                             </div>
                                         </div>
 
-                                        {/* Buttons */}
-                                        <div className="flex gap-3 mt-1">
-                                            <button
-                                                className="px-5 py-1.5 w-[229px] h-[59px] border border-[#3066BE] bg-white text-[#3066BE] rounded-[10px] text-[18px] hover:bg-blue-50"
-                                                onClick={() => onClickWrite(a.id)}
-                                                title="Написать"
-                                            >
-                                                Написать
-                                            </button>
-                                            <button
-                                                className="px-5 py-1.5 bg-[#3066BE] text-white rounded-lg text-[18px] hover:bg-[#3066BE]"
-                                                onClick={() => navigate(`/applicants/by-application/${a.id}`)}
-                                                title="Посмотреть профиль"
-                                            >
-                                                Посмотреть профиль
-                                            </button>
+                                        <p className="text-[#AEAEAE] text-[20px] leading-relaxed">
+                                            {aboutText || "—"}
+                                        </p>
+
+
+                                        {/* Skills */}
+                                        <div className="flex flex-wrap gap-2">
+                                            {skills.length === 0 ? (
+                                                <span className="bg-[#D9D9D9] text-sm text-[#AEAEAE] px-4 py-1 rounded-full">Skill qo‘shilmagan</span>
+                                            ) : (
+                                                skills.slice(0, 10).map((skill, idx) => (
+                                                    <span key={`${a.id}-sk-${idx}`} className="bg-[#D9D9D9] text-[15px] text-black px-4 py-1 rounded-full">
+                                                        {typeof skill === "string" ? skill : skill.name || "Skill"}
+                                                    </span>
+                                                ))
+                                            )}
                                         </div>
                                     </div>
+                                );
+                            })}
 
-                                    <p className="text-[#AEAEAE] text-[20px] leading-relaxed">
-                                        {aboutText || "—"}
-                                    </p>
-
-
-                                    {/* Skills */}
-                                    <div className="flex flex-wrap gap-2">
-                                        {skills.length === 0 ? (
-                                            <span className="bg-[#D9D9D9] text-sm text-[#AEAEAE] px-4 py-1 rounded-full">Skill qo‘shilmagan</span>
-                                        ) : (
-                                            skills.slice(0, 10).map((skill, idx) => (
-                                                <span key={`${a.id}-sk-${idx}`} className="bg-[#D9D9D9] text-[15px] text-black px-4 py-1 rounded-full">
-                                                    {typeof skill === "string" ? skill : skill.name || "Skill"}
-                                                </span>
-                                            ))
-                                        )}
-                                    </div>
+                            {/* Pagination */}
+                            {totalPages > 1 && (
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        className="px-3 py-1 border rounded disabled:opacity-50"
+                                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                                        disabled={page === 1}
+                                    >
+                                        Prev
+                                    </button>
+                                    <span className="text-sm text-gray-600">Page {page} / {totalPages}</span>
+                                    <button
+                                        className="px-3 py-1 border rounded disabled:opacity-50"
+                                        onClick={() => setPage((p) => p + 1)}
+                                        disabled={page >= totalPages}
+                                    >
+                                        Next
+                                    </button>
                                 </div>
-                            );
-                        })}
+                            )}
+                        </div>
+                    </div>
 
-                        {/* Pagination */}
-                        {totalPages > 1 && (
-                            <div className="flex items-center gap-3">
-                                <button
-                                    className="px-3 py-1 border rounded disabled:opacity-50"
-                                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                                    disabled={page === 1}
-                                >
-                                    Prev
-                                </button>
-                                <span className="text-sm text-gray-600">Page {page} / {totalPages}</span>
-                                <button
-                                    className="px-3 py-1 border rounded disabled:opacity-50"
-                                    onClick={() => setPage((p) => p + 1)}
-                                    disabled={page >= totalPages}
-                                >
-                                    Next
-                                </button>
+                    {/* ========================== */}
+                    {/*         Kompaniya          */}
+                    {/* ========================== */}
+                    <div className="w-[1246px] bg-white border border-[#AEAEAE] mt-[67px] mb-[50px] rounded-[25px] overflow-visible">
+                        {/* Header */}
+                        <div className="flex justify-between items-center px-6 py-4 border-b border-[#AEAEAE] h-[94.5px]">
+                            <h3 className="text-[24px] leading-[36px] font-bold text-[#000000]">
+                                Компании
+                            </h3>
+                            <div
+                                onClick={() => {
+                                    if (isEditable) setShowCompanyModal(true);
+                                }}
+                                className={`w-[23px] h-[23px] rounded-full flex items-center justify-center transition 
+                                    ${isEditable
+                                    ? "border-[#3066BE] cursor-pointer bg-white hover:bg-[#F0F7FF]"
+                                    : "border-gray-300 bg-gray-100 cursor-not-allowed opacity-50"
+                                }`}
+                            >
+                                <Plus size={25} stroke={isEditable ? "#3066BE" : "#AFAFAF"} />
+                            </div>
+
+                        </div>
+
+                        {companies.length > 0 ? (
+                            <div className="lg:w-2/3 w-[1094px] max-h-[700px] overflow-y-auto overflow-x-hidden ml-[45px] mt-[25px] flex flex-col mb-[137px] pr-2">
+                                {companies.map((company) => (
+                                    <div key={company.id} className="border-none border-[#D9D9D9] rounded-[10px] p-4 mb-4">
+                                        <hr className="border-t border-[#D9D9D9] mb-6 w-[1115px]" />
+
+                                        {/* Sarlavha va action tugmalar */}
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <h4 className="text-lg font-semibold text-[#000]">{company.name}</h4>
+                                                <p className="text-sm text-gray-500">{company.industry}</p>
+                                                <p className="text-sm text-gray-500">{company.website}</p>
+                                                <p className="text-sm text-gray-500">{company.location}</p>
+                                                <img
+                                                    src={company.logo}
+                                                    alt="Logo"
+                                                    className="w-12 h-12 object-cover rounded-full mt-2"
+                                                />
+                                            </div>
+
+                                            {/* Edit va Delete tugmalar */}
+                                            <div className="flex gap-2">
+                                                <div
+                                                    onClick={() => {
+                                                        if (isEditable) handleEditCompanies(company);
+                                                    }}
+                                                    className={`w-[30px] h-[30px] rounded-full flex items-center justify-center transition 
+                                                        ${isEditable
+                                                        ? "border-[#3066BE] cursor-pointer bg-white hover:bg-[#3066BE]/10"
+                                                        : "border-gray-300 bg-gray-100 cursor-not-allowed opacity-50"
+                                                    }`}
+                                                >
+                                                    <Pencil size={20} stroke={isEditable ? "#3066BE" : "#AFAFAF"} />
+                                                </div>
+
+                                                <div
+                                                    onClick={() => {
+                                                        if (isEditable) handleDeleteCompanies(company.id);
+                                                    }}
+                                                    className={`w-[30px] h-[30px] rounded-full flex items-center justify-center transition 
+                                                        ${isEditable
+                                                        ? "border-[#3066BE] cursor-pointer bg-white hover:bg-[#3066BE]/10"
+                                                        : "border-gray-300 bg-gray-100 cursor-not-allowed opacity-50"
+                                                    }`}
+                                                >
+                                                    <Trash2 size={20} stroke={isEditable ? "#3066BE" : "#AFAFAF"} />
+                                                </div>
+
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                        ) : (
+                            <div className="text-center text-gray-400 text-sm mt-6">
+                                Kompaniyalar mavjud emas.
                             </div>
                         )}
                     </div>
                 </div>
 
-                {/* ========================== */}
-                {/*         Kompaniya          */}
-                {/* ========================== */}
-                <div className="w-[1246px] bg-white border border-[#AEAEAE] mt-[67px] mb-[50px] rounded-[25px] overflow-visible">
-                    {/* Header */}
-                    <div className="flex justify-between items-center px-6 py-4 border-b border-[#AEAEAE] h-[94.5px]">
-                        <h3 className="text-[24px] leading-[36px] font-bold text-[#000000]">
-                            Компании
-                        </h3>
-                        <div
-                            onClick={() => {
-                                if (isEditable) setShowCompanyModal(true);
-                            }}
-                            className={`w-[23px] h-[23px] rounded-full flex items-center justify-center transition 
-                                ${isEditable
-                                ? "border-[#3066BE] cursor-pointer bg-white hover:bg-[#F0F7FF]"
-                                : "border-gray-300 bg-gray-100 cursor-not-allowed opacity-50"
-                            }`}
-                        >
-                            <Plus size={25} stroke={isEditable ? "#3066BE" : "#AFAFAF"} />
-                        </div>
+                {activeModalIndex !== null && (
+                    <VacancyModal
+                        onClose={() => setActiveModalIndex(null)}
+                        vacancy={vacancies[activeModalIndex]}
+                    />
+                )}
 
-                    </div>
+                {showCompanyModal && (
+                    <CreateCompanyModal
+                        onClose={() => {
+                            setShowCompanyModal(false);
+                            setSelectedCompany(null);
+                        }}
+                        onSuccess={fetchCompanies}
+                        company={selectedCompany}
+                    />
+                )}
 
-                    {companies.length > 0 ? (
-                        <div className="lg:w-2/3 w-[1094px] max-h-[700px] overflow-y-auto overflow-x-hidden ml-[45px] mt-[25px] flex flex-col mb-[137px] pr-2">
-                            {companies.map((company) => (
-                                <div key={company.id} className="border-none border-[#D9D9D9] rounded-[10px] p-4 mb-4">
-                                    <hr className="border-t border-[#D9D9D9] mb-6 w-[1115px]" />
+                {/* ==========================
+                    FOOTER SECTION
+                ========================== */}
+                <footer className="w-full h-[393px] relative overflow-hidden">
+                    {/* Background image */}
+                    <img
+                        src="/footer-bg.png"
+                        alt="Footer background"
+                        className="absolute inset-0 w-full h-full object-cover z-0"
+                    />
+                    {/* Overlay */}ff
+                    <div className="absolute inset-0 bg-[#3066BE]/50 z-10"></div>
 
-                                    {/* Sarlavha va action tugmalar */}
-                                    <div className="flex justify-between items-start">
-                                        <div>
-                                            <h4 className="text-lg font-semibold text-[#000]">{company.name}</h4>
-                                            <p className="text-sm text-gray-500">{company.industry}</p>
-                                            <p className="text-sm text-gray-500">{company.website}</p>
-                                            <p className="text-sm text-gray-500">{company.location}</p>
-                                            <img
-                                                src={company.logo}
-                                                alt="Logo"
-                                                className="w-12 h-12 object-cover rounded-full mt-2"
-                                            />
-                                        </div>
+                    {/* Content */}
+                    <div className="relative z-20">
+                        <div className="max-w-[1440px] mx-auto px-6 py-10 flex flex-col md:flex-row md:justify-between gap-8 text-white">
+                            <div className="flex gap-[190px]">
+                                {/* Logo */}
+                                <div>
+                                    <h2 className="text-[48px] leading-[150%] font-black text-white font-gilroy">
+                                        {texts[langCode].logo}
+                                    </h2>
+                                </div>
 
-                                        {/* Edit va Delete tugmalar */}
-                                        <div className="flex gap-2">
-                                            <div
-                                                onClick={() => {
-                                                    if (isEditable) handleEditCompanies(company);
-                                                }}
-                                                className={`w-[30px] h-[30px] rounded-full flex items-center justify-center transition 
-                                                    ${isEditable
-                                                    ? "border-[#3066BE] cursor-pointer bg-white hover:bg-[#3066BE]/10"
-                                                    : "border-gray-300 bg-gray-100 cursor-not-allowed opacity-50"
-                                                }`}
-                                            >
-                                                <Pencil size={20} stroke={isEditable ? "#3066BE" : "#AFAFAF"} />
-                                            </div>
-
-                                            <div
-                                                onClick={() => {
-                                                    if (isEditable) handleDeleteCompanies(company.id);
-                                                }}
-                                                className={`w-[30px] h-[30px] rounded-full flex items-center justify-center transition 
-                                                    ${isEditable
-                                                    ? "border-[#3066BE] cursor-pointer bg-white hover:bg-[#3066BE]/10"
-                                                    : "border-gray-300 bg-gray-100 cursor-not-allowed opacity-50"
-                                                }`}
-                                            >
-                                                <Trash2 size={20} stroke={isEditable ? "#3066BE" : "#AFAFAF"} />
-                                            </div>
-
-                                        </div>
+                                {/* Links */}
+                                <div className="grid grid-cols-2 gap-[184px]">
+                                    <div className="flex flex-col gap-[20px]">
+                                        {texts[langCode].links.slice(0,4).map((link, idx) => (
+                                            <a key={idx} href="#" className="flex items-center gap-2 text-white hover:text-[#3066BE] text-[18px] leading-[120%] font-normal font-gilroy transition-colors duration-300">
+                                                <span>&gt;</span> {link}
+                                            </a>
+                                        ))}
+                                    </div>
+                                    <div className="flex flex-col gap-[20px]">
+                                        {texts[langCode].links.slice(4).map((link, idx) => (
+                                            <a key={idx} href="#" className="flex items-center gap-2 text-white hover:text-[#3066BE] text-[18px] leading-[120%] font-normal font-gilroy transition-colors duration-300">
+                                                <span>&gt;</span> {link}
+                                            </a>
+                                        ))}
                                     </div>
                                 </div>
-                            ))}
+                            </div>
                         </div>
 
-                    ) : (
-                        <div className="text-center text-gray-400 text-sm mt-6">
-                            Kompaniyalar mavjud emas.
+                        {/* Bottom */}
+                        <div className="relative z-20 bg-[#3066BE]/70 h-[103px] rounded-[12px] ml-[38px] mr-[38px]">
+                            <div className="max-w-[1440px] mx-auto px-6 h-full flex justify-between items-center text-white text-[18px] leading-[120%] font-gilroy">
+                                <p>
+                                    {texts[langCode].copyright}
+                                </p>
+
+                                <div className="flex gap-[20px] text-[24px] mr-[38px]">
+                                    <a href="#" className="text-white"><i className="fab fa-whatsapp hover:text-[#F2F4FD]"></i></a>
+                                    <a href="#" className="text-white"><i className="fab fa-instagram hover:text-[#F2F4FD]"></i></a>
+                                    <a href="#" className="text-white"><i className="fab fa-facebook hover:text-[#F2F4FD]"></i></a>
+                                    <a href="#" className="text-white"><i className="fab fa-twitter hover:text-[#F2F4FD]"></i></a>
+                                </div>
+                            </div>
                         </div>
-                    )}
-                </div>
+
+                    </div>
+                </footer>
             </div>
-
-            {activeModalIndex !== null && (
-                <VacancyModal
-                    onClose={() => setActiveModalIndex(null)}
-                    vacancy={vacancies[activeModalIndex]}
-                />
-            )}
-
-            {showCompanyModal && (
-                <CreateCompanyModal
-                    onClose={() => {
-                        setShowCompanyModal(false);
-                        setSelectedCompany(null);
-                    }}
-                    onSuccess={fetchCompanies}
-                    company={selectedCompany}
-                />
-            )}
-
-            {/* ==========================
-                FOOTER SECTION
-            ========================== */}
-            <footer className="w-full h-[393px] relative overflow-hidden">
-                {/* Background image */}
-                <img
-                    src="/footer-bg.png"
-                    alt="Footer background"
-                    className="absolute inset-0 w-full h-full object-cover z-0"
-                />
-                {/* Overlay */}ff
-                <div className="absolute inset-0 bg-[#3066BE]/50 z-10"></div>
-
-                {/* Content */}
-                <div className="relative z-20">
-                    <div className="max-w-[1440px] mx-auto px-6 py-10 flex flex-col md:flex-row md:justify-between gap-8 text-white">
-                        <div className="flex gap-[190px]">
-                            {/* Logo */}
-                            <div>
-                                <h2 className="text-[48px] leading-[150%] font-black text-white font-gilroy">
-                                    {texts[langCode].logo}
-                                </h2>
-                            </div>
-
-                            {/* Links */}
-                            <div className="grid grid-cols-2 gap-[184px]">
-                                <div className="flex flex-col gap-[20px]">
-                                    {texts[langCode].links.slice(0,4).map((link, idx) => (
-                                        <a key={idx} href="#" className="flex items-center gap-2 text-white hover:text-[#3066BE] text-[18px] leading-[120%] font-normal font-gilroy transition-colors duration-300">
-                                            <span>&gt;</span> {link}
-                                        </a>
-                                    ))}
-                                </div>
-                                <div className="flex flex-col gap-[20px]">
-                                    {texts[langCode].links.slice(4).map((link, idx) => (
-                                        <a key={idx} href="#" className="flex items-center gap-2 text-white hover:text-[#3066BE] text-[18px] leading-[120%] font-normal font-gilroy transition-colors duration-300">
-                                            <span>&gt;</span> {link}
-                                        </a>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Bottom */}
-                    <div className="relative z-20 bg-[#3066BE]/70 h-[103px] rounded-[12px] ml-[38px] mr-[38px]">
-                        <div className="max-w-[1440px] mx-auto px-6 h-full flex justify-between items-center text-white text-[18px] leading-[120%] font-gilroy">
-                            <p>
-                                {texts[langCode].copyright}
-                            </p>
-
-                            <div className="flex gap-[20px] text-[24px] mr-[38px]">
-                                <a href="#" className="text-white"><i className="fab fa-whatsapp hover:text-[#F2F4FD]"></i></a>
-                                <a href="#" className="text-white"><i className="fab fa-instagram hover:text-[#F2F4FD]"></i></a>
-                                <a href="#" className="text-white"><i className="fab fa-facebook hover:text-[#F2F4FD]"></i></a>
-                                <a href="#" className="text-white"><i className="fab fa-twitter hover:text-[#F2F4FD]"></i></a>
-                            </div>
-                        </div>
-                    </div>
-
-                </div>
-            </footer>
-        </div>
+        </>
     );
 }

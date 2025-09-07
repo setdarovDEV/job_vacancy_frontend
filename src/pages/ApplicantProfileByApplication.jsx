@@ -5,6 +5,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import api from "../utils/api";
 import ProfileDropdown from "../components/ProfileDropdown.jsx";
 import { normalizeName } from "../utils/normalizeName";
+import ApplicantProfileByApplicationTablet from "../components/tablet/ApplicantProfileByApplicationTablet.jsx";
+import EmployerApplicationsMobile from "../components/mobile/EmployerApplicationsMobile.jsx";
 
 export default function ApplicantProfileByApplication() {
     const [selectedLang, setSelectedLang] = useState({ flag: "/ru.png", code: "RU" });
@@ -130,10 +132,16 @@ export default function ApplicantProfileByApplication() {
 
     return (
         <>
-            <div className="font-sans relative">
+            <div className="hidden md:block lg:hidden ">
+                <ApplicantProfileByApplicationTablet />
+            </div>
+            <div className="block md:hidden">
+                <EmployerApplicationsMobile />
+            </div>
+            <div className="hidden lg:block font-sans relative">
                 {/* ==========================
                         NAVBAR
-            ========================== */}
+                ========================== */}
                 <nav className="fixed top-0 left-0 w-full z-50 bg-[#F4F6FA] shadow-md">
                     <div
                         className="w-full max-w-[1800px] mx-auto flex items-center justify-between px-4 sm:px-6 md:px-10 h-[70px] md:h-[80px] lg:h-[90px]">
@@ -199,7 +207,7 @@ export default function ApplicantProfileByApplication() {
                         </div>
 
 
-                        {/* Mobile flag + burger */}
+                        {/* mobile flag + burger */}
                         <div className="md:hidden flex items-center gap-3 pr-4 sm:pr-6 pt-2">
                             <div className="relative flex items-center gap-1 cursor-pointer"
                                  onClick={() => setShowLang(!showLang)}>
@@ -244,7 +252,7 @@ export default function ApplicantProfileByApplication() {
                         </div>
                     </div>
 
-                    {/* Mobile dropdown menu */}
+                    {/* mobile dropdown menu */}
                     {showMobileMenu && (
                         <div
                             className="absolute top-[70px] left-0 w-full bg-white shadow-md flex flex-col items-center gap-2 py-4 z-50">
@@ -576,7 +584,7 @@ export default function ApplicantProfileByApplication() {
                     alt="Footer background"
                     className="absolute inset-0 w-full h-full object-cover z-0"
                 />
-                {/* Overlay */}ff
+                {/* Overlay */}
                 <div className="absolute inset-0 bg-[#3066BE]/50 z-10"></div>
 
                 {/* Content */}

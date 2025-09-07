@@ -5,7 +5,8 @@ import ProfileDropdown from "../components/ProfileDropdown.jsx";
 import api from "../utils/api";
 import { toast } from "react-toastify";
 import axios from "axios";
-
+import VacanciesPageTablet from "../components/tablet/VacanciesPageTablet.jsx"
+import VacanciesPageMobile from "../components/mobile/VacanciesPageMobile.jsx";
 
 // ==========================
 // COMPONENT START
@@ -232,7 +233,16 @@ export default function VacancyPage() {
     // RETURN JSX
     // ==========================
     return (
-        <div className="font-sans relative bg-white">
+        <>
+            <div className="hidden md:block lg:hidden">
+                <VacanciesPageTablet />
+            </div>
+
+            <div className="block md:hidden">
+                <VacanciesPageMobile />
+            </div>
+
+            <div className="hidden lg:block font-sans relative bg-white">
 
             {/* ==========================
                         NAVBAR
@@ -300,7 +310,7 @@ export default function VacancyPage() {
 
                     </div>
 
-                    {/* Mobile flag + burger */}
+                    {/* mobile flag + burger */}
                     <div className="md:hidden flex items-center gap-3 pr-4 sm:pr-6 pt-2">
                         <div className="relative flex items-center gap-1 cursor-pointer"
                              onClick={() => setShowLang(!showLang)}>
@@ -346,7 +356,7 @@ export default function VacancyPage() {
                     </div>
                 </div>
 
-                {/* Mobile dropdown menu */}
+                {/* mobile dropdown menu */}
                 {showMobileMenu && (
                     <div
                         className="absolute top-[70px] left-0 w-full bg-white shadow-md flex flex-col items-center gap-2 py-4 z-50">
@@ -752,6 +762,7 @@ export default function VacancyPage() {
                 </div>
             </footer>
         </div>
+            </>
     );
 }
 

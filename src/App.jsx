@@ -2,6 +2,7 @@ import React from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+
 import Register from "./pages/Register";
 import Login from "./pages/Login";
 import LoginSuccess from "./pages/LoginSuccess";
@@ -11,7 +12,7 @@ import Dashboard from "./pages/Dashboard";
 import TwoFA from "./pages/TwoFA";
 import EmailVerifyPage from "./pages/EmailVerifyPage";
 import RoleSelectPage from "./pages/RoleSelectPage";
-import LandingPage from "./pages/LandingPage"; // 👈 qo‘shdik
+import LandingPage from "./pages/LandingPage";
 import CommunityPage from "./pages/CommunityPage";
 import ChatPage from "./pages/ChatPage";
 import VacancyPage from "./pages/VacanciesPage";
@@ -22,17 +23,15 @@ import PasswordReset from "./pages/PasswordReset";
 import ResetPasswordPage from "./pages/ConfirmPassword";
 import RoleBasedPage from "./pages/RoleBasedPage.jsx";
 import EmployerResponsesPage from "./components/EmployerResponsesPage.jsx";
-// import CompanyPage from "./pages/CompanyPage";
 import ProfilePage from "./pages/ProfilePage";
 import ApplicantProfileByApplication from "./pages/ApplicantProfileByApplication";
 import Activity from "./pages/Activity.jsx";
 import PricingPlans from "./pages/PricingPlans.jsx";
+import Layout from "./layout/Layout.jsx"; // yo‘ling to‘g‘ri ekaniga ishonch hosil qil
 
-
-function App() {
+export default function App() {
     return (
         <BrowserRouter>
-            {/* ToastContainer tashqarida turadi */}
             <ToastContainer position="top-center" autoClose={2000} />
             <Routes>
                 <Route path="/" element={<LandingPage />} />
@@ -52,16 +51,15 @@ function App() {
                 <Route path="/profile" element={<RoleBasedPage />} />
                 <Route path="/home" element={<Home />} />
                 <Route path="/password-reset" element={<PasswordReset />} />
-                <Route path="/reset-password/:uid/:token" element={<ResetPasswordPage />} />
+                <Route path="/confirm-password/:uid/:token" element={<ResetPasswordPage />} />
                 <Route path="/employer/applications" element={<EmployerResponsesPage />} />
-                <Route path="/employer/applications:jobId" element={<EmployerResponsesPage />} />
+                {/* 👇 bu yerda “/” yetishmayapti edi */}
+                <Route path="/employer/applications/:jobId" element={<EmployerResponsesPage />} />
                 <Route path="/profiles/:id" element={<ProfilePage />} />
-                <Route path="/applicants/by-application/:applicationId" element={<ApplicantProfileByApplication />}/>
-                <Route path="/activity" element={<Activity />}/>
-                <Route path="/pricing-plans" element={<PricingPlans />}/>
+                <Route path="/applicants/by-application/:applicationId" element={<ApplicantProfileByApplication />} />
+                <Route path="/activity" element={<Activity />} />
+                <Route path="/pricing-plans" element={<PricingPlans />} />
             </Routes>
         </BrowserRouter>
     );
 }
-
-export default App;

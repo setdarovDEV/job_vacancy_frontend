@@ -67,9 +67,9 @@ const LanguageSection = ({ isEditable }) => {
     };
 
     return (
-        <div className="pb-4 px-4 py-3 mb-[30px]">
+        <div className="px-3 md:px-0 py-3 md:py-4 mb-4 md:mb-6 rounded-xl">
             <div className="flex justify-between items-center">
-                <h3 className="text-[24px] leading-[36px] font-bold text-black">Языки</h3>
+                <h3 className="text-[16px] leading-[36px] font-bold text-black">Языки</h3>
                 <div className="flex gap-2">
                     <div
                         className={`w-[23px] h-[23px] rounded-full flex items-center justify-center transition 
@@ -81,14 +81,14 @@ const LanguageSection = ({ isEditable }) => {
                             if (isEditable) handleAddClick();
                         }}
                     >
-                        <Plus size={25} stroke={isEditable ? "#3066BE" : "#AFAFAF"} />
+                        <Plus size={20} stroke={isEditable ? "#3066BE" : "#AFAFAF"} />
                     </div>
 
                 </div>
             </div>
 
             {/* Ro‘yxat */}
-            <ul className="mt-2 space-y-1 text-[15px] leading-[22px] text-black font-normal">
+            <ul className="mt-2 space-y-1 text-[12px] leading-[22px] text-black font-normal">
                 {Array.isArray(languages) && languages.map((lang) => (
                     <li
                         key={lang.id}
@@ -125,7 +125,7 @@ const LanguageSection = ({ isEditable }) => {
 
             {/* Forma */}
             {showForm && (
-                <form onSubmit={handleSave} className="mt-3 space-y-2">
+                <form onSubmit={handleSave} className="mt-1 space-y-2">
                     <input
                         type="text"
                         placeholder="Til nomi"

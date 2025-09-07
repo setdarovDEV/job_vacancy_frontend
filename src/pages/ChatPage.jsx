@@ -4,6 +4,7 @@ import { ChatWS } from "../services/chatWS";
 import api from "../utils/api.js";
 import ProfileDropdown from "../components/ProfileDropdown.jsx";
 import ChatPageTablet from "../components/tablet/ChatPageTablet.jsx";
+import ChatMobile from "../components/mobile/ChatMobile.jsx";
 
 export default function CommunityPage() {
     const [selectedLang, setSelectedLang] = useState({ flag: "/ru.png", code: "RU" });
@@ -188,10 +189,14 @@ export default function CommunityPage() {
     // ==========================
     return (
         <>
-        <div className="block lg:hidden">
-            <ChatPageTablet />
-        </div>
+            <div className="hidden md:block lg:hidden">
+                <ChatPageTablet />
+            </div>
 
+            {/* Mobile only (width < md) */}
+            <div className="block md:hidden">
+                <ChatMobile />
+            </div>
         <div className="hidden lg:block font-sans relative bg-white">
             {/* ==========================
                         NAVBAR
@@ -259,7 +264,7 @@ export default function CommunityPage() {
 
                     </div>
 
-                    {/* Mobile flag + burger */}
+                    {/* mobile flag + burger */}
                     <div className="md:hidden flex items-center gap-3 pr-4 sm:pr-6 pt-2">
                         <div className="relative flex items-center gap-1 cursor-pointer"
                              onClick={() => setShowLang(!showLang)}>
@@ -305,7 +310,7 @@ export default function CommunityPage() {
                     </div>
                 </div>
 
-                {/* Mobile dropdown menu */}
+                {/* mobile dropdown menu */}
                 {showMobileMenu && (
                     <div
                         className="absolute top-[70px] left-0 w-full bg-white shadow-md flex flex-col items-center gap-2 py-4 z-50">

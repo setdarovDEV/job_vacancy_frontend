@@ -150,7 +150,7 @@ export default function DetailBlock({ title, salary, isEditable }) {
                         autoFocus
                     />
                 ) : (
-                    <p className="text-[20px] leading-[30px] font-semibold text-[#AEAEAE] mb-[150px] max-w-[90%]">
+                    <p className="text-[15px] leading-[30px] font-semibold text-[#AEAEAE] mb-[150px] max-w-[90%]">
                         {aboutMe || "Опишите свои сильные стороны и навыки"}
                     </p>
                 )}
