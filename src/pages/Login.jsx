@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import api from "../utils/api";
 import { useNavigate } from "react-router-dom";
 import LoginTablet from "../components/tablet/LoginTablet";
-import LoginMobile from "../components/mobile/LoginMobile"; // <— YANGI
+import LoginMobile from "../components/mobile/LoginMobile";
 
 export default function Login() {
     const [username, setUsername] = useState("");
@@ -14,21 +14,38 @@ export default function Login() {
         e.preventDefault();
         setError("");
 
-        try {
-            const res = await api.post("/api/auth/login/", { username, password });
-            const { access, refresh } = res.data;
+        const u = username.trim();
+        const p = password;
 
+        if (!u || !p) {
+            setError("Login va parolni kiriting.");
+            return;
+        }
+
+        try {
+            // BASE: .../api/auth/  -> faqat nisbiy yo'l kerak
+            const res = await api.post("api/auth/login/", { username: u, password: p });
+            const { access, refresh } = res.data || {};
+
+            if (!access || !refresh) {
+                setError("Kutilmagan javob: tokenlar kelmadi.");
+                return;
+            }
+
+            // Ikki nomda ham saqlaymiz (api interceptor ikkisini ham tekshiradi)
+            localStorage.setItem("access", access);
+            localStorage.setItem("refresh", refresh);
             localStorage.setItem("access_token", access);
             localStorage.setItem("refresh_token", refresh);
 
             navigate("/dashboard");
         } catch (err) {
-            console.error("Login xatoligi:", err);
-            setError(
-                err?.response?.data?.non_field_errors?.[0] ||
-                err?.response?.data?.detail ||
-                "Login yoki parol noto‘g‘ri!"
-            );
+            const d = err?.response?.data || {};
+            // Backend: {"non_field_errors": [...]} yoki {"detail": "..."} yoki {"__all__": "..."} bo'lishi mumkin
+            const nf = Array.isArray(d.non_field_errors) ? d.non_field_errors[0] : d.non_field_errors;
+            const all = Array.isArray(d.__all__) ? d.__all__[0] : d.__all__;
+            const msg = nf || d.detail || all || d.error || "Login yoki parol noto‘g‘ri!";
+            setError(msg);
         }
     };
 
@@ -65,9 +82,7 @@ export default function Login() {
                         </div>
 
                         {/* Error */}
-                        {error && (
-                            <div className="text-center text-red-500 text-sm">{error}</div>
-                        )}
+                        {error && <div className="text-center text-red-500 text-sm">{error}</div>}
 
                         {/* Forgot */}
                         <div className="text-left ml-[20px]">

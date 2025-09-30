@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import api from "../utils/api";
 import { useNavigate } from "react-router-dom";
 import RegisterTablet from "../components/tablet/RegisterTablet";
-import RegisterMobile from "../components/mobile/RegisterMobile"; // <— YANGI
+import RegisterMobile from "../components/mobile/RegisterMobile";
 
 export default function RegisterForm() {
     const navigate = useNavigate();
@@ -13,7 +13,6 @@ export default function RegisterForm() {
         username: "",
         password: "",
         confirm_password: "",
-        role: "JOB_SEEKER",
     });
 
     const [error, setError] = useState("");
@@ -32,7 +31,7 @@ export default function RegisterForm() {
         }
 
         try {
-            const res = await api.post("api/auth/register/step1/", {
+            const res = await api.post("register/step1/", {
                 first_name: formData.first_name,
                 last_name: formData.last_name,
                 username: formData.username,
@@ -40,12 +39,32 @@ export default function RegisterForm() {
                 confirm_password: formData.confirm_password,
             });
 
-            const userId = res.data.user_id;
-            localStorage.setItem("user_id", userId);
+            // ✅ himoyalangan o‘qish
+            const data = res?.data || {};
+            const userId = data.user_id ?? data.id ?? data.userId;
 
-            navigate("/2fa");
+            if (!userId) {
+                // backend 201 qaytardi, lekin user_id kelmadi — loglab qo‘yamiz
+                console.warn("register/step1 response:", data);
+            } else {
+                // string sifatida saqlash
+                localStorage.setItem("user_id", String(userId));
+            }
+
+            // muvaffaqiyatda error matnini tozalab qo‘yamiz
+            setError("");
+
+            // Keyingi bosqichga o'tish
+            try {
+                // Senda step-2 route nomi boshqacha bo‘lsa shu yerda almashtirasan
+                navigate("/2fa");
+            } catch (navErr) {
+                console.error("Navigate error:", navErr);
+                // Navigatsiya muammosi bo‘lsa ham user_id saqlangan — matnni tushunarli qilamiz
+                setError("Muvaffaqiyatli yaratildi, lekin keyingi sahifaga o'tishda xatolik yuz berdi.");
+            }
         } catch (err) {
-            // Backenddan keladigan field-level xatolarni ham birlashtirib ko‘rsatamiz
+            // Backenddan kelgan xatolarni aniq ko‘rsatish
             const d = err?.response?.data || {};
             const first = Array.isArray(d.first_name) ? d.first_name[0] : null;
             const last = Array.isArray(d.last_name) ? d.last_name[0] : null;
@@ -53,19 +72,12 @@ export default function RegisterForm() {
             const pwd = Array.isArray(d.password) ? d.password[0] : null;
             const cpwd = Array.isArray(d.confirm_password) ? d.confirm_password[0] : null;
             const nonField = Array.isArray(d.non_field_errors) ? d.non_field_errors[0] : d.non_field_errors;
+            const detail = typeof d.detail === "string" ? d.detail : null;
 
-            setError(
-                nonField ||
-                d.detail ||
-                first ||
-                last ||
-                uname ||
-                pwd ||
-                cpwd ||
-                "Xatolik yuz berdi"
-            );
+            setError(nonField || detail || first || last || uname || pwd || cpwd || "Xatolik yuz berdi");
         }
     };
+
 
     return (
         <>
@@ -113,7 +125,7 @@ export default function RegisterForm() {
                             placeholder="Пароль"
                             value={formData.password}
                             onChange={handleChange}
-                            className="w/[357px] border-0 border-b border-[#000000] bg-[#F4F6FA] text-[16px] py-2 mb-[32px] placeholder-[#585858]"
+                            className="w-[357px] border-0 border-b border-[#000000] bg-[#F4F6FA] text-[16px] py-2 mb-[32px] placeholder-[#585858]"
                             required
                         />
 
@@ -123,7 +135,7 @@ export default function RegisterForm() {
                             placeholder="Подтвердите пароль"
                             value={formData.confirm_password}
                             onChange={handleChange}
-                            className="w/[357px] border-0 border-b border-[#000000] bg-[#F4F6FA] text-[16px] py-2 mb-[32px] placeholder-[#585858]"
+                            className="w-[357px] border-0 border-b border-[#000000] bg-[#F4F6FA] text-[16px] py-2 mb-[32px] placeholder-[#585858]"
                             required
                         />
 

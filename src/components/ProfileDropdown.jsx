@@ -10,7 +10,7 @@ export default function ProfileDropdown() {
     useEffect(() => {
         if (!token) return;
 
-        axios.get("http://127.0.0.1:8000/api/auth/me/", {
+        axios.get("https://job-vacancy-z5uo.onrender.com/api/auth/me/", {
             headers: {
                 Authorization: `Bearer ${token}`,
             },

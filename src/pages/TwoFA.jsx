@@ -1,8 +1,9 @@
+// EmailStep.jsx — faqat handleSubmit ichini va post yo'lini to'g'irlash kifoya
 import React, { useState } from "react";
 import api from "../utils/api";
 import { useNavigate } from "react-router-dom";
 import EmailVerifyTablet from "../components/tablet/EmailVerifyTablet";
-import EmailVerifyMobile from "../components/mobile/EmailVerifyMobile"; // <— YANGI
+import EmailVerifyMobile from "../components/mobile/EmailVerifyMobile";
 
 export default function EmailStep() {
     const navigate = useNavigate();
@@ -19,7 +20,6 @@ export default function EmailStep() {
             return;
         }
 
-        // Oddiy email validatsiya (frontend)
         const trimmed = email.trim();
         const simpleEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!simpleEmail.test(trimmed)) {
@@ -28,13 +28,16 @@ export default function EmailStep() {
         }
 
         try {
-            await api.post(`api/auth/register/step2/${userId}/`, { email: trimmed });
-            navigate("/verify"); // Step 3 sahifaga o‘tamiz
+            // ✅ E’TIBOR: baseURL allaqachon .../api/auth/ bo‘lsa, bu yerda faqat nisbiy yo‘l kerak
+            await api.post(`register/step2/${userId}/`, { email: trimmed });
+
+            // Muvoffaqiyat — keyingi bosqich (step 3: kod kiritish)
+            navigate("/verify");
         } catch (err) {
             const d = err?.response?.data || {};
-            // Backend ko‘pincha {email: ["..."]} yoki {detail: "..."} qaytaradi
             const emailErr = Array.isArray(d.email) ? d.email[0] : d.email;
-            setError(emailErr || d.detail || "Xatolik yuz berdi");
+            const detail = typeof d.detail === "string" ? d.detail : null;
+            setError(emailErr || detail || "Xatolik yuz berdi");
         }
     };
 

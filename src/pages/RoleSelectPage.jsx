@@ -1,8 +1,9 @@
+// RoleSelectPage.jsx — faqat handleSelect ni yangilash kifoya
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../utils/api";
 import SelectRoleTablet from "../components/tablet/SelectRoleTablet";
-import SelectRoleMobile from "../components/mobile/SelectRoleMobile"; // <— YANGI
+import SelectRoleMobile from "../components/mobile/SelectRoleMobile";
 
 export default function RoleSelectPage() {
     const navigate = useNavigate();
@@ -15,15 +16,23 @@ export default function RoleSelectPage() {
         }
 
         try {
-            await api.post(`api/auth/register/step4/${userId}/`, { role });
+            // ✅ baseURL: .../api/auth/  -> faqat nisbiy yo‘l ishlatamiz
+            await api.post(`register/step4/${userId}/`, { role });
 
-            // Har bir rol uchun navigate (hozircha ikkalasi ham login-ga)
-            if (role === "JOB_SEEKER" || role === "EMPLOYER") {
-                navigate("/login");
-            }
+            // ixtiyoriy: user_id ni tozalash (ro'yxat tugadi)
+            localStorage.removeItem("user_id");
+
+            // Ikki rol ham hozircha login ga
+            navigate("/login");
         } catch (err) {
-            console.error("Xatolik:", err?.response);
-            alert("Xatolik yuz berdi: " + (err?.response?.data?.detail || "Nomaʼlum xato"));
+            const d = err?.response?.data || {};
+            const msg =
+                (Array.isArray(d.role) ? d.role[0] : d.role) ||
+                d.detail ||
+                d.error ||
+                "Xatolik yuz berdi";
+            alert("Xatolik: " + msg);
+            console.error("Role select error:", err?.response || err);
         }
     };
 
@@ -32,7 +41,6 @@ export default function RoleSelectPage() {
             {/* Desktop (lg+) */}
             <div className="hidden lg:flex min-h-screen flex items-center justify-center bg-white px-4">
                 <div className="flex flex-col md:flex-row gap-8">
-                    {/* Job Seeker */}
                     <button
                         onClick={() => handleSelect("JOB_SEEKER")}
                         className="bg-[#F4F6FA] border-none rounded-[31px] px-10 py-6 w-[300px] text-center shadow-sm transition text-black font-semibold text-[16px] leading-[24px]"
@@ -41,7 +49,6 @@ export default function RoleSelectPage() {
                         <p className="font-bold">хочу найти работу</p>
                     </button>
 
-                    {/* Employer */}
                     <button
                         onClick={() => handleSelect("EMPLOYER")}
                         className="bg-[#F4F6FA] border-none rounded-[31px] px-10 py-6 w-[300px] text-center shadow-sm transition text-black font-semibold text-[16px] leading-[24px]"
@@ -52,12 +59,12 @@ export default function RoleSelectPage() {
                 </div>
             </div>
 
-            {/* Tablet only (md) */}
+            {/* Tablet */}
             <div className="hidden md:block lg:hidden">
                 <SelectRoleTablet onSelect={handleSelect} />
             </div>
 
-            {/* Mobile (sm va past) */}
+            {/* Mobile */}
             <div className="block md:hidden">
                 <SelectRoleMobile onSelect={handleSelect} />
             </div>

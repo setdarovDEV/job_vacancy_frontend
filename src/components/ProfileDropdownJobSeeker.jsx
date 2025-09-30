@@ -1,66 +1,112 @@
 import React, { useState, useRef, useEffect } from "react";
 import { UserRound, Sun, Settings, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import ChangeProfileImageModal from "./AvatarUploadModal"; // ✅ MODAL import
+import ChangeProfileImageModal from "./AvatarUploadModal";
 import { toast } from "react-toastify";
 import api from "../utils/api";
-import CopmanyPage from "./tablet/CompaniesTabletPage.jsx";
 import ProfileDropdownJobSeekerTablet from "./tablet/ProfileDropdownJObSeekerTablet.jsx";
+
+const DEFAULT_AVATAR = "/user.jpg";
 
 export default function ProfileDropdownJobSeeker() {
     const [isOpen, setIsOpen] = useState(false);
     const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
-    const [profileImage, setProfileImage] = useState(null);
+
+    // Darhol ko'rinadigan avatar (localStorage -> default)
+    const [profileImage, setProfileImage] = useState(
+        sanitizeStored(localStorage.getItem("profile_image")) || DEFAULT_AVATAR
+    );
     const [user, setUser] = useState(null);
 
-    const dropdownRef = useRef();
+    const dropdownRef = useRef(null);
     const navigate = useNavigate();
 
-// ✅ Sahifa yuklanganda avatarni olish
-    useEffect(() => {
-        api.get("/api/auth/profile/")
-            .then((res) => {
-                const imagePath = res.data.profile_image;
-                if (imagePath) {
-                    const imageUrl = `http://127.0.0.1:8000${imagePath}?t=${Date.now()}`;
-                    setProfileImage(imageUrl);
-                    localStorage.setItem("profile_image", imageUrl);
-                }
-            })
-            .catch((err) => console.error("Avatarni olishda xatolik:", err));
-    }, []);
+    // --- Helpers ---
+    function sanitizeStored(val) {
+        if (!val) return null;
+        const s = String(val).trim().toLowerCase();
+        if (s === "null" || s === "undefined" || s === "") return null;
+        return val;
+    }
 
-// ✅ Foydalanuvchini olish
-    useEffect(() => {
-        api.get("/api/auth/me/")
-            .then((res) => setUser(res.data))
-            .catch((err) => console.error("Foydalanuvchini olishda xatolik:", err));
-    }, []);
-
-// ✅ Logout
-    const handleLogout = async () => {
-        const refreshToken = localStorage.getItem("refresh_token");
-
-        if (!refreshToken) {
-            localStorage.removeItem("access_token");
-            navigate("/login");
-            return;
-        }
-
+    const getOrigin = () => {
         try {
-            await api.post("/api/auth/logout/", {
-                refresh: refreshToken,
-            });
-        } catch (err) {
-            console.warn("Logoutda backend xato:", err?.response?.data || err.message);
+            const raw = api?.defaults?.baseURL || "";
+            const u = new URL(raw, window.location.origin);
+            return `${u.protocol}//${u.host}`;
+        } catch {
+            return window.location.origin;
         }
-
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("refresh_token");
-        navigate("/login");
     };
 
-// Tashqariga bosilganda dropdown yopilsin
+    const normalizePath = (p) => String(p || "").trim().replace(/\s+/g, "");
+    const makeMediaUrl = (path) => {
+        const raw = normalizePath(path);
+        if (!raw || raw === "null" || raw === "undefined") return null;
+        if (/^https?:\/\//i.test(raw)) return raw; // to‘liq URL
+        const origin = getOrigin();
+        const cleaned = raw.replace(/^\/+/, "");
+        return `${origin}/${cleaned}`.replace(/([^:]\/)\/+/g, "$1");
+    };
+
+    const useDefaultAvatar = () => {
+        setProfileImage(DEFAULT_AVATAR);
+        localStorage.setItem("profile_image", DEFAULT_AVATAR);
+    };
+
+    // Avatar URL ni olib kelish (UI bloklanmaydi)
+    useEffect(() => {
+        (async () => {
+            try {
+                const res = await api.get("/api/auth/profile/");
+                const imagePath = res?.data?.profile_image || null;
+                const full = makeMediaUrl(imagePath);
+                if (full && full !== DEFAULT_AVATAR) {
+                    // img src’da cache-bust; localStorage’da sof URL
+                    const withTs = `${full}${full.includes("?") ? "&" : "?"}t=${Date.now()}`;
+                    setProfileImage(withTs);
+                    localStorage.setItem("profile_image", full);
+                } else {
+                    useDefaultAvatar();
+                }
+            } catch (err) {
+                useDefaultAvatar();
+                console.debug("Avatar fetch skipped:", err?.response?.status || err?.message);
+            }
+        })();
+    }, []);
+
+    // User ma'lumotlari
+    useEffect(() => {
+        (async () => {
+            try {
+                const res = await api.get("/api/auth/me/");
+                setUser(res.data);
+            } catch {
+                setUser(null);
+            }
+        })();
+    }, []);
+
+    // Logout
+    const handleLogout = async () => {
+        const refreshToken =
+            localStorage.getItem("refresh_token") || localStorage.getItem("refresh");
+        try {
+            if (refreshToken) {
+                await api.post("/api/auth/logout/", { refresh: refreshToken });
+            }
+        } catch (err) {
+            console.debug("Logout info:", err?.response?.data || err?.message);
+        } finally {
+            ["access", "access_token", "refresh", "refresh_token", "profile_image"].forEach((k) =>
+                localStorage.removeItem(k)
+            );
+            navigate("/login");
+        }
+    };
+
+    // Tashqariga bosilganda yopish
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -71,51 +117,52 @@ export default function ProfileDropdownJobSeeker() {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-// Ism formatlash
+    // Ism formatlash
     const formatName = (fullName) => {
         if (!fullName) return "";
-        const parts = fullName.trim().split(" ");
+        const parts = fullName.trim().split(" ").filter(Boolean);
         if (parts.length < 2) return fullName;
         const firstInitial = parts[0][0].toUpperCase();
         const lastName = parts[1].charAt(0).toUpperCase() + parts[1].slice(1);
         return `${firstInitial}. ${lastName}`;
     };
 
-
     return (
         <>
+            {/* Tablet/Mobile */}
             <div className="block lg:hidden">
                 <ProfileDropdownJobSeekerTablet />
             </div>
+
+            {/* Desktop */}
             <div className="hidden lg:block relative text-left" ref={dropdownRef}>
                 {/* Avatar tugma */}
                 <button
                     onClick={() => setIsOpen(!isOpen)}
-                    className="relative w-[56px] h-[56px] rounded-full bg-gray-200 overflow-hidden border-2 border-none"
+                    className="relative w-[56px] h-[56px] rounded-full bg-gray-200 overflow-hidden"
+                    aria-label="Open profile menu"
                 >
                     <div className="absolute inset-0">
-                        <img
-                            src={profileImage || "/user-white.jpg"}
-                            alt="avatar"
-                            className="w-full h-full object-cover border-none rounded-full"
+                        <SafeImg
+                            src={profileImage}
+                            className="w-full h-full object-cover rounded-full"
                         />
                     </div>
                 </button>
 
-                {/* Dropdown menyu */}
+                {/* Dropdown */}
                 {isOpen && (
                     <div className="absolute right-0 top-full mt-2 w-[300px] h-[240px] text-black bg-[#F4F6FA] rounded-xl shadow-[ -4px_-2px_20px_0px_rgba(0,0,0,0.15)] z-40">
-                        {/* Profil ma’lumotlari */}
+                        {/* Header */}
                         <div className="px-4 h-[79px] flex items-center gap-3 border-b border-black relative">
-                            <img
-                                src={profileImage || "/user.jpg"}
+                            <SafeImg
+                                src={profileImage}
                                 className="w-[60px] h-[60px] rounded-full object-cover cursor-pointer"
-                                alt="avatar"
-                                onClick={() => setIsAvatarModalOpen(true)} // ✅ avatarga bosganda modal ochiladi
+                                onClick={() => setIsAvatarModalOpen(true)}
                             />
                             <div>
                                 <p className="text-[16px] font-semibold underline text-black">
-                                    {user ? formatName(user.full_name) : "Yuklanmoqda..."}
+                                    {user?.full_name ? formatName(user.full_name) : "Guest"}
                                 </p>
                                 <p className="text-[14px] text-black mt-[4px]">
                                     {user?.title || "Профессия не указана"}
@@ -123,7 +170,7 @@ export default function ProfileDropdownJobSeeker() {
                             </div>
                         </div>
 
-                        {/* Menyu itemlar */}
+                        {/* Items */}
                         <div className="px-4 py-2 space-y-3">
                             <a href="/profile" className="flex items-center gap-2 text-sm text-black hover:text-blue-600">
                                 <UserRound size={18} /> Ваш профиль
@@ -148,15 +195,30 @@ export default function ProfileDropdownJobSeeker() {
                     </div>
                 )}
 
-                {/* ✅ MODAL */}
+                {/* Modal */}
                 {isAvatarModalOpen && (
                     <ChangeProfileImageModal
                         onClose={() => setIsAvatarModalOpen(false)}
                         onSuccess={(url) => {
-                            setProfileImage(url);
-                            localStorage.setItem("profile_image", url);
+                            const finalUrl = makeMediaUrl(url);
+                            if (finalUrl && finalUrl !== DEFAULT_AVATAR) {
+                                const withTs = `${finalUrl}${finalUrl.includes("?") ? "&" : "?"}t=${Date.now()}`;
+                                setProfileImage(withTs);
+                                localStorage.setItem("profile_image", finalUrl);
+                            } else {
+                                useDefaultAvatar();
+                            }
                         }}
-                        setProfileImage={setProfileImage}
+                        setProfileImage={(u) => {
+                            const finalUrl = makeMediaUrl(u);
+                            if (finalUrl && finalUrl !== DEFAULT_AVATAR) {
+                                const withTs = `${finalUrl}${finalUrl.includes("?") ? "&" : "?"}t=${Date.now()}`;
+                                setProfileImage(withTs);
+                                localStorage.setItem("profile_image", finalUrl);
+                            } else {
+                                useDefaultAvatar();
+                            }
+                        }}
                     />
                 )}
             </div>
@@ -164,14 +226,14 @@ export default function ProfileDropdownJobSeeker() {
     );
 }
 
+// Ixtiyoriy
 function SaveChangesButton() {
     const handleSave = () => {
         toast.success("Ma'lumotlar saqlandi ✅");
         setTimeout(() => {
             window.location.reload();
-        }, 1000); // 1 soniya kutib reload
+        }, 1000);
     };
-
     return (
         <div className="mt-6 flex justify-end">
             <button
@@ -181,5 +243,34 @@ function SaveChangesButton() {
                 Saqlash
             </button>
         </div>
+    );
+}
+
+function SafeImg({ src, alt = "avatar", className = "", ...imgProps }) {
+    const normalizeSrc = (v) => {
+        const s = (v || "").toString().trim();
+        return s ? s : DEFAULT_AVATAR;
+    };
+    const [s, setS] = useState(normalizeSrc(src));
+    useEffect(() => {
+        setS(normalizeSrc(src));
+    }, [src]);
+
+    return (
+        <img
+            src={s}
+            alt={alt}
+            className={className}
+            loading="lazy"
+            decoding="async"
+            referrerPolicy="no-referrer"
+            onError={() => {
+                if (s !== DEFAULT_AVATAR) {
+                    setS(DEFAULT_AVATAR);
+                    localStorage.setItem("profile_image", DEFAULT_AVATAR);
+                }
+            }}
+            {...imgProps}
+        />
     );
 }

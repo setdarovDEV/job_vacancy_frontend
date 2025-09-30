@@ -64,7 +64,7 @@ export default function ProfilePage() {
                 const data = res.data;
 
                 if (data.profile_image) {
-                    const fullImage = `http://127.0.0.1:8000${data.profile_image}?t=${Date.now()}`;
+                    const fullImage = `https://job-vacancy-z5uo.onrender.com/${data.profile_image}?t=${Date.now()}`;
                     setProfileImage(fullImage);
                     localStorage.setItem("profile_image", fullImage);
                 }
