@@ -1,73 +1,133 @@
-import React, { useRef } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react"; // yoki <i className="fas fa-chevron-left" />
+import React, { useState, useEffect } from "react";
+import api from "../../utils/api.js";
 
-const dummyAccounts = Array(10).fill({
-    name: "Consulting",
-    desc: "Сообщество профессионалов в области консалтинга из разных компаний",
-});
+export default function TopAccountsCarousel({ lang, texts, companies = [] }) {
+  const [items, setItems] = useState(companies);
+  
+  const toggleFollow = async (companyId) => {
+  const prev = items.find((x) => x.id === companyId);
+  if (!prev) return;
 
-export default function TopAccountsCarousel({ lang, texts }) {
-    const scrollRef = useRef();
+  const prevFollow = !!prev.is_following;
+  const prevCount = prev.followers_count ?? 0;
 
-    const scroll = (direction) => {
-        const container = scrollRef.current;
-        if (!container) return;
-        const scrollAmount = 300;
-        container.scrollBy({ left: direction === "left" ? -scrollAmount : scrollAmount, behavior: "smooth" });
-    };
+  // 🔹 Optimistik UI yangilash
+  setItems((cur) =>
+    cur.map((c) =>
+      c.id === companyId
+        ? {
+            ...c,
+            is_following: !prevFollow,
+            followers_count: Math.max(0, prevCount + (prevFollow ? -1 : 1)),
+          }
+        : c
+    )
+  );
 
-    return (
-        <section className="mt-12">
-            <div className="w-full h-px bg-gray-300 mb-6" />
-            <div className="flex justify-between items-center px-2 mb-[40px]">
-                <h2 className="text-xl font-bold text-black ml-[40px]">{texts?.[lang]?.topAccounts || "Top accounts"}</h2>
-                <a href="#" className="text-[#3066BE] text-sm hover:underline">
-                    {texts?.[lang]?.seeAll || "See all →"}
-                </a>
-            </div>
-
-            <div className="relative">
-                {/* Left button */}
-                <button
-                    onClick={() => scroll("left")}
-                    className="absolute top-1/2 left-0 -translate-y-1/2 z-30
-             w-10 h-10 bg-white border border-gray-300 rounded-full
-             flex items-center justify-center shadow hover:bg-gray-100"
-                >
-                    <ChevronLeft className="w-5 h-5 text-[#3066BE] absolute inset-0 m-auto z-40" />
-                </button>
-
-                {/* Cards */}
-                <div
-                    ref={scrollRef}
-                    className="overflow-x-auto no-scrollbar flex gap-4 px-12 scroll-smooth"
-                >
-                    {dummyAccounts.map((acc, idx) => (
-                        <div
-                            key={idx}
-                            className="min-w-[200px] max-w-[200px] bg-white border border-gray-300 rounded-xl p-4 flex flex-col items-center text-center shrink-0"
-                        >
-                            <div className="w-16 h-16 rounded-full bg-gray-200 mb-3" />
-                            <h3 className="font-semibold text-black mb-1">{acc.name}</h3>
-                            <p className="text-[13px] text-gray-500 mb-3">{acc.desc}</p>
-                            <button className="bg-[#E7ECFF] hover:bg-[#d0dcff] text-[#3066BE] px-4 py-1.5 rounded-md text-sm font-medium">
-                                {texts?.[lang]?.subscribe || "Subscribe"}
-                            </button>
-                        </div>
-                    ))}
-                </div>
-
-                {/* Right button */}
-                <button
-                    onClick={() => scroll("right")}
-                    className="absolute top-1/2 right-0 -translate-y-1/2 z-30
-             w-10 h-10 bg-white border border-gray-300 rounded-full
-             flex items-center justify-center shadow hover:bg-gray-100"
-                >
-                    <ChevronRight className="w-5 h-5 text-[#3066BE] absolute inset-0 m-auto z-40" />
-                </button>
-            </div>
-            <div className="w-full h-px bg-gray-300 mt-6" />
-        </section>
+  try {
+    // 🔹 TO‘G‘RILANGAN ENDPOINT (toggle-follow)
+    const { data } = await api.post(`/api/companies/${companyId}/toggle-follow/`);
+    setItems((cur) =>
+      cur.map((c) =>
+        c.id === companyId
+          ? {
+              ...c,
+              is_following: data.is_following,
+              followers_count: data.followers_count,
+            }
+          : c
+      )
     );
+  } catch (err) {
+    console.error("Follow toggle error:", err);
+    // revert holat
+    setItems((cur) =>
+      cur.map((c) =>
+        c.id === companyId
+          ? { ...c, is_following: prevFollow, followers_count: prevCount }
+          : c
+      )
+    );
+    if (err?.response?.status === 401) alert("Obuna bo‘lish uchun tizimga kiring!");
+  }
+  };
+
+
+  useEffect(() => {
+    setItems(companies || []);
+  }, [companies]);
+
+  return (
+    <div className="w-full p-5 bg-white border border-gray-200 shadow-sm rounded-2xl">
+      {/* HEADER */}
+      <div className="flex items-center justify-between mb-4">
+        <span className="font-semibold text-[18px] text-black">
+          {texts?.[lang]?.topAccounts || "Top akkauntlar"}
+        </span>
+        <a
+          href="/companies"
+          className="text-[#3066BE] text-sm font-medium hover:underline"
+        >
+          {texts?.[lang]?.seeAll || "Hammasini ko‘rish →"}
+        </a>
+      </div>
+
+      {/* NO DATA */}
+      {items.length === 0 && (
+        <div className="text-[#AEAEAE] text-sm py-2">Данных нет</div>
+      )}
+
+      {/* CAROUSEL */}
+      <div className="flex gap-5 pb-2 overflow-x-auto">
+        {items.map((c) => (
+          <div
+            key={c.id}
+            className="flex-shrink-0 w-[200px] min-h-[230px] bg-white rounded-xl border border-gray-200 
+                       p-4 flex flex-col justify-between items-center text-center 
+                       shadow-sm hover:shadow-md transition duration-300"
+          >
+            {/* UPPER PART */}
+            <div className="flex flex-col items-center flex-grow gap-3">
+              <div className="w-[65px] h-[65px] rounded-full overflow-hidden border border-gray-200 bg-[#F5F7FA]">
+                <img
+                  src={c.logo_url || c.logo || "/company.png"}
+                  alt={c.name}
+                  className="object-cover w-full h-full"
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = "/company.png";
+                  }}
+                />
+              </div>
+
+              <div className="font-semibold text-[15px] text-black truncate w-full">
+                {c.name}
+              </div>
+
+              <div className="text-[#AEAEAE] text-[12px] leading-[16px] px-2">
+                {texts?.[lang]?.communityDesc || "Professional jamiyat..."}
+              </div>
+            </div>
+
+            {/* BUTTON */}
+            <div className="w-full mt-3">
+              <button
+                className={`w-full text-[13px] font-medium py-2 rounded-md transition
+                  ${
+                    c.is_following
+                      ? "bg-[#3066BE] text-white hover:bg-[#274f94]"
+                      : "bg-[#3066BE]/10 text-[#3066BE] hover:bg-[#3066BE]/20"
+                  }`}
+                onClick={() => toggleFollow(c.id)}
+              >
+                {c.is_following
+                  ? texts?.[lang]?.unsubscribe || "Отписаться"
+                  : texts?.[lang]?.subscribe || "Подписаться"}
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }

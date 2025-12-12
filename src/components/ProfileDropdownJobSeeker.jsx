@@ -6,22 +6,18 @@ import { toast } from "react-toastify";
 import api from "../utils/api";
 import ProfileDropdownJobSeekerTablet from "./tablet/ProfileDropdownJObSeekerTablet.jsx";
 
-const DEFAULT_AVATAR = "/user.jpg";
+const DEFAULT_AVATAR = "/user1.png";
 
 export default function ProfileDropdownJobSeeker() {
     const [isOpen, setIsOpen] = useState(false);
     const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
-
-    // Darhol ko'rinadigan avatar (localStorage -> default)
     const [profileImage, setProfileImage] = useState(
         sanitizeStored(localStorage.getItem("profile_image")) || DEFAULT_AVATAR
     );
     const [user, setUser] = useState(null);
-
     const dropdownRef = useRef(null);
     const navigate = useNavigate();
 
-    // --- Helpers ---
     function sanitizeStored(val) {
         if (!val) return null;
         const s = String(val).trim().toLowerCase();
@@ -40,10 +36,11 @@ export default function ProfileDropdownJobSeeker() {
     };
 
     const normalizePath = (p) => String(p || "").trim().replace(/\s+/g, "");
+
     const makeMediaUrl = (path) => {
         const raw = normalizePath(path);
         if (!raw || raw === "null" || raw === "undefined") return null;
-        if (/^https?:\/\//i.test(raw)) return raw; // to‘liq URL
+        if (/^https?:\/\//i.test(raw)) return raw;
         const origin = getOrigin();
         const cleaned = raw.replace(/^\/+/, "");
         return `${origin}/${cleaned}`.replace(/([^:]\/)\/+/g, "$1");
@@ -54,59 +51,63 @@ export default function ProfileDropdownJobSeeker() {
         localStorage.setItem("profile_image", DEFAULT_AVATAR);
     };
 
-    // Avatar URL ni olib kelish (UI bloklanmaydi)
+    // ✅ Avatar va user ma'lumotlarini olish
     useEffect(() => {
         (async () => {
             try {
                 const res = await api.get("/api/auth/profile/");
-                const imagePath = res?.data?.profile_image || null;
+                const data = res?.data || {};
+
+                // Avatar
+                const imagePath = data.profile_image || null;
                 const full = makeMediaUrl(imagePath);
                 if (full && full !== DEFAULT_AVATAR) {
-                    // img src’da cache-bust; localStorage’da sof URL
-                    const withTs = `${full}${full.includes("?") ? "&" : "?"}t=${Date.now()}`;
+                    const withTs = `${full}?t=${Date.now()}`;
                     setProfileImage(withTs);
                     localStorage.setItem("profile_image", full);
                 } else {
                     useDefaultAvatar();
                 }
+
+                // User info
+                setUser({
+                    full_name: `${data.first_name || ""} ${data.last_name || ""}`.trim() || data.username || "Guest",
+                    title: data.title || "Профессия не указана",
+                    email: data.email || "",
+                    username: data.username || ""
+                });
+
             } catch (err) {
+                console.error("Profile fetch error:", err);
                 useDefaultAvatar();
-                console.debug("Avatar fetch skipped:", err?.response?.status || err?.message);
+
+                setUser({
+                    full_name: localStorage.getItem("username") || "Guest",
+                    title: "Профессия не указана"
+                });
             }
         })();
     }, []);
 
-    // User ma'lumotlari
-    useEffect(() => {
-        (async () => {
-            try {
-                const res = await api.get("/api/auth/me/");
-                setUser(res.data);
-            } catch {
-                setUser(null);
-            }
-        })();
-    }, []);
-
-    // Logout
     const handleLogout = async () => {
-        const refreshToken =
-            localStorage.getItem("refresh_token") || localStorage.getItem("refresh");
+        const refreshToken = localStorage.getItem("refresh_token");
+
         try {
             if (refreshToken) {
                 await api.post("/api/auth/logout/", { refresh: refreshToken });
+                toast.info("Вы вышли из аккаунта ✅");
             }
         } catch (err) {
-            console.debug("Logout info:", err?.response?.data || err?.message);
+            console.debug("Logout error:", err);
         } finally {
-            ["access", "access_token", "refresh", "refresh_token", "profile_image"].forEach((k) =>
-                localStorage.removeItem(k)
-            );
-            navigate("/login");
+            ["access_token", "refresh_token", "profile_image", "role", "username", "user_id"]
+                .forEach((k) => localStorage.removeItem(k));
+
+            delete api.defaults.headers.common["Authorization"];
+            navigate("/login", { replace: true });
         }
     };
 
-    // Tashqariga bosilganda yopish
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -117,7 +118,6 @@ export default function ProfileDropdownJobSeeker() {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    // Ism formatlash
     const formatName = (fullName) => {
         if (!fullName) return "";
         const parts = fullName.trim().split(" ").filter(Boolean);
@@ -129,32 +129,21 @@ export default function ProfileDropdownJobSeeker() {
 
     return (
         <>
-            {/* Tablet/Mobile */}
             <div className="block lg:hidden">
                 <ProfileDropdownJobSeekerTablet />
             </div>
 
-            {/* Desktop */}
             <div className="hidden lg:block relative text-left" ref={dropdownRef}>
-                {/* Avatar tugma */}
                 <button
                     onClick={() => setIsOpen(!isOpen)}
                     className="relative w-[56px] h-[56px] rounded-full bg-gray-200 overflow-hidden"
-                    aria-label="Open profile menu"
                 >
-                    <div className="absolute inset-0">
-                        <SafeImg
-                            src={profileImage}
-                            className="w-full h-full object-cover rounded-full"
-                        />
-                    </div>
+                    <SafeImg src={profileImage} className="w-full h-full object-cover rounded-full" />
                 </button>
 
-                {/* Dropdown */}
                 {isOpen && (
-                    <div className="absolute right-0 top-full mt-2 w-[300px] h-[240px] text-black bg-[#F4F6FA] rounded-xl shadow-[ -4px_-2px_20px_0px_rgba(0,0,0,0.15)] z-40">
-                        {/* Header */}
-                        <div className="px-4 h-[79px] flex items-center gap-3 border-b border-black relative">
+                    <div className="absolute right-0 top-full mt-2 w-[300px] h-[240px] text-black bg-[#F4F6FA] rounded-xl shadow-[-4px_-2px_20px_0px_rgba(0,0,0,0.15)] z-40">
+                        <div className="px-4 h-[79px] flex items-center gap-3 border-b border-black">
                             <SafeImg
                                 src={profileImage}
                                 className="w-[60px] h-[60px] rounded-full object-cover cursor-pointer"
@@ -170,7 +159,6 @@ export default function ProfileDropdownJobSeeker() {
                             </div>
                         </div>
 
-                        {/* Items */}
                         <div className="px-4 py-2 space-y-3">
                             <a href="/profile" className="flex items-center gap-2 text-sm text-black hover:text-blue-600">
                                 <UserRound size={18} /> Ваш профиль
@@ -183,11 +171,10 @@ export default function ProfileDropdownJobSeeker() {
                             </a>
                         </div>
 
-                        {/* Logout */}
-                        <div className="border-t border-black mt-2 pt-2 px-4 bg-[#F4F6FA]">
+                        <div className="border-t border-black mt-2 pt-2 px-4">
                             <button
                                 onClick={handleLogout}
-                                className="flex items-center gap-2 text-sm ml-[-15px] bg-[#F4F6FA] border-none text-black hover:text-red-600"
+                                className="flex items-center gap-2 text-sm ml-[-15px] bg-transparent border-none text-black hover:text-red-600"
                             >
                                 <LogOut size={18} /> Выйти
                             </button>
@@ -195,14 +182,13 @@ export default function ProfileDropdownJobSeeker() {
                     </div>
                 )}
 
-                {/* Modal */}
                 {isAvatarModalOpen && (
                     <ChangeProfileImageModal
                         onClose={() => setIsAvatarModalOpen(false)}
                         onSuccess={(url) => {
                             const finalUrl = makeMediaUrl(url);
                             if (finalUrl && finalUrl !== DEFAULT_AVATAR) {
-                                const withTs = `${finalUrl}${finalUrl.includes("?") ? "&" : "?"}t=${Date.now()}`;
+                                const withTs = `${finalUrl}?t=${Date.now()}`;
                                 setProfileImage(withTs);
                                 localStorage.setItem("profile_image", finalUrl);
                             } else {
@@ -212,7 +198,7 @@ export default function ProfileDropdownJobSeeker() {
                         setProfileImage={(u) => {
                             const finalUrl = makeMediaUrl(u);
                             if (finalUrl && finalUrl !== DEFAULT_AVATAR) {
-                                const withTs = `${finalUrl}${finalUrl.includes("?") ? "&" : "?"}t=${Date.now()}`;
+                                const withTs = `${finalUrl}?t=${Date.now()}`;
                                 setProfileImage(withTs);
                                 localStorage.setItem("profile_image", finalUrl);
                             } else {
@@ -226,34 +212,11 @@ export default function ProfileDropdownJobSeeker() {
     );
 }
 
-// Ixtiyoriy
-function SaveChangesButton() {
-    const handleSave = () => {
-        toast.success("Ma'lumotlar saqlandi ✅");
-        setTimeout(() => {
-            window.location.reload();
-        }, 1000);
-    };
-    return (
-        <div className="mt-6 flex justify-end">
-            <button
-                onClick={handleSave}
-                className="px-6 py-3 bg-[#3066BE] text-white rounded-lg font-semibold hover:bg-[#2452a6] transition"
-            >
-                Saqlash
-            </button>
-        </div>
-    );
-}
-
 function SafeImg({ src, alt = "avatar", className = "", ...imgProps }) {
-    const normalizeSrc = (v) => {
-        const s = (v || "").toString().trim();
-        return s ? s : DEFAULT_AVATAR;
-    };
-    const [s, setS] = useState(normalizeSrc(src));
+    const [s, setS] = useState(src || DEFAULT_AVATAR);
+
     useEffect(() => {
-        setS(normalizeSrc(src));
+        setS(src || DEFAULT_AVATAR);
     }, [src]);
 
     return (
@@ -262,12 +225,9 @@ function SafeImg({ src, alt = "avatar", className = "", ...imgProps }) {
             alt={alt}
             className={className}
             loading="lazy"
-            decoding="async"
-            referrerPolicy="no-referrer"
             onError={() => {
                 if (s !== DEFAULT_AVATAR) {
                     setS(DEFAULT_AVATAR);
-                    localStorage.setItem("profile_image", DEFAULT_AVATAR);
                 }
             }}
             {...imgProps}

@@ -1,78 +1,129 @@
-import React, { useRef, useState } from "react";
+import React from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
-export default function EmailCodeVerifyTablet() {
-    const inputsRef = useRef([]);
-    const [code, setCode] = useState(Array(6).fill(""));
+export default function EmailCodeVerifyTablet({
+                                                  otp,
+                                                  timer,
+                                                  onSubmit,
+                                                  onResend,
+                                                  error,
+                                                  successMessage,
+                                                  submitting,
+                                                  resending,
+                                                  formatTime,
+                                                  inputsRef,
+                                                  handleChange,
+                                                  handleKeyDown,
+                                                  handlePaste,
+                                              }) {
+    const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const userId = searchParams.get("uid");
 
-    const handleChange = (e, index) => {
-        const val = e.target.value.replace(/\D/, ""); // Faqat raqam
-        if (!val) return;
+    const code = otp.join("").trim();
+    const isValidCode = /^\d{6}$/.test(code);
 
-        const newCode = [...code];
-        newCode[index] = val;
-        setCode(newCode);
-
-        if (index < 5 && val) {
-            inputsRef.current[index + 1]?.focus();
-        }
-    };
-
-    const handleKeyDown = (e, index) => {
-        if (e.key === "Backspace" && !code[index] && index > 0) {
-            inputsRef.current[index - 1]?.focus();
-        }
-    };
-
-    const handleSubmit = (e) => {
+    const handleFormSubmit = (e) => {
         e.preventDefault();
-        const finalCode = code.join("");
-        console.log("Kiritilgan kod:", finalCode);
-        // backendga yuborish
+        if (!submitting) {
+            onSubmit();
+        }
     };
 
     return (
-        <div className="w-full h-screen bg-white flex text-black items-center justify-center px-4">
+        <div className="w-full min-h-screen bg-white flex text-black items-center justify-center px-4">
             <div className="w-full max-w-[360px] bg-[#F5F8FC] rounded-2xl px-6 py-8 shadow-md">
-                <h2 className="text-center text-[20px] font-semibold mb-6">
+                <h2 className="text-center text-[20px] font-semibold mb-2">
                     Проверьте E-mail
                 </h2>
+                <p className="text-center text-xs text-gray-600 mb-4">
+                    Мы отправили 6-значный код на вашу почту
+                </p>
 
-                <form onSubmit={handleSubmit} className="flex flex-col items-center gap-4">
+                <form
+                    onSubmit={handleFormSubmit}
+                    className="flex flex-col items-center gap-3"
+                >
                     {/* Code input (6ta) */}
-                    <div className="flex gap-2 justify-center">
-                        {code.map((val, i) => (
+                    <div
+                        className="flex gap-2 justify-center"
+                        onPaste={handlePaste}
+                    >
+                        {otp.map((val, i) => (
                             <input
                                 key={i}
                                 type="text"
                                 inputMode="numeric"
                                 maxLength="1"
                                 value={val}
-                                onChange={(e) => handleChange(e, i)}
+                                onChange={(e) => handleChange(e.target.value, i)}
                                 onKeyDown={(e) => handleKeyDown(e, i)}
                                 ref={(el) => (inputsRef.current[i] = el)}
-                                className="w-10 h-12 text-center text-[20px] border border-black rounded-md focus:outline-none"
+                                disabled={submitting}
+                                className={`w-10 h-12 text-center text-[20px] border rounded-md focus:outline-none transition
+                                    ${error ? "border-red-500" : "border-black"}
+                                    ${submitting ? "opacity-50 cursor-not-allowed" : "focus:border-[#3066BE]"}`}
                             />
                         ))}
                     </div>
 
-                    {/* Timer */}
-                    <div className="text-sm text-gray-600 mt-1">02:00</div>
+                    {/* Error */}
+                    {error && (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-2 text-xs text-red-600 text-center w-full mt-1">
+                            {error}
+                        </div>
+                    )}
+
+                    {/* Success */}
+                    {successMessage && (
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-2 text-xs text-green-600 text-center w-full mt-1 font-semibold">
+                            {successMessage}
+                        </div>
+                    )}
+
+                    {/* Timer / Resend */}
+                    <div className="text-xs text-gray-600 mt-1">
+                        {timer > 0 ? (
+                            <span>Код действителен: {formatTime(timer)}</span>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={onResend}
+                                disabled={resending}
+                                className="text-[#2F61C9] hover:underline disabled:opacity-50 disabled:cursor-not-allowed bg-transparent border-none cursor-pointer"
+                            >
+                                {resending
+                                    ? "Отправка..."
+                                    : "Не получили код? Отправить повторно"}
+                            </button>
+                        )}
+                    </div>
 
                     {/* Submit */}
                     <button
                         type="submit"
-                        className="w-100px bg-[#2F61C9] text-white font-semibold py-2 rounded-xl hover:opacity-90 transition"
+                        disabled={!isValidCode || submitting}
+                        className={`w-[160px] bg-[#2F61C9] text-white font-semibold py-2 rounded-xl hover:opacity-90 transition mt-2
+                            ${!isValidCode || submitting ? "opacity-50 cursor-not-allowed" : ""}`}
                     >
-                        Следующий →
+                        {submitting
+                            ? "Проверка..."
+                            : successMessage
+                                ? "Переход..."
+                                : "Следующий →"}
                     </button>
 
-                    {/* Resend */}
-                    <button
-                        type="button"
-                        className="text-xs border-none text-[#2F61C9] mt-2 hover:underline"
-                    >
-                        Не получили код?
-                    </button>
+                    {/* Back button */}
+                    <div className="text-center mt-2">
+                        <button
+                            type="button"
+                            onClick={() => navigate(userId ? `/register/step2?uid=${userId}` : "/register/step2")}
+                            disabled={submitting}
+                            className="text-xs text-[#3066BE] font-semibold hover:underline disabled:opacity-50 bg-transparent border-none"
+                        >
+                            ← Назад
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>

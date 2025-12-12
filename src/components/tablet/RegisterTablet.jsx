@@ -1,78 +1,147 @@
 import React from "react";
 import { Link } from "react-router-dom";
 
-export default function RegisterTablet() {
+export default function RegisterTablet({
+                                           formData,
+                                           onChange,
+                                           onSubmit,
+                                           error,
+                                           fieldErrors = {},
+                                           isLoading,
+                                       }) {
     return (
-        <div className="w-full h-screen bg-white text-black flex items-center justify-center px-4 md:px-6">
+        <div className="w-full min-h-screen bg-white text-black flex items-center justify-center px-4 md:px-6">
             <div className="w-[330px] max-w-[360px] bg-[#F5F8FC] rounded-2xl px-6 py-8 shadow-md">
                 <h2 className="text-center text-[20px] font-semibold mb-6">
                     Зарегистрироваться
                 </h2>
-                <form onSubmit={(e) => e.preventDefault()}>
+
+                <form onSubmit={onSubmit} className="space-y-4">
                     {/* First Name */}
-                    <div className="mb-4">
+                    <div>
                         <input
                             type="text"
+                            name="first_name"
                             placeholder="Ваше имя"
-                            className="w-full border-0 border-b border-black bg-transparent focus:outline-none"
+                            value={formData.first_name}
+                            onChange={onChange}
+                            disabled={isLoading}
+                            className={`w-full border-0 border-b bg-transparent focus:outline-none py-2 text-sm ${
+                                fieldErrors.first_name ? "border-red-500" : "border-black"
+                            }`}
                             required
                         />
+                        {fieldErrors.first_name && (
+                            <p className="text-xs text-red-500 mt-1">
+                                {fieldErrors.first_name}
+                            </p>
+                        )}
                     </div>
 
                     {/* Last Name */}
-                    <div className="mb-4">
+                    <div>
                         <input
                             type="text"
+                            name="last_name"
                             placeholder="Фамилия"
-                            className="w-full border-0 border-b border-black bg-transparent focus:outline-none"
+                            value={formData.last_name}
+                            onChange={onChange}
+                            disabled={isLoading}
+                            className={`w-full border-0 border-b bg-transparent focus:outline-none py-2 text-sm ${
+                                fieldErrors.last_name ? "border-red-500" : "border-black"
+                            }`}
                             required
                         />
+                        {fieldErrors.last_name && (
+                            <p className="text-xs text-red-500 mt-1">
+                                {fieldErrors.last_name}
+                            </p>
+                        )}
                     </div>
 
                     {/* Username */}
-                    <div className="mb-4">
+                    <div>
                         <input
                             type="text"
+                            name="username"
                             placeholder="Ваше имя пользователя"
-                            className="w-full border-0 border-b border-black bg-transparent focus:outline-none"
+                            value={formData.username}
+                            onChange={onChange}
+                            disabled={isLoading}
+                            className={`w-full border-0 border-b bg-transparent focus:outline-none py-2 text-sm ${
+                                fieldErrors.username ? "border-red-500" : "border-black"
+                            }`}
                             required
                         />
+                        {fieldErrors.username && (
+                            <p className="text-xs text-red-500 mt-1">
+                                {fieldErrors.username}
+                            </p>
+                        )}
                     </div>
 
                     {/* Password */}
-                    <div className="mb-4">
+                    <div>
                         <input
                             type="password"
+                            name="password"
                             placeholder="Пароль"
-                            className="w-full border-0 border-b border-black bg-transparent focus:outline-none"
+                            value={formData.password}
+                            onChange={onChange}
+                            disabled={isLoading}
+                            className={`w-full border-0 border-b bg-transparent focus:outline-none py-2 text-sm ${
+                                fieldErrors.password ? "border-red-500" : "border-black"
+                            }`}
                             required
                         />
+                        {fieldErrors.password && (
+                            <p className="text-xs text-red-500 mt-1">
+                                {fieldErrors.password}
+                            </p>
+                        )}
                     </div>
 
                     {/* Confirm Password */}
-                    <div className="mb-4">
+                    <div>
                         <input
                             type="password"
+                            name="confirm_password"
                             placeholder="Подтвердите пароль"
-                            className="w-full border-0 border-b border-black bg-transparent focus:outline-none"
+                            value={formData.confirm_password}
+                            onChange={onChange}
+                            disabled={isLoading}
+                            className="w-full border-0 border-b border-black bg-transparent focus:outline-none py-2 text-sm"
                             required
                         />
                     </div>
 
+                    {/* General Error */}
+                    {error && (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-center text-xs text-red-600">
+                            {error}
+                        </div>
+                    )}
+
                     {/* Terms */}
-                    <div className="mb-6 flex items-start gap-2">
-                        <input type="checkbox" className="mt-1" required />
-                        <label className="text-xs leading-tight text-gray-700">
-                            Я прочитал и принял Политику конфиденциальности и Условия
-                        </label>
+                    <div className="flex items-start gap-2 text-xs mt-2">
+                        <input
+                            type="checkbox"
+                            required
+                            disabled={isLoading}
+                            className="mt-[3px]"
+                        />
+                        <p className="leading-tight text-gray-700">
+                            Я прочитал и принял Политику конфиденциальности и Условия*
+                        </p>
                     </div>
 
                     {/* Submit Button */}
                     <button
                         type="submit"
-                        className="w-[160px] ml-[57px] bg-[#3066BE] text-white font-semibold py-2 rounded-[13px] hover:opacity-90 transition"
+                        disabled={isLoading}
+                        className="w-[160px] ml-[57px] mt-4 bg-[#3066BE] text-white font-semibold py-2 rounded-[13px] hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
-                        Следующий →
+                        {isLoading ? "Загрузка..." : "Следующий \u2192"}
                     </button>
 
                     {/* Already have account */}

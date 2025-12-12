@@ -1,4 +1,4 @@
-import React, {useState, useMemo, useEffect} from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import VacancyModal from "../tablet/VacancyTabletModal.jsx";
 import NavbarTabletLogin from "./NavbarTabletLogIn.jsx";
 import UserSearch from "./UserSearchTablet.jsx";
@@ -30,36 +30,51 @@ export default function VacancyPageTablet() {
     const [error, setError] = useState("");
     const [lastQuery, setLastQuery] = useState({ title: "", location: "", salary: {min:0,max:0}, plan: "" });
     const [totalPages, setTotalPages] = useState(1); // DRF countdan keladi
-    const [currentPage] = useState(1);
+    const [currentPage, setCurrentPage] = useState(1);
 
 
     // ==========================
     // HANDLERS
     // ==========================
 
-    async function loadVacancies({ title, location, salary, plan, page }) {
+    async function loadVacancies(pageNumber = 1) {
         try {
             setLoading(true);
             setError("");
-            const params = buildVacancyParams({ title, location, salary, plan, page });
-            const data = await fetchVacancies(params);
 
-            // DRF format deb qabul qilamiz:
-            const results = Array.isArray(data?.results) ? data.results : (Array.isArray(data) ? data : []);
+            const params = {};
+
+            if (title?.trim()) params.search = title.trim();
+            if (location) params.location = location;
+            if (plan) params.plan = plan;
+            if (salary?.min) params.salary_min = parseFloat(salary.min);
+            if (salary?.max) params.salary_max = parseFloat(salary.max);
+            params.page = Number(pageNumber);
+
+            console.log("📤 Filter params:", params);
+
+            // ✅ bu yerda /api bilan yozamiz, chunki baseURL = domen
+            const res = await api.get("/api/vacancies/jobposts/", { params });
+            const data = res.data;
+
+            const results = Array.isArray(data?.results)
+                ? data.results
+                : Array.isArray(data)
+                    ? data
+                    : [];
+
             setVacancies(results);
-
-            // Pagination
-            const count = data?.count ?? results.length;
-            const perPage = results.length > 0 && data?.next || data?.previous ? Math.max(results.length, 10) : 10; // taxmin
-            setTotalPages(Math.max(1, Math.ceil(count / perPage)));
-
+            const count = data?.count || results.length;
+            setTotalPages(Math.ceil(count / 10));
+            setCurrentPage(Number(pageNumber));
         } catch (e) {
-            console.error(e);
-            setError(e?.response?.data?.detail || "Vakansiyalarni olishda xatolik.");
+            console.error("❌ Vakansiyalarni olishda xatolik:", e);
+            setError("Vakansiyalarni olishda xatolik yuz berdi.");
         } finally {
             setLoading(false);
         }
     }
+
 
     useEffect(() => {
         const fetchVacancies = async () => {
@@ -97,7 +112,7 @@ export default function VacancyPageTablet() {
     useEffect(() => {
         const fetchSkills = async () => {
             try {
-                const res = await api.get("/skills/skills/"); // ← bu to‘g‘rimi, kerak bo‘lsa sozlab beraman
+                const res = await api.get("/api/skills/"); // ← bu to‘g‘rimi, kerak bo‘lsa sozlab beraman
                 // dublikatlarni olib tashlaymiz (ixtiyoriy)
                 const uniqueSkills = res.data.filter(
                     (skill, index, self) =>
@@ -147,13 +162,6 @@ export default function VacancyPageTablet() {
             .catch((err) => console.error("Foydalanuvchini olishda xatolik:", err));
     }, []);
 
-    const handleSearch = () => {
-        const query = { title, location, salary, plan };
-        setActivePage(1);
-        setLastQuery(query);
-        loadVacancies({ ...query, page: 1 });
-    };
-
     React.useEffect(() => {
         const initialQuery = { title: "", location: "", salary: {min:0,max:0}, plan: "" };
         setLastQuery(initialQuery);
@@ -180,6 +188,26 @@ export default function VacancyPageTablet() {
         setSelectedUser(u);
         fetchPost({ authorId: u.id, page: 1 });   // ✅ page=1 dan boshlaymiz
     };
+
+    // ==========================
+    // HANDLE SEARCH & CLEAR
+    // ==========================
+    const handleSearch = () => loadVacancies(1);
+
+    useEffect(() => {
+        loadVacancies(currentPage);
+    }, [currentPage]);
+
+
+
+    const handleClear = useCallback(() => {
+        setTitle("");
+        setLocation("");
+        setSalary({ min: "", max: "" });
+        setPlan("");
+        setCurrentPage(1);
+        loadVacancies(1);
+    }, []);
 
     // tilni tanlash uchun misol obyekt
     const texts = {
@@ -261,13 +289,20 @@ export default function VacancyPageTablet() {
     );
 
     function SearchModal({
-                             title, setTitle,
-                             location, setLocation,
-                             salary, setSalary,
-                             plan, setPlan,
-                             onClose, onClear, onSearch
+                             onClose,
+                             onSearch,
+                             onClear,
+                             initialTitle,
+                             initialLocation,
+                             initialSalary,
+                             initialPlan
                          }) {
-        // ESC bosganda yopish
+        // local copy (bular parentni qayta render qildirmaydi)
+        const [localTitle, setLocalTitle] = React.useState(initialTitle || "");
+        const [localLocation, setLocalLocation] = React.useState(initialLocation || "");
+        const [localSalary, setLocalSalary] = React.useState(initialSalary || { min: "", max: "" });
+        const [localPlan, setLocalPlan] = React.useState(initialPlan || "");
+
         React.useEffect(() => {
             const onKey = (e) => e.key === "Escape" && onClose();
             window.addEventListener("keydown", onKey);
@@ -277,17 +312,13 @@ export default function VacancyPageTablet() {
         return (
             <div
                 className="fixed inset-0 z-[999] flex items-start md:items-center justify-center bg-black/40"
-                onClick={(e) => {
-                    if (e.target === e.currentTarget) onClose();
-                }}
+                onClick={(e) => e.target === e.currentTarget && onClose()}
             >
-                <div
-                    className="w-[94%] max-w-[920px] bg-white rounded-[20px] shadow-xl overflow-hidden mt-6 md:mt-0 relative">
-                    {/* Close (top-right) */}
+                <div className="w-[94%] max-w-[920px] bg-white rounded-[20px] shadow-xl overflow-hidden mt-6 md:mt-0 relative">
+                    {/* Close */}
                     <button
                         onClick={onClose}
                         className="absolute top-4 right-4 p-2 rounded-full hover:bg-black/5 bg-white text-[#3066BE]"
-                        aria-label="Close"
                     >
                         <X size={20}/>
                     </button>
@@ -302,24 +333,22 @@ export default function VacancyPageTablet() {
                     {/* Body */}
                     <div className="px-6 py-5">
                         <div className="bg-[#F4F6FA] rounded-2xl p-4 md:p-6">
-                            {/* Title */}
                             <div className="relative">
                                 <input
                                     type="text"
                                     placeholder="Должность"
-                                    value={title}
-                                    onChange={(e) => setTitle(e.target.value)}
+                                    value={localTitle}
+                                    onChange={(e) => setLocalTitle(e.target.value)}
                                     className="w-full h-[52px] rounded-xl bg-[#F4F6FA] border border-transparent px-4 text-[14px] text-black placeholder:text-gray-400 outline-none focus:ring-0"
                                 />
                             </div>
 
-                            {/* Selects */}
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
                                 {/* Region */}
                                 <div className="relative">
                                     <select
-                                        value={location}
-                                        onChange={(e) => setLocation(e.target.value)}
+                                        value={localLocation}
+                                        onChange={(e) => setLocalLocation(e.target.value)}
                                         className="w-full h-[52px] rounded-xl bg-[#F4F6FA] border border-transparent pr-10 pl-4 text-[14px] text-black outline-none appearance-none"
                                     >
                                         <option value="">Выберите регион</option>
@@ -336,13 +365,14 @@ export default function VacancyPageTablet() {
                                 {/* Salary */}
                                 <div className="relative">
                                     <select
-                                        value={salary.min && salary.max ? `${salary.min}-${salary.max}` : ""}
+                                        value={
+                                            localSalary.min && localSalary.max
+                                                ? `${localSalary.min}-${localSalary.max}`
+                                                : ""
+                                        }
                                         onChange={(e) => {
                                             const [min, max] = e.target.value.split("-");
-                                            setSalary({
-                                                min: min ? Number(min) : 0,
-                                                max: max ? Number(max) : 0,
-                                            });
+                                            setLocalSalary({ min, max });
                                         }}
                                         className="w-full h-[52px] rounded-xl bg-[#F4F6FA] border border-transparent pr-10 pl-4 text-[14px] text-black outline-none appearance-none"
                                     >
@@ -357,11 +387,11 @@ export default function VacancyPageTablet() {
                                     />
                                 </div>
 
-                                {/* Plan (Premium) */}
+                                {/* Plan */}
                                 <div className="relative">
                                     <select
-                                        value={plan}
-                                        onChange={(e) => setPlan(e.target.value)}
+                                        value={localPlan}
+                                        onChange={(e) => setLocalPlan(e.target.value)}
                                         className="w-full h-[52px] rounded-xl bg-[#F4F6FA] border border-transparent pr-10 pl-4 text-[14px] text-black outline-none appearance-none"
                                     >
                                         <option value="">Premium</option>
@@ -388,7 +418,10 @@ export default function VacancyPageTablet() {
                         </button>
 
                         <button
-                            onClick={onSearch}
+                            onClick={() => {
+                                onSearch(localTitle, localLocation, localSalary, localPlan);
+                                onClose();
+                            }}
                             className="h-[44px] px-6 rounded-[10px] bg-[#3066BE] text-white font-medium hover:bg-[#2757a4] transition"
                         >
                             Поиск
@@ -399,7 +432,6 @@ export default function VacancyPageTablet() {
         );
     }
 
-
     return (
         <>
             <NavbarTabletLogin />
@@ -408,42 +440,18 @@ export default function VacancyPageTablet() {
             {/* ========================== */}
             <div className="bg-white md:mt-[90px] md:block mr-[10px] lg:hidden">
                 <div className="mx-auto max-w-[960px] px-4 py-3 mt-[-80px]">
-                    <div className="flex items-center justify-between gap-3">
-                        {/* Search button */}
-                        <div className="flex-1 flex justify-center">
-                            <button
-                                onClick={() => setShowSearchModal(true)}
-                                className="max-w-[420px] h-[44px] border-none w-[240px] ml-[50px] rounded-lg bg-[#F4F6FA] border border-gray-200 text-[#6B7280] text-[14px] px-4 flex items-center gap-2 hover:bg-[#EFF3FA] transition"
-                            >
-                                <img src="/search.png" alt="" className="w-[18px] h-[18px] opacity-70" />
-                                <span className="truncate">
-            Поиск вакансий
-          </span>
-                            </button>
-                        </div>
-
-                        {/* Bell */}
+                    <div className="flex justify-center">
                         <button
-                            className="relative p-2 rounded-md hover:bg-gray-100 bg-white text-black"
-                            aria-label="Notifications"
+                            onClick={() => setShowSearchModal(true)}
+                            className="max-w-[420px] h-[44px] w-[240px] rounded-lg bg-[#F4F6FA] border border-gray-200 text-[#6B7280] text-[14px] px-4 flex items-center gap-2 hover:bg-[#EFF3FA] transition"
                         >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth="2"
-                                    d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14V9a6 6 0 10-12 0v5c0 .386-.146.735-.405 1.005L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                                />
-                            </svg>
-                            <span className="absolute -top-1 -right-1 w-[18px] h-[18px] rounded-full bg-red-600 text-white text-[10px] grid place-items-center">
-          1
-        </span>
+                            <img src="/search.png" alt="" className="w-[18px] h-[18px] opacity-70" />
+                            <span>Поиск вакансий</span>
                         </button>
                     </div>
                 </div>
             </div>
 
-            {/* Search Modal */}
             {showSearchModal && (
                 <SearchModal
                     title={title}
@@ -458,22 +466,17 @@ export default function VacancyPageTablet() {
                     onClear={() => {
                         setTitle("");
                         setLocation("");
-                        setSalary({ min: 0, max: 0 });
+                        setSalary({ min: "", max: "" });
                         setPlan("");
-                        setActivePage(1);
-                        const q = { title: "", location: "", salary: {min:0,max:0}, plan: "" };
-                        setLastQuery(q);
-                        loadVacancies({ ...q, page: 1 });
-                    }}
-
-                    onSearch={() => {
+                        loadVacancies(1);
                         setShowSearchModal(false);
+                    }}
+                    onSearch={() => {
                         handleSearch();
+                        setShowSearchModal(false);
                     }}
                 />
             )}
-
-
 
             {/* ========================== */}
             {/* VACANCY SECTION (Tablet) */}
@@ -484,9 +487,22 @@ export default function VacancyPageTablet() {
                 </h1>
 
                 <div className="mt-4">
-                    <h2 className="text-[16px] leading-[140%] font-bold text-black mb-2">
+                    <button
+                            onClick={() => {
+                            if (!user) return toast.error("Пользователь не найден. Войдите в систему.");
+                            if (user.role === "JOB_SEEKER") {
+                                toast.warning("Вы не можете публиковать вакансии.");
+                            } else if (user.role === "EMPLOYER") {
+                                window.location.href = "/profile";
+                            } else {
+                                toast.info("Пожалуйста, войдите в систему.");
+                            }
+                            }
+                    }
+                        className="bg-white text-black font-medium border-none text-[15px] px-6 py-2 rounded-md transition ml-[-26px]"
+                        >
                         {texts[selectedLang.code].publishVacancy}
-                    </h2>
+                    </button>
                     <div className="w-[52px] h-[4px] bg-[#D9D9D9] rounded mb-4"></div>
                     <hr className="border-t border-[#D9D9D9] mb-6" />
                 </div>
@@ -512,7 +528,11 @@ export default function VacancyPageTablet() {
                                     {vacancy.title}
                                 </button>
                                 <p className="text-gray-600 text-sm mb-2">
-                                    ${vacancy.budget_min} - ${vacancy.budget_max}
+                                    {vacancy.salary_min && vacancy.salary_max
+                                        ? `$${vacancy.salary_min} - $${vacancy.salary_max}`
+                                        : vacancy.budget
+                                            ? `$${vacancy.budget}`
+                                            : "—"}
                                 </p>
 
                                 <p className="text-gray-500 text-sm mb-3">{vacancy.description}</p>
@@ -536,7 +556,14 @@ export default function VacancyPageTablet() {
                                         {[...Array(5)].map((_, i) => (
                                             <svg
                                                 key={i}
-                                                onClick={() => handleRate(vacancy.id, i + 1)}
+                                                onClick={() => {
+                                                    handleRate(vacancy.id, i + 1);
+                                                    setVacancies(prev =>
+                                                        prev.map(v =>
+                                                            v.id === vacancy.id ? { ...v, average_stars: i + 1 } : v
+                                                        )
+                                                    );
+                                                }}
                                                 className={`w-5 h-5 cursor-pointer transition ${
                                                     i < (vacancy.average_stars || 0) ? "fill-yellow-400" : "fill-gray-300"
                                                 }`}
@@ -555,51 +582,6 @@ export default function VacancyPageTablet() {
                             </div>
                         ))}
                     </div>
-
-                    {/* Profil / savol kartalari (tablet’da to‘liq eni) */}
-                    <div className="w-full flex flex-col gap-4">
-                        {/* UI Dizayn savol */}
-                        <div className="w-full bg-[#F4F6FA] rounded-xl p-4 shadow-sm">
-                            <div className="flex justify-between items-center">
-                                <p className="text-[13px] font-medium text-[#AEAEAE]">Улучшайте свои рабочие места</p>
-                                <button className="bg-transparent">
-                                    <img src="/three-dots.svg" alt="..." className="w-5 h-5" />
-                                </button>
-                            </div>
-
-                            <p className="text-[15px] text-black mt-2">
-                                Есть ли у вас этот навык:{" "}
-                                <a href="profile/" className="text-[#3066BE]">UI дизайн?</a>
-                            </p>
-
-                            {skills.length > 0 ? (
-                                <div key={skills[0].id} className="flex gap-3 mt-3">
-                                    <button
-                                        onClick={() => handleSkillAnswer(skills[0].id, "yes")}
-                                        className="flex items-center bg-[#3066BE]/20 text-black text-sm font-medium rounded-[6px] px-4 py-1.5 gap-2"
-                                    >
-                                        <img src="/check.png" alt="check" className="w-[14px] h-[9px]" />
-                                        Да
-                                    </button>
-                                    <button
-                                        onClick={() => handleSkillAnswer(skills[0].id, "no")}
-                                        className="flex items-center bg-[#3066BE]/20 text-black text-sm font-medium rounded-[6px] px-4 py-1.5 gap-2"
-                                    >
-                                        <img src="/cancel.png" alt="x" className="w-[9px] h-[9px]" />
-                                        Нет
-                                    </button>
-                                    <button
-                                        onClick={() => handleSkillAnswer(skills[0].id, "skip")}
-                                        className="text-[16px] font-medium bg-transparent"
-                                    >
-                                        Skip
-                                    </button>
-                                </div>
-                            ) : (
-                                <p className="text-gray-500 mt-4">✅ Barcha skill'lar baholandi</p>
-                            )}
-                        </div>
-                    </div>
                 </div>
             </div>
 
@@ -613,9 +595,7 @@ export default function VacancyPageTablet() {
             )}
 
 
-            {/* ========================== */}
-            {/* PAGINATION (Tablet) */}
-            {/* ========================== */}
+            {/* Pagination */}
             <div className="w-full flex justify-center mt-4 mb-12 px-4">
                 <div className="flex items-center gap-2">
                     {[...Array(totalPages)].map((_, i) => {
@@ -623,23 +603,61 @@ export default function VacancyPageTablet() {
                         return (
                             <button
                                 key={page}
-                                onClick={() => setActivePage(page)}
-                                className={`w-9 h-9 rounded-full border-2 flex items-center justify-center text-sm font-semibold
-            ${activePage === page
-                                    ? "bg-[#3066BE] text-white border-[#3066BE]"
-                                    : "bg-white text-[#3066BE] border-[#3066BE] hover:bg-[#3066BE]/10"
+                                onClick={() => {
+                                    setActivePage(page);
+                                    loadVacancies({ ...lastQuery, page });
+                                }}
+                                className={`w-9 h-9 rounded-full border-2 flex items-center justify-center text-sm font-semibold transition
+            ${
+                                    activePage === page
+                                        ? "bg-[#3066BE] text-white border-[#3066BE]"
+                                        : "bg-white text-[#3066BE] border-[#3066BE] hover:bg-[#3066BE]/10"
                                 }`}
                             >
                                 {page}
                             </button>
                         );
                     })}
-                    <button
-                        onClick={() => activePage < totalPages && setActivePage(activePage + 1)}
-                        className="w-9 h-9 rounded-full border-2 border-[#3066BE] bg-white flex items-center justify-center"
+
+                    {/* NEXT BUTTON */}
+                    <a
+                        href="#"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            if (activePage < totalPages) {
+                                const next = activePage + 1;
+                                setActivePage(next);
+                                loadVacancies({ ...lastQuery, page: next });
+                            }
+                        }}
+                        className="w-9 h-9 inline-flex items-center justify-center rounded-full border-2 border-[#3066BE]
+             bg-white hover:bg-[#3066BE] transition duration-200 ease-in-out"
                     >
-                        <img src="/pagination.png" alt="pagination" className="w-4 h-4 object-contain" />
-                    </button>
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            strokeWidth={2.2}
+                            stroke="currentColor"
+                            className="w-4 h-4 transition-colors"
+                        >
+                            <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M9 5l7 7-7 7"
+                                style={{
+                                    stroke: "#3066BE",
+                                    transition: "stroke 0.2s ease",
+                                }}
+                            />
+                        </svg>
+                        <style jsx>{`
+    a:hover svg path {
+      stroke: white !important;
+    }
+  `}</style>
+                    </a>
+
                 </div>
             </div>
 

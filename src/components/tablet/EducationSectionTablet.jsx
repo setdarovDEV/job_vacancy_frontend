@@ -19,7 +19,7 @@ export default function EducationSection({ isEditable }) {
 
     const fetchEducations = async () => {
         try {
-            const res = await api.get("/education/education/");
+            const res = await api.get("/api/education/");
             const list = Array.isArray(res.data) ? res.data : (res.data.results || []);
             setEducations(list);
         } catch (err) {
@@ -32,7 +32,7 @@ export default function EducationSection({ isEditable }) {
             if (editId) {
                 await api.put(`/education/education/${editId}/`, formData);
             } else {
-                await api.post("/education/education/", formData);
+                await api.post("/api/education/", formData);
             }
             setFormData({ academy_name: "", degree: "", start_year: "", end_year: "" });
             setEditId(null);

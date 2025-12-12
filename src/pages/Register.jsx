@@ -16,171 +16,239 @@ export default function RegisterForm() {
     });
 
     const [error, setError] = useState("");
+    const [fieldErrors, setFieldErrors] = useState({});
+    const [isLoading, setIsLoading] = useState(false);
 
     const handleChange = (e) => {
         setFormData((s) => ({ ...s, [e.target.name]: e.target.value }));
+        if (fieldErrors[e.target.name]) {
+            setFieldErrors(prev => ({ ...prev, [e.target.name]: null }));
+        }
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError("");
+        setFieldErrors({});
+        setIsLoading(true);
 
         if (formData.password !== formData.confirm_password) {
             setError("Parollar mos emas");
+            setIsLoading(false);
             return;
         }
 
         try {
-            const res = await api.post("register/step1/", {
-                first_name: formData.first_name,
-                last_name: formData.last_name,
-                username: formData.username,
+            const res = await api.post("/api/auth/register/step1/", {
+                first_name: formData.first_name.trim(),
+                last_name: formData.last_name.trim(),
+                username: formData.username.trim(),
                 password: formData.password,
                 confirm_password: formData.confirm_password,
             });
 
-            // ✅ himoyalangan o‘qish
-            const data = res?.data || {};
-            const userId = data.user_id ?? data.id ?? data.userId;
+            const userId = res.data.user_id;
 
-            if (!userId) {
-                // backend 201 qaytardi, lekin user_id kelmadi — loglab qo‘yamiz
-                console.warn("register/step1 response:", data);
-            } else {
-                // string sifatida saqlash
+            console.log("✅ Step 1 - User ID:", userId);
+
+            if (userId) {
+                // ✅ Ikkala usul ham - localStorage va URL
                 localStorage.setItem("user_id", String(userId));
-            }
-
-            // muvaffaqiyatda error matnini tozalab qo‘yamiz
-            setError("");
-
-            // Keyingi bosqichga o'tish
-            try {
-                // Senda step-2 route nomi boshqacha bo‘lsa shu yerda almashtirasan
-                navigate("/2fa");
-            } catch (navErr) {
-                console.error("Navigate error:", navErr);
-                // Navigatsiya muammosi bo‘lsa ham user_id saqlangan — matnni tushunarli qilamiz
-                setError("Muvaffaqiyatli yaratildi, lekin keyingi sahifaga o'tishda xatolik yuz berdi.");
+                navigate(`/register/step2?uid=${userId}`);
+            } else {
+                setError("Foydalanuvchi ID topilmadi");
             }
         } catch (err) {
-            // Backenddan kelgan xatolarni aniq ko‘rsatish
-            const d = err?.response?.data || {};
-            const first = Array.isArray(d.first_name) ? d.first_name[0] : null;
-            const last = Array.isArray(d.last_name) ? d.last_name[0] : null;
-            const uname = Array.isArray(d.username) ? d.username[0] : null;
-            const pwd = Array.isArray(d.password) ? d.password[0] : null;
-            const cpwd = Array.isArray(d.confirm_password) ? d.confirm_password[0] : null;
-            const nonField = Array.isArray(d.non_field_errors) ? d.non_field_errors[0] : d.non_field_errors;
-            const detail = typeof d.detail === "string" ? d.detail : null;
+            const data = err?.response?.data || {};
 
-            setError(nonField || detail || first || last || uname || pwd || cpwd || "Xatolik yuz berdi");
+            const errors = {};
+            if (data.first_name) errors.first_name = Array.isArray(data.first_name) ? data.first_name[0] : data.first_name;
+            if (data.last_name) errors.last_name = Array.isArray(data.last_name) ? data.last_name[0] : data.last_name;
+            if (data.username) errors.username = Array.isArray(data.username) ? data.username[0] : data.username;
+            if (data.password) errors.password = Array.isArray(data.password) ? data.password[0] : data.password;
+
+            setFieldErrors(errors);
+
+            const generalError = data.non_field_errors
+                ? (Array.isArray(data.non_field_errors) ? data.non_field_errors[0] : data.non_field_errors)
+                : data.detail || "Xatolik yuz berdi";
+
+            setError(generalError);
+        } finally {
+            setIsLoading(false);
         }
     };
 
-
     return (
-        <>
+        <React.Fragment>
             {/* Desktop (lg+) */}
-            <div className="hidden lg:flex min-h-screen flex items-center justify-center bg-[#FFFFFF] text-black px-4">
-                <div className="bg-[#F4F6FA] w-[463px] h-[705px] border border-none rounded-[31px] max-w-md p-10">
+            <div className="hidden lg:flex min-h-screen items-center justify-center bg-white text-black px-4">
+                <div className="bg-[#F4F6FA] w-full max-w-md border-none rounded-[31px] p-10">
                     <h2 className="text-center text-[32px] font-bold text-black mb-8">
                         Зарегистрироваться
                     </h2>
 
-                    <form onSubmit={handleSubmit}>
-                        <input
-                            type="text"
-                            name="first_name"
-                            placeholder="Ваше имя"
-                            value={formData.first_name}
-                            onChange={handleChange}
-                            className="w-[357px] border-0 border-b border-[#000000] bg-[#F4F6FA] text-[16px] py-2 mb-[32px] placeholder-[#585858]"
-                            required
-                        />
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                        {/* First Name */}
+                        <div>
+                            <input
+                                type="text"
+                                name="first_name"
+                                placeholder="Ваше имя"
+                                value={formData.first_name}
+                                onChange={handleChange}
+                                className={`w-full border-0 border-b ${
+                                    fieldErrors.first_name ? 'border-red-500' : 'border-black'
+                                } bg-[#F4F6FA] text-base py-2 placeholder-gray-600 focus:outline-none focus:border-blue-600`}
+                                required
+                                disabled={isLoading}
+                            />
+                            {fieldErrors.first_name && (
+                                <p className="text-red-500 text-xs mt-1">{fieldErrors.first_name}</p>
+                            )}
+                        </div>
 
-                        <input
-                            type="text"
-                            name="last_name"
-                            placeholder="Фамилия"
-                            value={formData.last_name}
-                            onChange={handleChange}
-                            className="w-[357px] border-0 border-b border-[#000000] bg-[#F4F6FA] text-[16px] py-2 mb-[32px] placeholder-[#585858]"
-                            required
-                        />
+                        {/* Last Name */}
+                        <div>
+                            <input
+                                type="text"
+                                name="last_name"
+                                placeholder="Фамилия"
+                                value={formData.last_name}
+                                onChange={handleChange}
+                                className={`w-full border-0 border-b ${
+                                    fieldErrors.last_name ? 'border-red-500' : 'border-black'
+                                } bg-[#F4F6FA] text-base py-2 placeholder-gray-600 focus:outline-none focus:border-blue-600`}
+                                required
+                                disabled={isLoading}
+                            />
+                            {fieldErrors.last_name && (
+                                <p className="text-red-500 text-xs mt-1">{fieldErrors.last_name}</p>
+                            )}
+                        </div>
 
-                        <input
-                            type="text"
-                            name="username"
-                            placeholder="Ваше имя пользователя"
-                            value={formData.username}
-                            onChange={handleChange}
-                            className="w-[357px] border-0 border-b border-[#000000] bg-[#F4F6FA] text-[16px] py-2 mb-[32px] placeholder-[#585858]"
-                            required
-                        />
+                        {/* Username */}
+                        <div>
+                            <input
+                                type="text"
+                                name="username"
+                                placeholder="Ваше имя пользователя"
+                                value={formData.username}
+                                onChange={handleChange}
+                                className={`w-full border-0 border-b ${
+                                    fieldErrors.username ? 'border-red-500' : 'border-black'
+                                } bg-[#F4F6FA] text-base py-2 placeholder-gray-600 focus:outline-none focus:border-blue-600`}
+                                required
+                                disabled={isLoading}
+                            />
+                            {fieldErrors.username && (
+                                <p className="text-red-500 text-xs mt-1">{fieldErrors.username}</p>
+                            )}
+                        </div>
 
-                        <input
-                            type="password"
-                            name="password"
-                            placeholder="Пароль"
-                            value={formData.password}
-                            onChange={handleChange}
-                            className="w-[357px] border-0 border-b border-[#000000] bg-[#F4F6FA] text-[16px] py-2 mb-[32px] placeholder-[#585858]"
-                            required
-                        />
+                        {/* Password */}
+                        <div>
+                            <input
+                                type="password"
+                                name="password"
+                                placeholder="Пароль"
+                                value={formData.password}
+                                onChange={handleChange}
+                                className={`w-full border-0 border-b ${
+                                    fieldErrors.password ? 'border-red-500' : 'border-black'
+                                } bg-[#F4F6FA] text-base py-2 placeholder-gray-600 focus:outline-none focus:border-blue-600`}
+                                required
+                                disabled={isLoading}
+                            />
+                            {fieldErrors.password && (
+                                <p className="text-red-500 text-xs mt-1">{fieldErrors.password}</p>
+                            )}
+                        </div>
 
-                        <input
-                            type="password"
-                            name="confirm_password"
-                            placeholder="Подтвердите пароль"
-                            value={formData.confirm_password}
-                            onChange={handleChange}
-                            className="w-[357px] border-0 border-b border-[#000000] bg-[#F4F6FA] text-[16px] py-2 mb-[32px] placeholder-[#585858]"
-                            required
-                        />
+                        {/* Confirm Password */}
+                        <div>
+                            <input
+                                type="password"
+                                name="confirm_password"
+                                placeholder="Подтвердите пароль"
+                                value={formData.confirm_password}
+                                onChange={handleChange}
+                                className="w-full border-0 border-b border-black bg-[#F4F6FA] text-base py-2 placeholder-gray-600 focus:outline-none focus:border-blue-600"
+                                required
+                                disabled={isLoading}
+                            />
+                        </div>
 
-                        {/* Error */}
-                        {error && <p className="text-red-500 text-sm mb-2">{error}</p>}
+                        {/* General Error */}
+                        {error && (
+                            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                                <p className="text-red-600 text-sm">{error}</p>
+                            </div>
+                        )}
 
-                        <div className="flex items-start gap-2 mt-4 mb-6">
-                            <input type="checkbox" required className="mt-1 w-4 h-4 accent-black" />
-                            <p className="text-[12px] leading-[18px]">
+                        {/* Checkbox */}
+                        <div className="flex items-start gap-2 mt-4">
+                            <input
+                                type="checkbox"
+                                required
+                                className="mt-1 w-4 h-4 accent-blue-600"
+                                disabled={isLoading}
+                            />
+                            <p className="text-xs leading-tight text-gray-700">
                                 Я прочитал и принял Политику конфиденциальности и Условия*
                             </p>
                         </div>
 
+                        {/* Submit Button */}
                         <button
                             type="submit"
-                            className="w-[177px] h-[57px] ml-[100px] bg-[#3066BE] text-white text-[16px] font-semibold rounded-[10px] px-[25px] py-[15px] hover:bg-[#2a58a6] transition flex items-center justify-center gap-2"
+                            disabled={isLoading}
+                            className="w-[177px] h-[57px] ml-[100px] bg-[#3066BE] text-white text-[16px] font-semibold rounded-[10px] px-[25px] py-[15px] hover:bg-[#2a58a6] transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            Следующий
-                            <img src="/next.png" alt="next icon" className="w-4 h-4" />
+                            {isLoading ? (
+                                <span>Загрузка...</span>
+                            ) : (
+                                <React.Fragment>
+                                    Следующий
+                                    <img src="/next.png" alt="next icon" className="w-4 h-4" />
+                                </React.Fragment>
+                            )}
                         </button>
-
-                        <a
-                            href="/login"
-                            className="text-[12px] ml-[135px] text-[#3066BE] font-[600] cursor-pointer hover:underline block mt-4"
-                        >
-                            Уже есть аккаунт?
-                        </a>
                     </form>
-                </div>
-            </div>
 
-            {/* Tablet only (md) */}
-            <div className="hidden md:block lg:hidden">
-                <RegisterTablet />
-            </div>
+                    {/* Link form tashqarisida */}
 
-            {/* Mobile (sm va past) */}
-            <div className="block md:hidden">
-                <RegisterMobile
-                    formData={formData}
-                    onChange={handleChange}
-                    onSubmit={handleSubmit}
-                    error={error}
-                />
+                    <a href="/login"
+                    className="text-[12px] ml-[135px] text-[#3066BE] font-[600] cursor-pointer hover:underline block mt-4"
+                    >
+                    Уже есть аккаунт?
+                </a>
             </div>
-        </>
-    );
+        </div>
+
+    {/* Tablet only (md) */}
+    <div className="hidden md:block lg:hidden">
+        <RegisterTablet
+            formData={formData}
+            onChange={handleChange}
+            onSubmit={handleSubmit}
+            error={error}
+            fieldErrors={fieldErrors}
+            isLoading={isLoading}
+        />
+    </div>
+
+    {/* Mobile (sm va past) */}
+    <div className="block md:hidden">
+        <RegisterMobile
+            formData={formData}
+            onChange={handleChange}
+            onSubmit={handleSubmit}
+            error={error}
+            fieldErrors={fieldErrors}
+            isLoading={isLoading}
+        />
+    </div>
+</React.Fragment>
+);
 }

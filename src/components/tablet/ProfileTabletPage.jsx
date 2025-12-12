@@ -258,37 +258,42 @@ export default function ProfileTabletPage() {
         const fetchAllMedia = async () => {
             try {
                 setLoading(true);
-                const projectRes = await api.get("portfolio/projects/");
-                const projects = projectRes.data.results;
 
-                if (projects.length === 0) {
-                    console.warn("Hech qanday portfolio project topilmadi");
-                    setLoading(false);
+                // ✅ To‘g‘ri endpointlar
+                const projectRes = await api.get("/api/projects/");
+                const projects = projectRes.data.results || projectRes.data;
+
+                if (!Array.isArray(projects) || projects.length === 0) {
+                    setPortfolioItems([]);
                     return;
                 }
 
                 const mediaResponses = await Promise.all(
                     projects.map((project) =>
-                        api.get(`portfolio/portfolio-media/?project=${project.id}`)
+                        api.get(`/api/portfolio-media/?project=${project.id}`)
                     )
                 );
 
-                const allMedia = mediaResponses.flatMap((res) => res.data.results);
+                const allMedia = mediaResponses.flatMap(
+                    (res) => res.data.results || res.data
+                );
+
                 setPortfolioItems(allMedia);
             } catch (err) {
                 console.error("Portfolio yuklashda xatolik:", err);
-                setError("Xatolik yuz berdi");
+                // ❗ bu yerda endi setError chaqirmaymiz
             } finally {
                 setLoading(false);
             }
         };
+
 
         fetchAllMedia();
     }, []);
 
     const fetchSkills = async () => {
         try {
-            const res = await api.get("skills/skills/");
+            const res = await api.get("/api/skills/");
             setSkills(res.data);
         } catch (err) {
             console.error("Skill olishda xatolik:", err);
@@ -308,7 +313,7 @@ export default function ProfileTabletPage() {
 
     const fetchCertificates = async () => {
         try {
-            const res = await api.get("/certificate/certificates/");
+            const res = await api.get("/api/certificates/");
             const list = Array.isArray(res.data) ? res.data : (res.data.results || []);
             setCertificates(list);
         } catch (e) {
@@ -319,7 +324,7 @@ export default function ProfileTabletPage() {
 // Yaratish (modal “Saqlash” bosilganda)
     const handleSaveCertificate = async (formData) => {
         try {
-            await api.post("/certificate/certificates/", formData, {
+            await api.post("/api/certificates/", formData, {
                 headers: { "Content-Type": "multipart/form-data" }
             });
             await fetchCertificates();
@@ -361,7 +366,7 @@ export default function ProfileTabletPage() {
 
     const fetchExperiences = async () => {
         try {
-            const res = await api.get("experience/");
+            const res = await api.get("/api/experiences/");
             setExperiences(res.data);
         } catch (err) {
             console.error("Tajriba olishda xatolik:", err);

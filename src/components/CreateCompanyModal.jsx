@@ -1,5 +1,6 @@
+// src/components/CreateCompanyModal.jsx
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../utils/api";
 
 export default function CreateCompanyModal({ onClose, onSuccess, company = null }) {
     const isEdit = Boolean(company);
@@ -16,13 +17,12 @@ export default function CreateCompanyModal({ onClose, onSuccess, company = null 
             setIndustry(company.industry || "");
             setWebsite(company.website || "");
             setLocation(company.location || "");
-            setLogo(null); // mavjud logo update bo‘lmaguncha o‘zgartirilmaydi
+            setLogo(null); // eski logoni qayta yuborish shart emas
         }
-    }, [company]);
+    }, [company, isEdit]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const token = localStorage.getItem("access_token");
 
         const formData = new FormData();
         formData.append("name", name);
@@ -35,32 +35,26 @@ export default function CreateCompanyModal({ onClose, onSuccess, company = null 
 
         try {
             let response;
+            const config = {
+                headers: {
+                    "Content-Type": "multipart/form-data",
+                },
+            };
+
             if (isEdit) {
-                response = await axios.patch(
-                    `http://localhost:8000/api/companies/${company.id}/`,
-                    formData,
-                    { headers: { Authorization: `Bearer ${token}` } }
-                );
+                response = await api.patch(`/api/companies/${company.id}/`, formData, config);
                 alert("Kompaniya tahrirlandi!");
             } else {
-                response = await axios.post(
-                    "http://localhost:8000/api/companies/",
-                    formData,
-                    {
-                        headers: {
-                            Authorization: `Bearer ${token}`,
-                            "Content-Type": "multipart/form-data",
-                        },
-                    }
-                );
-
+                response = await api.post("/api/companies/", formData, config);
+                alert("Kompaniya yaratildi!");
             }
+
             console.log("✅ Javob:", response.data);
-            onSuccess();
-            onClose();
+            if (typeof onSuccess === "function") onSuccess();
+            if (typeof onClose === "function") onClose();
         } catch (err) {
             console.error("❌ Xatolik:", err.response?.data || err.message);
-            alert("Xatolik: " + JSON.stringify(err.response?.data));
+            alert("Xatolik: " + JSON.stringify(err.response?.data || err.message));
         }
     };
 
@@ -74,10 +68,35 @@ export default function CreateCompanyModal({ onClose, onSuccess, company = null 
                     {isEdit ? "Kompaniyani tahrirlash" : "Yangi Kompaniya Qo‘shish"}
                 </h2>
 
-                <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nomi" required className="border px-3 py-2 rounded-[10px]" />
-                <input type="text" value={industry} onChange={(e) => setIndustry(e.target.value)} placeholder="Sohasi" className="border px-3 py-2 rounded-[10px]" />
-                <input type="text" value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="Website" className="border px-3 py-2 rounded-[10px]" />
-                <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Joylashuv" className="border px-3 py-2 rounded-[10px]" />
+                <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Nomi"
+                    required
+                    className="border px-3 py-2 rounded-[10px]"
+                />
+                <input
+                    type="text"
+                    value={industry}
+                    onChange={(e) => setIndustry(e.target.value)}
+                    placeholder="Sohasi"
+                    className="border px-3 py-2 rounded-[10px]"
+                />
+                <input
+                    type="text"
+                    value={website}
+                    onChange={(e) => setWebsite(e.target.value)}
+                    placeholder="Website"
+                    className="border px-3 py-2 rounded-[10px]"
+                />
+                <input
+                    type="text"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    placeholder="Joylashuv"
+                    className="border px-3 py-2 rounded-[10px]"
+                />
 
                 <div className="relative w-full">
                     <input
@@ -93,10 +112,17 @@ export default function CreateCompanyModal({ onClose, onSuccess, company = null 
                 </div>
 
                 <div className="flex justify-end gap-4 mt-4">
-                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-300 rounded-[10px]">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="px-4 py-2 bg-gray-300 rounded-[10px]"
+                    >
                         Bekor qilish
                     </button>
-                    <button type="submit" className="px-4 py-2 bg-[#3066BE] text-white rounded-[10px]">
+                    <button
+                        type="submit"
+                        className="px-4 py-2 bg-[#3066BE] text-white rounded-[10px]"
+                    >
                         {isEdit ? "Saqlash" : "Qo‘shish"}
                     </button>
                 </div>

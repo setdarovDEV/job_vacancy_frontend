@@ -1,221 +1,371 @@
 // src/pages/ChatPage.jsx
-import React, { useEffect, useMemo, useCallback, useState, useRef } from "react";
-import { chatApi } from "../services/chatApi";
-import { ChatWS } from "../services/chatWS";
-import api from "../utils/api.js";
-import ProfileDropdown from "../components/ProfileDropdown.jsx";
-import ChatPageTablet from "../components/tablet/ChatPageTablet.jsx";
-import ChatMobile from "../components/mobile/ChatMobile.jsx";
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { Search, Bell, Send, ArrowLeft, ChevronRight } from "lucide-react";
+import { toast } from "react-toastify";
+import api from "../utils/api";
+import ProfileDropdown from "../components/ProfileDropdown";
+import MobileNavbar from "../components/mobile/MobileNavbar";
+import MobileNavbarLogin from "../components/mobile/MobileNavbarLogin";
+import MobileFooter from "../components/mobile/MobileFooter";
 
-export default function CommunityPage() {
+// ============================================
+// HELPERS
+// ============================================
+const makeAbsUrl = (path) => {
+    if (!path) return "";
+    const s = String(path).trim();
+    if (/^https?:\/\//i.test(s)) return s;
+    const base = (api?.defaults?.baseURL || "").replace(/\/+$/, "");
+    const clean = s.replace(/^\/+/, "");
+    return `${base}/${clean}`;
+};
+
+const formatTime = (iso) => {
+    if (!iso) return "";
+    return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+};
+
+// ============================================
+// TEXTS
+// ============================================
+const TEXTS = {
+    RU: {
+        community: "Сообщество",
+        vacancies: "Вакансии",
+        chat: "Чат",
+        companies: "Компании",
+        login: "Войти",
+        messages: "Сообщения",
+        search: "Поиск...",
+        writeMessage: "Напишите сообщение...",
+        noMessages: "Хозирча хабар йўқ",
+        logo: "Logo",
+        links: ["Помощь", "Наши вакансии", "Реклама на сайте", "Требования к ПО", "Инвесторам", "Каталог компаний", "Работа по профессиям"],
+        copyright: "© 2025 «HeadHunter – Вакансии». Все права защищены. Карта сайта",
+    },
+    UZ: {
+        community: "Jamiyat",
+        vacancies: "Vakansiyalar",
+        chat: "Chat",
+        companies: "Kompaniyalar",
+        login: "Kirish",
+        messages: "Xabarlar",
+        search: "Qidiruv...",
+        writeMessage: "Xabar yozing...",
+        noMessages: "Xabarlar yo'q",
+        logo: "Logo",
+        links: ["Yordam", "Bizning vakantiyalar", "Saytda reklama", "Dasturiy ta'minot talablari", "Investorlar uchun", "Kompaniyalar katalogi", "Kasblar bo'yicha ishlar"],
+        copyright: "© 2025 «HeadHunter – Vakansiyalar». Barcha huquqlar himoyalangan. Sayt xaritasi",
+    },
+};
+
+// ============================================
+// MOBILE CONVERSATION MODAL
+// ============================================
+function MobileConversation({ open, peer, onClose }) {
+    const navigate = useNavigate();
+    const [messages, setMessages] = useState([]);
+    const [input, setInput] = useState("");
+    const [sending, setSending] = useState(false);
+    const [file, setFile] = useState(null);
+    const [chatId, setChatId] = useState(null);
+    const endRef = useRef(null);
+    const fileRef = useRef(null);
+
+    const meIdStr = String(localStorage.getItem("user_id") || "");
+
+    useEffect(() => {
+        if (!open || !peer?.id) return;
+
+        const init = async () => {
+            try {
+                const chatRes = await api.post("/api/chats/get_or_create/", { user_id: peer.id });
+                setChatId(chatRes.data.id);
+
+                const msgRes = await api.get(`/api/chats/${chatRes.data.id}/messages/`);
+                setMessages(msgRes.data || []);
+
+                setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+            } catch (err) {
+                console.error("Load messages error:", err);
+            }
+        };
+
+        init();
+    }, [open, peer?.id]);
+
+    const handleSend = async () => {
+        if (!input.trim() && !file) return;
+
+        try {
+            setSending(true);
+
+            const formData = new FormData();
+            if (input.trim()) formData.append("text", input.trim());
+            if (file) formData.append("file", file);
+
+            await api.post(`/api/chats/${chatId}/messages/`, formData, {
+                headers: { "Content-Type": "multipart/form-data" },
+            });
+
+            const msgRes = await api.get(`/api/chats/${chatId}/messages/`);
+            setMessages(msgRes.data || []);
+
+            setInput("");
+            setFile(null);
+            if (fileRef.current) fileRef.current.value = "";
+
+            setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+        } catch (err) {
+            console.error("Send message error:", err);
+        } finally {
+            setSending(false);
+        }
+    };
+
+    // ✅ YANGI: Profile sahifasiga o'tish
+    const handleAvatarClick = () => {
+        if (peer?.id) {
+            navigate(`/profile/${peer.id}`);
+        }
+    };
+
+    if (!open) return null;
+
+    const isMineMsg = (m) => String(m.sender?.id) === meIdStr || m.is_me === true;
+
+    return (
+        <div className="fixed inset-0 z-[100] bg-white flex flex-col">
+            <div className="h-[60px] border-b flex items-center justify-between px-4">
+                <button onClick={onClose} className="p-2 -ml-2 active:scale-95">
+                    <ArrowLeft className="w-5 h-5 text-[#3066BE]" />
+                </button>
+
+                {/* ✅ Avatar va ism bosiladigan */}
+                <button
+                    onClick={handleAvatarClick}
+                    className="flex items-center gap-3 active:scale-95 transition"
+                >
+                    <img
+                        src={makeAbsUrl(peer?.avatar_url) || "/user1.png"}
+                        alt={peer?.full_name || "User"}
+                        className="w-10 h-10 rounded-full object-cover cursor-pointer"
+                    />
+                    <div className="text-left">
+                        <p className="text-[15px] font-semibold text-black cursor-pointer hover:text-[#3066BE]">
+                            {peer?.full_name || peer?.username || "—"}
+                        </p>
+                        <p className="text-[12px] text-gray-500">Online</p>
+                    </div>
+                </button>
+
+                <div className="w-5" />
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-4 py-4 bg-[#F8F8F8]">
+                <div className="space-y-3">
+                    {messages.length === 0 ? (
+                        <div className="text-center text-gray-400 py-8">Xabarlar yo'q</div>
+                    ) : (
+                        messages.map((m) => {
+                            const mine = isMineMsg(m);
+                            const timeStr = formatTime(m.created_at);
+
+                            return (
+                                <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+                                    <div className={`max-w-[75%] px-4 py-2 rounded-2xl shadow-sm ${mine ? "bg-[#3066BE] text-white rounded-br-sm" : "bg-white text-black rounded-bl-sm border border-gray-200"}`}>
+                                        <p className="text-[14px] break-words">{m.text}</p>
+                                        {timeStr && <p className={`mt-1 text-[11px] ${mine ? "text-white/80" : "text-gray-500"}`}>{timeStr}</p>}
+                                    </div>
+                                </div>
+                            );
+                        })
+                    )}
+                    <div ref={endRef} />
+                </div>
+            </div>
+
+            <div className="border-t px-4 py-3 bg-white">
+                <div className="flex items-center gap-3">
+                    <input
+                        type="text"
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+                        placeholder="Xabar yozing..."
+                        className="flex-1 h-10 px-4 rounded-2xl bg-[#F4F6FA] border-none outline-none text-[14px] text-black placeholder-gray-500"
+                    />
+
+                    <button onClick={handleSend} disabled={sending || (!input.trim() && !file)} className="p-2 bg-transparent active:scale-95 disabled:opacity-50">
+                        <Send className="w-5 h-5 text-[#3066BE]" />
+                    </button>
+                </div>
+
+                <input ref={fileRef} type="file" className="hidden" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+            </div>
+        </div>
+    );
+}
+
+// ============================================
+// MAIN COMPONENT
+// ============================================
+export default function ChatPage() {
+    const navigate = useNavigate();
+
     const [selectedLang, setSelectedLang] = useState({ flag: "/ru.png", code: "RU" });
     const [showLang, setShowLang] = useState(false);
     const [showMobileMenu, setShowMobileMenu] = useState(false);
-    const [topQuery, setTopQuery] = useState("");
-    const [leftQuery, setLeftQuery] = useState("");
-    const [allRooms, setAllRooms] = useState([]);
-    const [rooms, setRooms] = useState([]);
-    const [suggests, setSuggests] = useState([]);
-    const [activeIdx, setActiveIdx] = useState(-1);
-    const [activeRoom, setActiveRoom] = useState(null);
+
+    const [user, setUser] = useState(null);
+    const [profileImage, setProfileImage] = useState(null);
+
+    const [chats, setChats] = useState([]);
+    const [activeChat, setActiveChat] = useState(null);
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState("");
-    const [file, setFile] = useState(null); // <— qayta yoqildi
-    const [peer, setPeer] = useState({ full_name: "", avatar: "/profile.png" });
-    const [statusText, setStatusText] = useState("");
-    const [typing, setTyping] = useState(false);
     const [sending, setSending] = useState(false);
+    const [file, setFile] = useState(null);
 
-    const token = useMemo(() => localStorage.getItem("access") || localStorage.getItem("access_token") || "", []);
-    const user = JSON.parse(localStorage.getItem("user"));
-    const meId = user?.id || user?.pk || user?.uuid || "";
-    const meIdStr = String(meId);
-    const roomKey = useMemo(() => (activeRoom ? `chat:${activeRoom}` : null), [activeRoom]);
+    const [leftQuery, setLeftQuery] = useState("");
+    const [suggests, setSuggests] = useState([]);
 
-    // --- helper: relative URL -> absolute (api.baseURL ga tayangan)
-    const makeAbsUrl = (path) => {
-        if (!path) return "";
-        const s = String(path).trim();
-        if (/^https?:\/\//i.test(s)) return s;
-        const base = (api?.defaults?.baseURL || "").replace(/\/+$/, ""); // .../api
-        const clean = s.replace(/^\/+/, "");
-        return `${base}/${clean}`;
-    };
+    const [activePeer, setActivePeer] = useState(null);
 
-    const setMessagesAndCache = useCallback(
-        (updater) => {
-            setMessages((prev) => {
-                const next = typeof updater === "function" ? updater(prev) : updater;
-                try {
-                    if (roomKey) localStorage.setItem(roomKey, JSON.stringify(next));
-                } catch {}
-                return next;
-            });
-        },
-        [roomKey]
-    );
-
-    const wsRef = useRef(null);
-    const inputRef = useRef(null);
     const fileRef = useRef(null);
     const endRef = useRef(null);
-    const msgBoxRef = useRef(null);
-    const typingTimer = useRef(null);
-    const topBoxRef = useRef(null);
+
+    const langCode = selectedLang?.code === "GB" ? "EN" : selectedLang?.code || "RU";
+    const t = TEXTS[langCode] || TEXTS.RU;
+
+    const meIdStr = String(localStorage.getItem("user_id") || "");
 
     useEffect(() => {
-        (async () => {
-            try {
-                await api.get("/api/auth/me");
-            } catch (e) {
-                console.warn("auth/me error:", e);
-            }
-        })();
+        api.get("/api/auth/me/")
+            .then((res) => setUser(res.data))
+            .catch(() => {});
     }, []);
 
-    const formatName = (s) =>
-        String(s)
-            .split(" ")
-            .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-            .join(" ");
-    const displayName = useMemo(() => formatName(peer?.full_name || peer?.username || peer?.email || ""), [peer]);
-    const isMineMsg = (m) => String(m.user_id) === meIdStr;
-    const toCompact = (m) => ({
-        id: m.id ?? null,
-        created_at: m.created_at ?? null,
-        user_id: String(m.user_id ?? m.sender_id ?? m.sender ?? ""),
-        message: m.message ?? m.text ?? "",
-        status: m.status ?? "sent",
-    });
-    const ago = (iso) => {
-        if (!iso) return "";
-        const d = new Date(iso);
-        const diff = Math.max(0, Date.now() - d.getTime());
-        const m = Math.floor(diff / 60000);
-        if (m < 1) return "в сети";
-        if (m < 60) return `был(а) ${m} мин назад`;
-        const h = Math.floor(m / 60);
-        if (h < 24) return `был(а) ${h} часа назад`;
-        const day = Math.floor(h / 24);
-        return `был(а) ${day} дн назад`;
+    useEffect(() => {
+        api.get("/api/auth/profile/")
+            .then((res) => {
+                const imagePath = res.data.profile_image;
+                if (imagePath) {
+                    const imageUrl = `http://127.0.0.1:8000${imagePath}?t=${Date.now()}`;
+                    setProfileImage(imageUrl);
+                }
+            })
+            .catch(() => {});
+    }, []);
+
+    useEffect(() => {
+        const fetchChats = async () => {
+            try {
+                const res = await api.get("/api/chats/");
+                setChats(res.data || []);
+            } catch (err) {
+                console.error("Fetch chats error:", err);
+            }
+        };
+        fetchChats();
+    }, []);
+
+    useEffect(() => {
+        if (!activeChat?.id) return;
+
+        const loadMessages = async () => {
+            try {
+                const res = await api.get(`/api/chats/${activeChat.id}/messages/`);
+                setMessages(res.data || []);
+                setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+            } catch (err) {
+                console.error("Load messages error:", err);
+            }
+        };
+
+        loadMessages();
+    }, [activeChat?.id]);
+
+    useEffect(() => {
+        const query = leftQuery.trim();
+        if (!query) {
+            setSuggests([]);
+            return;
+        }
+
+        const delay = setTimeout(async () => {
+            try {
+                const res = await api.get(`/api/auth/users/search/?q=${encodeURIComponent(query)}`);
+                const filtered = (res.data.results || []).filter((u) => u.role !== "ADMIN" && String(u.id) !== meIdStr);
+                setSuggests(filtered);
+            } catch (err) {
+                console.error("Search error:", err);
+            }
+        }, 400);
+
+        return () => clearTimeout(delay);
+    }, [leftQuery, meIdStr]);
+
+    const handleSelectUser = async (u) => {
+        try {
+            const chatRes = await api.post("/api/chats/get_or_create/", { user_id: u.id });
+            setActiveChat(chatRes.data);
+            setSuggests([]);
+            setLeftQuery("");
+
+            const msgRes = await api.get(`/api/chats/${chatRes.data.id}/messages/`);
+            setMessages(msgRes.data || []);
+        } catch (err) {
+            console.error("Create chat error:", err);
+        }
     };
 
-    // TEXTS
-    const texts = {
-        RU: {
-            community: "Сообщество",
-            vacancies: "Вакансии",
-            chat: "Чат",
-            companies: "Компании",
-            login: "Войти",
-            logo: "Logo",
-            links: ["Помощь", "Наши вакансии", "Реклама на сайте", "Требования к ПО", "Инвесторам", "Каталог компаний", "Работа по профессиям"],
-            copyright: "© 2025 «HeadHunter – Вакансии». Все права защищены. Карта сайта",
-            anonymous: "Разместить пост анонимно",
-            asSchoolStudent: "как студент школы",
-            asCollegeStudent: "как студент колледжа",
-            asUniversityStudent: "как студент университета",
-            createPost: "Создать публикацию",
-            createPublication: "Создать публикацию",
-            placeholder: "Поделитесь своим опытом или получите совет от других профессионалов...",
-            publish: "Опубликовать",
-            like: "Лайк",
-            comment: "Комментарий",
-            send: "Отправить",
-            search: "Поиск...",
-            postText:
-                "Я сказал, что мой ожидаемый ctc составляет 10 lpa, но я чувствую, что у них есть лучший диапазон зарплат от 12 lpa до 16 lpa... Если честно, я думаю что ожидания могут совпасть с предложениями на рынке. Посмотрим что будет дальше.",
-            hour: "2 ч",
-            topAccounts: "Топ аккаунты",
-            seeAll: "Посмотреть все →",
-            communityDesc: "Сообщество профессионалов в области...",
-            view: "Смотреть",
-            subscribe: "Подписаться",
-        },
-        UZ: {
-            community: "Jamiyat",
-            vacancies: "Vakansiyalar",
-            chat: "Chat",
-            companies: "Kompaniyalar",
-            login: "Kirish",
-            logo: "Logo",
-            links: [
-                "Yordam",
-                "Bizning vakantiyalar",
-                "Saytda reklama",
-                "Dasturiy ta'minot talablari",
-                "Investorlar uchun",
-                "Kompaniyalar katalogi",
-                "Kasblar bo‘yicha ishlar",
-            ],
-            copyright: "© 2025 «HeadHunter – Vakansiyalar». Barcha huquqlar himoyalangan. Sayt xaritasi",
-            anonymous: "Postni anonim joylashtirish",
-            asSchoolStudent: "maktab o‘quvchisi sifatida",
-            asCollegeStudent: "kollej talabasi sifatida",
-            asUniversityStudent: "universitet talabasi sifatida",
-            createPost: "Post yaratish",
-            createPublication: "Post yaratish",
-            placeholder: "O‘z tajribangiz bilan o‘rtoqlashing yoki boshqa professionallardan maslahat oling...",
-            publish: "Yaratish",
-            like: "Layk",
-            comment: "Izoh",
-            send: "Yuborish",
-            search: "Qidiruv...",
-            postText:
-                "Men aytdimki, mening kutilayotgan ish haqi (ctc) 10 lpa, lekin ular 12 lpa dan 16 lpa gacha yaxshiroq diapazonga ega deb o‘ylayman... Ochig‘i, o‘ylaymanki, kutgan narsalarim bozor takliflari bilan mos kelishi mumkin. Ko‘ramiz, nima bo‘ladi.",
-            hour: "2 s",
-            topAccounts: "Top akkauntlar",
-            seeAll: "Hammasini ko‘rish →",
-            communityDesc: "Konsalting sohasidagi professionallar jamiyati...",
-            view: "Ko‘rish",
-            subscribe: "Obuna bo‘lish",
-        },
-        EN: {
-            community: "Community",
-            vacancies: "Vacancies",
-            chat: "Chat",
-            companies: "Companies",
-            login: "Login",
-            logo: "Logo",
-            links: ["Help", "Our Vacancies", "Advertising on site", "Software Requirements", "For Investors", "Company Catalog", "Jobs by Profession"],
-            copyright: "© 2025 «HeadHunter – Vacancies». All rights reserved. Sitemap",
-            anonymous: "Post anonymously",
-            asSchoolStudent: "as a school student",
-            asCollegeStudent: "as a college student",
-            asUniversityStudent: "as a university student",
-            createPost: "Create post",
-            createPublication: "Create publication",
-            placeholder: "Share your experience or get advice from other professionals...",
-            publish: "Publish",
-            like: "Like",
-            comment: "Comment",
-            send: "Send",
-            search: "Search...",
-            postText:
-                "I said my expected ctc is 10 lpa, but I feel they have a better salary range from 12 lpa to 16 lpa... Honestly, I think my expectations might match the market offers. Let’s see what happens next.",
-            hour: "2 h",
-            topAccounts: "Top accounts",
-            seeAll: "See all →",
-            communityDesc: "Community of professionals in consulting...",
-            view: "View",
-            subscribe: "Subscribe",
-        },
+    const handleSend = async () => {
+        if (!input.trim() && !file) return;
+
+        try {
+            setSending(true);
+
+            const formData = new FormData();
+            if (input.trim()) formData.append("text", input.trim());
+            if (file) formData.append("file", file);
+
+            await api.post(`/api/chats/${activeChat.id}/messages/`, formData, {
+                headers: { "Content-Type": "multipart/form-data" },
+            });
+
+            const res = await api.get(`/api/chats/${activeChat.id}/messages/`);
+            setMessages(res.data || []);
+
+            setInput("");
+            setFile(null);
+            if (fileRef.current) fileRef.current.value = "";
+
+            setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+        } catch (err) {
+            console.error("Send message error:", err);
+            toast.error("Xatolik yuz berdi");
+        } finally {
+            setSending(false);
+        }
     };
-    const langCode = selectedLang?.code === "GB" ? "EN" : selectedLang?.code || "RU";
+
+    // ✅ YANGI: Profile sahifasiga o'tish
+    const handleUserClick = (userId) => {
+        if (userId) {
+            navigate(`/profile/${userId}`);
+        }
+    };
+
+    const isMineMsg = (m) => String(m.sender?.id) === meIdStr || m.is_me === true;
 
     return (
         <>
-            <div className="hidden md:block lg:hidden">
-                <ChatPageTablet />
-            </div>
-
-            {/* Mobile */}
-            <div className="block md:hidden">
-                <ChatMobile />
-            </div>
-
+            {/* ============================================ */}
+            {/* DESKTOP VERSION (lg:) */}
+            {/* ============================================ */}
             <div className="hidden lg:block font-sans relative bg-white">
-                {/* NAVBAR */}
                 <nav className="fixed top-0 left-0 w-full z-50 bg-[#F4F6FA] shadow-md">
                     <div className="w-full max-w-[1800px] mx-auto flex items-center justify-between px-4 sm:px-6 md:px-10 h-[70px] md:h-[80px] lg:h-[90px]">
                         <a href="/">
@@ -224,302 +374,156 @@ export default function CommunityPage() {
 
                         <div className="hidden md:flex gap-4 md:gap-5 lg:gap-8 font-semibold text-[13px] md:text-[14px] lg:text-[16px] tracking-wide mx-auto">
                             <a href="/community" className="text-black hover:text-[#3066BE] transition">
-                                {texts[langCode].community}
+                                {t.community}
                             </a>
                             <a href="/vacancies" className="text-black hover:text-[#3066BE] transition">
-                                {texts[langCode].vacancies}
+                                {t.vacancies}
                             </a>
-                            <a href="/chat" className="text-[#3066BE] hover:text-[#3066BE] transition">
-                                {texts[langCode].chat}
+                            <a href="/chat" className="text-[#3066BE]">
+                                {t.chat}
                             </a>
                             <a href="/companies" className="text-black hover:text-[#3066BE] transition">
-                                {texts[langCode].companies}
+                                {t.companies}
                             </a>
                         </div>
 
                         <div className="hidden md:flex items-center gap-2 sm:gap-3 md:gap-4">
-                            <div className="relative flex items-center gap-2 cursor-pointer" onClick={() => setShowLang(!showLang)}>
-                                <img src={selectedLang.flag} alt={selectedLang.code} className="w-6 h-4 sm:w-7 sm:h-4 md:w-8 md:h-5 object-cover" />
-                                <svg className="w-3 h-3 sm:w-4 sm:h-4" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" clipRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" />
-                                </svg>
-                                {showLang && (
-                                    <div className="absolute top-full left-0 mt-2 bg-white border rounded shadow-lg w-12 z-50">
-                                        <div
-                                            onClick={() => {
-                                                setSelectedLang({ flag: "/ru.png", code: "RU" });
-                                                setShowLang(false);
-                                            }}
-                                            className="hover:bg-gray-100 px-1 py-2 cursor-pointer flex justify-center"
-                                        >
-                                            <img src="/ru.png" alt="RU" className="w-8 h-5" />
-                                        </div>
-                                        <div
-                                            onClick={() => {
-                                                setSelectedLang({ flag: "/uz.png", code: "UZ" });
-                                                setShowLang(false);
-                                            }}
-                                            className="hover:bg-gray-100 px-1 py-2 cursor-pointer flex justify-center"
-                                        >
-                                            <img src="/uz.png" alt="UZ" className="w-8 h-5" />
-                                        </div>
-                                        <div
-                                            onClick={() => {
-                                                setSelectedLang({ flag: "/uk.png", code: "EN" });
-                                                setShowLang(false);
-                                            }}
-                                            className="hover:bg-gray-100 px-1 py-2 cursor-pointer flex justify-center"
-                                        >
-                                            <img src="/uk.png" alt="EN" className="w-8 h-5" />
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
                             <ProfileDropdown />
                         </div>
-
-                        {/* Mobile header RHS */}
-                        <div className="md:hidden flex items-center gap-3 pr-4 sm:pr-6 pt-2">
-                            <div className="relative flex items-center gap-1 cursor-pointer" onClick={() => setShowLang(!showLang)}>
-                                <img src={selectedLang.flag} alt={selectedLang.code} className="w-6 h-4 object-cover" />
-                                <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" clipRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" />
-                                </svg>
-                            </div>
-                            <button onClick={() => setShowMobileMenu(!showMobileMenu)} className="bg-white p-2 rounded-md focus:outline-none">
-                                <svg className="w-8 h-8" fill="none" stroke="#3066BE" viewBox="0 0 24 24" strokeWidth="2">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-                                </svg>
-                            </button>
-                        </div>
                     </div>
-
-                    {/* mobile dropdown menu */}
-                    {showMobileMenu && (
-                        <div className="absolute top-[70px] left-0 w-full bg-white shadow-md flex flex-col items-center gap-2 py-4 z-50">
-                            <a href="" className="w-full px-4 py-3 text-center text-[#3066BE] hover:bg-gray-100 hover:text-[#3066BE] transition">
-                                {texts[langCode].community}
-                            </a>
-                            <a href="/vacancies" className="w-full px-4 py-3 text-center text-black hover:bg-gray-100 hover:text-[#3066BE] transition">
-                                {texts[langCode].vacancies}
-                            </a>
-                            <a href="/chat" className="w-full px-4 py-3 text-center text-black hover:bg-gray-100 hover:text-[#3066BE] transition">
-                                {texts[langCode].chat}
-                            </a>
-                            <a href="/companies" className="w-full px-4 py-3 text-center text-black hover:bg-gray-100 hover:text-[#3066BE] transition">
-                                {texts[langCode].companies}
-                            </a>
-                            <button className="mt-3 bg-[#3066BE] text-white px-6 py-2 rounded-md hover:bg-[#274f94] transition text-[15px]">
-                                {texts[langCode].login}
-                            </button>
-                        </div>
-                    )}
                 </nav>
 
-                {/* SEARCH BELOW NAVBAR */}
-                <div className="bg-white py-4 mt-[90px]">
-                    <div className="max-w-7xl mx-auto w-full px-4 flex items-center justify-between">
-                        <div className="flex justify-center w-full">
-                            <div ref={topBoxRef} className="relative w-[396px]">
-                                <div className="flex items-center bg-[#F4F6FA] rounded-[10px] px-4 py-2 w-[396px] h-[47px] border-none">
-                                    <svg className="w-5 h-5 text-black mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-4.35-4.35M15 15A7.5 7.5 0 104.5 4.5 7.5 7.5 0 0015 15z" />
-                                    </svg>
-                                    <input
-                                        value={topQuery}
-                                        onChange={(e) => setTopQuery(e.target.value)}
-                                        placeholder="Поиск..."
-                                        className="bg-transparent outline-none border-none w-full text-sm text-black placeholder:text-black"
-                                    />
-                                </div>
+                <div className="bg-white py-4 mt-[90px]"></div>
 
-                                {/* Autosuggest */}
-                                {suggests.length > 0 && (
-                                    <div className="absolute z-50 left-0 right-0 mt-2 bg-white rounded-[10px] shadow-md border overflow-hidden">
-                                        {suggests.map((u, idx) => (
-                                            <button
-                                                key={u.id}
-                                                className={`w-full flex items-center bg-white border-none gap-3 px-3 py-2 text-left hover:bg-gray-50 ${idx === activeIdx ? "bg-gray-50" : ""}`}
-                                            >
-                                                <img
-                                                    src={makeAbsUrl(u.avatar) || "/profile.png"}
-                                                    alt=""
-                                                    className="w-[34px] h-[34px] rounded-full object-cover"
-                                                    onError={(e) => (e.currentTarget.src = "/profile.png")}
-                                                />
-                                                <div className="flex flex-col items-start">
-                                                    <span className="text-sm font-semibold text-black">@{u.username}</span>
-                                                    <span className="text-xs text-gray-500">{(u.full_name || u.username || "").toLowerCase()}</span>
-                                                </div>
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* right icons */}
-                        <div className="flex items-center gap-6 ml-6 absolute top-[32px] right-[40px] z-20">
-                            <div className="cursor-pointer">
-                                <span className="text-2xl text-black">?</span>
-                            </div>
-                            <div className="relative cursor-pointer">
-                                <svg className="w-6 h-6 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14V9a6 6 0 10-12 0v5c0 .386-.146.735-.405 1.005L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                                </svg>
-                                <span className="absolute -top-1 -right-1 bg-red-600 text-white rounded-full w-4 h-4 text-[10px] flex items-center justify-center">1</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="w-full max-w-[1440px] mx-auto px-4 py-6 flex gap-6 min-h-[calc(100vh-160px)] pb-[84px]">
-                    {/* LEFT - Chat list */}
+                <div className="w-full max-w-[1440px] mx-auto px-4 pt-10 pb-6 flex gap-6 min-h-[calc(100vh-160px)]">
                     <div className="w-[360px] bg-white border border-black rounded-2xl p-4 flex flex-col">
-                        <div className="flex flex-col gap-4 mb-6">
-                            <h2 className="text-[40px] font-bold text-black">Сообщения</h2>
+                        <h2 className="text-[40px] font-bold text-black mb-6">{t.messages}</h2>
 
-                            <div className="relative">
-                                <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-4.35-4.35M15 15A7.5 7.5 0 104.5 4.5 7.5 7.5 0 0015 15z" />
-                                </svg>
+                        <div className="relative mb-6">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-black" />
+                            <input
+                                type="text"
+                                placeholder={t.search}
+                                className="w-full pl-[38px] pr-3 py-2 border border-black rounded-md text-black placeholder-[#AEAEAE] text-[20px] focus:outline-none focus:border-black"
+                                value={leftQuery}
+                                onChange={(e) => setLeftQuery(e.target.value)}
+                            />
 
-                                <input
-                                    type="text"
-                                    placeholder="Поиск..."
-                                    className="w-full pl-[38px] pr-3 py-2 border border-black rounded-md text-black placeholder-[#AEAEAE] text-[20px] focus:outline-none focus:border-black"
-                                    value={leftQuery}
-                                    onChange={(e) => setLeftQuery(e.target.value)}
-                                />
-                            </div>
+                            {leftQuery.trim() && suggests.length > 0 && (
+                                <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-lg mt-2 shadow-lg z-50 max-h-64 overflow-y-auto">
+                                    {suggests.map((u) => (
+                                        <div key={u.id} className="flex items-center gap-3 p-3 hover:bg-gray-100 cursor-pointer" onClick={() => handleSelectUser(u)}>
+                                            <img src={makeAbsUrl(u.avatar_url) || "/user1.png"} alt={u.full_name} className="w-10 h-10 rounded-full object-cover border" />
+                                            <div className="flex flex-col">
+                                                <span className="font-medium text-black">{u.full_name || u.username}</span>
+                                                <span className="text-sm text-gray-500">{u.role}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex-1 overflow-y-auto flex flex-col gap-3">
-                            {(Array.isArray(rooms) ? rooms : []).map((r) => (
-                                <div key={r.id} className="flex items-center gap-3 p-3 bg-[#F4F6FA] rounded-xl hover:shadow transition cursor-pointer">
+                            {chats.map((chat) => (
+                                <div key={chat.id} className="flex items-center gap-3 p-3 bg-[#F4F6FA] rounded-xl hover:shadow transition cursor-pointer" onClick={() => setActiveChat(chat)}>
+                                    {/* ✅ Avatar bosiladigan */}
                                     <img
-                                        src={makeAbsUrl(r.peer?.avatar) || "/profile.png"}
-                                        className="w-[46px] h-[46px] rounded-full object-cover"
-                                        onError={(e) => (e.currentTarget.src = "/profile.png")}
+                                        src={makeAbsUrl(chat.other_user?.avatar_url) || "/user1.png"}
+                                        className="w-[46px] h-[46px] rounded-full object-cover cursor-pointer hover:ring-2 hover:ring-[#3066BE]"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleUserClick(chat.other_user?.id);
+                                        }}
+                                        onError={(e) => (e.currentTarget.src = "/user1.png")}
                                     />
                                     <div className="flex-1">
-                                        <h3 className="font-semibold text-black">{r.peer?.full_name || r.peer?.username || "—"}</h3>
-                                        <p className="text-gray-500 text-sm truncate">{r.last_message_text || "—"}</p>
+                                        {/* ✅ Ism bosiladigan */}
+                                        <h3
+                                            className="font-semibold text-black cursor-pointer hover:text-[#3066BE]"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleUserClick(chat.other_user?.id);
+                                            }}
+                                        >
+                                            {chat.other_user?.full_name || chat.other_user?.username || "—"}
+                                        </h3>
+                                        <p className="text-gray-500 text-sm truncate">{chat.last_message?.text || "—"}</p>
                                     </div>
-                                    <span className="text-xs text-gray-400">{r.last_message_time || ""}</span>
+                                    <span className="text-xs text-gray-400">{formatTime(chat.last_message?.created_at)}</span>
                                 </div>
                             ))}
                         </div>
                     </div>
 
-                    {/* RIGHT - Chat content */}
-                    <div className="flex-1 bg-[#F4F6FA] border border-none rounded-2xl flex flex-col">
-                        {/* Top: Recipient Info */}
-                        <div className="flex items-center gap-4 p-4 border-b border-none">
+                    <div className="flex-1 bg-[#F4F6FA] rounded-2xl flex flex-col">
+                        <div className="flex items-center gap-4 p-4 border-b">
+                            {/* ✅ Avatar bosiladigan */}
                             <img
-                                src={makeAbsUrl(peer?.avatar) || "/profile.png"}
-                                className="w-[50px] h-[50px] rounded-full object-cover"
+                                src={makeAbsUrl(activeChat?.other_user?.avatar_url) || "/user1.png"}
+                                className="w-[50px] h-[50px] rounded-full object-cover cursor-pointer hover:ring-2 hover:ring-[#3066BE]"
                                 alt=""
-                                onError={(e) => (e.currentTarget.src = "/profile.png")}
+                                onClick={() => handleUserClick(activeChat?.other_user?.id)}
+                                onError={(e) => (e.currentTarget.src = "/user1.png")}
                             />
                             <div>
-                                <h3 className="font-semibold text-lg text-black">{displayName}</h3>
-                                <p className="text-sm text-gray-500">{typing ? "печатает..." : statusText || "—"}</p>
+                                {/* ✅ Ism bosiladigan */}
+                                <h3
+                                    className="font-semibold text-lg text-black cursor-pointer hover:text-[#3066BE]"
+                                    onClick={() => handleUserClick(activeChat?.other_user?.id)}
+                                >
+                                    {activeChat?.other_user?.full_name || activeChat?.other_user?.username || "—"}
+                                </h3>
+                                <p className="text-sm text-gray-500">Online</p>
                             </div>
                         </div>
 
-                        {/* Messages */}
-                        <div
-                            ref={msgBoxRef}
-                            className="flex-1 p-6 overflow-y-auto flex flex-col gap-4 bg-[#F8F8F8CC]"
-                            onScroll={() => {
-                                if (!activeRoom || !messages.length) return;
-                                const el = msgBoxRef.current;
-                                if (!el) return;
-                                const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
-                                if (!nearBottom) return;
-                                const lastId = messages[messages.length - 1]?.id;
-                                if (!lastId) return;
-                                chatApi.markRead(activeRoom, lastId).catch(() => {});
-                            }}
-                        >
+                        <div className="flex-1 p-6 overflow-y-auto flex flex-col gap-4 bg-[#F8F8F8CC]">
                             {messages.length === 0 ? (
-                                <div className="text-gray-400">Hozircha xabar yo‘q</div>
+                                <div className="text-gray-400">{t.noMessages}</div>
                             ) : (
-                                messages.map((m, idx) => {
-                                    const key = m.id ?? `tmp-${idx}-${m.created_at ?? Date.now()}`;
-                                    const timeStr = m.created_at
-                                        ? new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                                        : "";
-
+                                messages.map((m) => {
                                     const mine = isMineMsg(m);
-
-                                    const bubbleBase = "max-w-[65%] px-4 py-2 rounded-2xl whitespace-pre-wrap break-words shadow-sm border";
-                                    const mineCls = "self-end bg-[#3066BE] text-white border-transparent rounded-br-sm";
-                                    const otherCls = "self-start bg-white text-black border-[#E9EEF5] rounded-bl-sm";
+                                    const timeStr = formatTime(m.created_at);
 
                                     return (
-                                        <div key={key} className={`${bubbleBase} ${mine ? mineCls : otherCls}`}>
-                                            <div>{m.message}</div>
+                                        <div key={m.id} className={`max-w-[75%] px-4 py-2 rounded-2xl whitespace-pre-wrap break-words shadow-sm border ${mine ? "self-end bg-[#3066BE] text-white border-transparent rounded-br-sm" : "self-start bg-white text-black border-[#E9EEF5] rounded-bl-sm"}`}>
+                                            <div>{m.text}</div>
                                             {timeStr && (
                                                 <div className={`mt-1 text-[11px] flex items-center gap-1 ${mine ? "justify-end text-white/80" : "justify-start text-gray-500"}`}>
                                                     <span>{timeStr}</span>
-                                                    {mine && m.status === "read" && <img src="/double-check.png" alt="double check" className="w-[14px] h-[7px]" />}
+                                                    {mine && <img src="/double-check.png" alt="✓✓" className="w-[14px] h-[7px]" />}
                                                 </div>
                                             )}
                                         </div>
                                     );
                                 })
                             )}
-
                             <div ref={endRef} />
                         </div>
 
-                        {/* Bottom: input */}
-                        <div className="p-4 border-t border-none flex flex-col gap-3 bg-[#F4F6FA]">
-                            <input
-                                ref={inputRef}
-                                type="text"
-                                placeholder="Напишите сообщение..."
-                                className="w-full px-4 py-2 rounded-xl bg-[#F4F6FA] text-black border-none focus:outline-none"
-                                value={input}
-                                // onChange={handleTyping}
-                                // onKeyDown={onMsgKeyDown}
-                                disabled={!activeRoom}
-                            />
+                        <div className="p-4 border-t bg-[#F4F6FA]">
+                            <div className="flex items-center gap-3">
+                                <input
+                                    type="text"
+                                    placeholder={t.writeMessage}
+                                    className="flex-1 px-4 py-2 rounded-xl bg-[#F4F6FA] text-black border-none focus:outline-none"
+                                    value={input}
+                                    onChange={(e) => setInput(e.target.value)}
+                                    onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+                                    disabled={!activeChat}
+                                />
 
-                            {/* Hidden file input */}
-                            <input ref={fileRef} type="file" className="hidden" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <button
-                                        className="text-[#3066BE] bg-[#F4F6FA] border-none hover:text-[#274f94] text-xl"
-                                        onClick={() => fileRef.current?.click()}
-                                        disabled={!activeRoom}
-                                        title={file ? `Файл: ${file.name}` : "Прикрепить"}
-                                    >
-                                        <i className="fas fa-paperclip"></i>
-                                    </button>
-                                    <button className="text-[#3066BE] bg-[#F4F6FA] border-none hover:text-[#274f94] text-xl" onClick={() => {}} disabled={!activeRoom}>
-                                        <i className="far fa-smile"></i>
-                                    </button>
-                                </div>
-                                <button
-                                    className="text-[#3066BE] text-xl bg-[#F4F6FA] border-none hover:text-[#274f94]"
-                                    // onClick={onClickSend}
-                                    disabled={!activeRoom || sending || (!input.trim() && !file)}
-                                    title={!activeRoom ? "Avval chatni oching" : "Yuborish"}
-                                >
+                                <button className="text-[#3066BE] text-xl bg-[#F4F6FA] border-none hover:text-[#274f94]" onClick={handleSend} disabled={!activeChat || sending || (!input.trim() && !file)}>
                                     <i className="fas fa-paper-plane"></i>
                                 </button>
                             </div>
+
+                            <input ref={fileRef} type="file" className="hidden" onChange={(e) => setFile(e.target.files?.[0] || null)} />
                         </div>
                     </div>
                 </div>
 
-                {/* FOOTER */}
                 <footer className="w-full h-[393px] relative overflow-hidden">
                     <img src="/footer-bg.png" alt="Footer background" className="absolute inset-0 w-full h-full object-cover z-0" />
                     <div className="absolute inset-0 bg-[#3066BE]/50 z-10"></div>
@@ -528,28 +532,19 @@ export default function CommunityPage() {
                         <div className="max-w-[1440px] mx-auto px-6 py-10 flex flex-col md:flex-row md:justify-between gap-8 text-white">
                             <div className="flex gap-[190px]">
                                 <div>
-                                    <h2 className="text-[48px] leading-[150%] font-black text-white font-gilroy">{texts[langCode].logo}</h2>
+                                    <h2 className="text-[48px] leading-[150%] font-black text-white font-gilroy">{t.logo}</h2>
                                 </div>
-
                                 <div className="grid grid-cols-2 gap-[184px]">
                                     <div className="flex flex-col gap-[20px]">
-                                        {texts[langCode].links.slice(0, 4).map((link, idx) => (
-                                            <a
-                                                key={idx}
-                                                href="#"
-                                                className="flex items-center gap-2 text-white hover:text-[#3066BE] text-[18px] leading-[120%] font-normal font-gilroy transition-colors duration-300"
-                                            >
+                                        {t.links.slice(0, 4).map((link, idx) => (
+                                            <a key={idx} href="#" className="flex items-center gap-2 text-white hover:text-[#3066BE] text-[18px] leading-[120%] font-normal font-gilroy transition-colors duration-300">
                                                 <span>&gt;</span> {link}
                                             </a>
                                         ))}
                                     </div>
                                     <div className="flex flex-col gap-[20px]">
-                                        {texts[langCode].links.slice(4).map((link, idx) => (
-                                            <a
-                                                key={idx}
-                                                href="#"
-                                                className="flex items-center gap-2 text-white hover:text-[#3066BE] text-[18px] leading-[120%] font-normal font-gilroy transition-colors duration-300"
-                                            >
+                                        {t.links.slice(4).map((link, idx) => (
+                                            <a key={idx} href="#" className="flex items-center gap-2 text-white hover:text-[#3066BE] text-[18px] leading-[120%] font-normal font-gilroy transition-colors duration-300">
                                                 <span>&gt;</span> {link}
                                             </a>
                                         ))}
@@ -560,8 +555,7 @@ export default function CommunityPage() {
 
                         <div className="relative z-20 bg-[#3066BE]/70 h-[103px] rounded-[12px] ml-[38px] mr-[38px]">
                             <div className="max-w-[1440px] mx-auto px-6 h-full flex justify-between items-center text-white text-[18px] leading-[120%] font-gilroy">
-                                <p>{texts[langCode].copyright}</p>
-
+                                <p>{t.copyright}</p>
                                 <div className="flex gap-[20px] text-[24px] mr-[38px]">
                                     <a href="#" className="text-white">
                                         <i className="fab fa-whatsapp hover:text-[#F2F4FD]"></i>
@@ -580,6 +574,253 @@ export default function CommunityPage() {
                         </div>
                     </div>
                 </footer>
+            </div>
+
+            {/* ============================================ */}
+            {/* TABLET VERSION (md:lg) */}
+            {/* ============================================ */}
+            <div className="hidden md:block lg:hidden">
+                <nav className="fixed top-0 left-0 w-full z-50 bg-[#F4F6FA] shadow-md">
+                    <div className="w-full max-w-[960px] mx-auto flex items-center justify-between px-4 h-[90px]">
+                        <a href="/">
+                            <img src="/logo.png" alt="Logo" className="w-[90px] h-[60px] object-contain" />
+                        </a>
+
+                        <div className="flex gap-6 font-semibold text-[14px] tracking-wide">
+                            <a href="/community" className="text-black hover:text-[#3066BE] transition">
+                                {t.community}
+                            </a>
+                            <a href="/vacancies" className="text-black hover:text-[#3066BE] transition">
+                                {t.vacancies}
+                            </a>
+                            <a href="/chat" className="text-[#3066BE]">
+                                {t.chat}
+                            </a>
+                            <a href="/companies" className="text-black hover:text-[#3066BE] transition">
+                                {t.companies}
+                            </a>
+                        </div>
+
+                        <ProfileDropdown />
+                    </div>
+                </nav>
+
+                <div className="font-sans bg-white px-4 mt-[140px]">
+                    <div className="w-full max-w-[1440px] mx-auto flex flex-col md:flex-row gap-4 min-h-[calc(100vh-0px)] pb-[84px]">
+                        <div className="w-full md:w-[40%] bg-white border rounded-2xl p-4 flex flex-col relative">
+                            <h2 className="text-[28px] font-bold text-black mb-4">{t.messages}</h2>
+
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500" />
+                                <input type="text" placeholder={t.search} className="w-full pl-10 pr-3 py-2 border rounded-md text-black placeholder-[#AEAEAE] text-[16px]" value={leftQuery} onChange={(e) => setLeftQuery(e.target.value)} />
+                                {leftQuery && suggests.length > 0 && (
+                                    <div className="absolute z-50 bg-white shadow-md rounded-md mt-2 w-full max-h-64 overflow-y-auto border">
+                                        {suggests.map((u) => (
+                                            <div key={u.id} onClick={() => handleSelectUser(u)} className="flex items-center gap-3 p-2 hover:bg-gray-100 cursor-pointer">
+                                                <img src={makeAbsUrl(u.avatar_url) || "/user.jpg"} className="w-8 h-8 rounded-full" alt="" />
+                                                <div className="flex flex-col">
+                                                    <span className="text-sm font-medium">{u.full_name}</span>
+                                                    <span className="text-xs text-gray-500">@{u.username}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto flex flex-col gap-3 mt-4">
+                                {chats.map((chat) => (
+                                    <div key={chat.id} onClick={() => setActiveChat(chat)} className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition ${activeChat?.id === chat.id ? "bg-[#E8EEFF]" : "bg-[#F4F6FA] hover:shadow"}`}>
+                                        {/* ✅ Avatar bosiladigan */}
+                                        <img
+                                            src={makeAbsUrl(chat.other_user?.avatar_url) || "/profile.png"}
+                                            className="w-[42px] h-[42px] rounded-full object-cover cursor-pointer hover:ring-2 hover:ring-[#3066BE]"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleUserClick(chat.other_user?.id);
+                                            }}
+                                        />
+                                        <div className="flex-1">
+                                            {/* ✅ Ism bosiladigan */}
+                                            <h3
+                                                className="font-semibold text-black text-[15px] cursor-pointer hover:text-[#3066BE]"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleUserClick(chat.other_user?.id);
+                                                }}
+                                            >
+                                                {chat.other_user?.full_name || "—"}
+                                            </h3>
+                                            <p className="text-gray-500 text-sm truncate">{chat.last_message?.text || "—"}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="flex-1 bg-[#F7F7F7] rounded-2xl flex flex-col">
+                            <div className="flex items-center gap-3 p-4 border-b">
+                                {/* ✅ Avatar bosiladigan */}
+                                <img
+                                    src={makeAbsUrl(activeChat?.other_user?.avatar_url) || "/profile.png"}
+                                    className="w-[42px] h-[42px] rounded-full object-cover cursor-pointer hover:ring-2 hover:ring-[#3066BE]"
+                                    onClick={() => handleUserClick(activeChat?.other_user?.id)}
+                                />
+                                <div>
+                                    {/* ✅ Ism bosiladigan */}
+                                    <h3
+                                        className="font-semibold text-[16px] text-black cursor-pointer hover:text-[#3066BE]"
+                                        onClick={() => handleUserClick(activeChat?.other_user?.id)}
+                                    >
+                                        {activeChat?.other_user?.full_name || "—"}
+                                    </h3>
+                                    <p className="text-sm text-gray-500">Online</p>
+                                </div>
+                            </div>
+
+                            <div className="flex-1 p-4 overflow-y-auto flex flex-col gap-4 bg-[#F8F8F8]" ref={endRef}>
+                                {messages.length === 0 ? (
+                                    <div className="text-gray-400">{t.noMessages}</div>
+                                ) : (
+                                    messages.map((m) => {
+                                        const mine = isMineMsg(m);
+                                        return (
+                                            <div key={m.id} className={`max-w-[75%] px-4 py-2 rounded-2xl whitespace-pre-wrap break-words shadow-sm border ${mine ? "self-end bg-[#3066BE] text-white border-transparent rounded-br-sm" : "self-start bg-white text-black border-[#E9EEF5] rounded-bl-sm"}`}>
+                                                <div>{m.text}</div>
+                                                <div className={`mt-1 text-[11px] flex items-center gap-1 ${mine ? "justify-end text-white/80" : "justify-start text-gray-500"}`}>
+                                                    <span>{formatTime(m.created_at)}</span>
+                                                    {mine && <img src="/double-check.png" alt="✓✓" className="w-[14px] h-[7px]" />}
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+
+                            <div className="p-4 bg-[#F7F7F7]">
+                                <div className="flex items-center gap-3">
+                                    <input type="text" placeholder={t.writeMessage} className="flex-1 px-4 py-2 rounded-xl bg-[#F7F7F7] text-black border-none focus:outline-none" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()} disabled={!activeChat} />
+
+                                    <button onClick={handleSend} disabled={!activeChat || sending || (!input.trim() && !file)} className="p-2 bg-transparent hover:opacity-70 transition disabled:opacity-30">
+                                        <i className="fas fa-paper-plane text-[#3066BE] text-xl"></i>
+                                    </button>
+                                </div>
+                                <input ref={fileRef} type="file" className="hidden" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <footer className="relative overflow-hidden mt-[50px] w-full">
+                    <img src="/footer-bg.png" alt="Footer background" className="absolute inset-0 w-full h-full object-cover z-0" />
+                    <div className="absolute inset-0 bg-[#3066BE]/55 z-10" />
+
+                    <div className="relative z-20 w-full px-6 py-8 text-white">
+                        <div className="flex flex-col gap-6">
+                            <h2 className="text-[36px] font-black">{t.logo}</h2>
+
+                            <div className="grid grid-cols-2 text-white gap-x-10 gap-y-3">
+                                {t.links.slice(0, 4).map((link, i) => (
+                                    <a key={`l-${i}`} href="#" className="flex items-center text-white gap-2 text-[15px] hover:text-[#E7ECFF] transition-colors">
+                                        <span>›</span> {link}
+                                    </a>
+                                ))}
+                                {t.links.slice(4).map((link, i) => (
+                                    <a key={`r-${i}`} href="#" className="flex items-center text-white gap-2 text-[15px] hover:text-[#E7ECFF] transition-colors">
+                                        <span>›</span> {link}
+                                    </a>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="mt-6 bg-[#3066BE]/70 rounded-[10px] px-4 py-4 w-full">
+                            <div className="flex flex-wrap items-center justify-between gap-4">
+                                <p className="text-[13px] leading-snug">{t.copyright}</p>
+
+                                <div className="flex items-center gap-4 text-[20px]">
+                                    <a href="#" className="text-white hover:opacity-90">
+                                        <i className="fab fa-whatsapp" />
+                                    </a>
+                                    <a href="#" className="text-white hover:opacity-90">
+                                        <i className="fab fa-instagram" />
+                                    </a>
+                                    <a href="#" className="text-white hover:opacity-90">
+                                        <i className="fab fa-facebook" />
+                                    </a>
+                                    <a href="#" className="text-white hover:opacity-90">
+                                        <i className="fab fa-twitter" />
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </footer>
+            </div>
+
+            {/* ============================================ */}
+            {/* MOBILE VERSION (default) */}
+            {/* ============================================ */}
+            <div className="block md:hidden bg-white min-h-screen">
+                {user ? <MobileNavbarLogin /> : <MobileNavbar />}
+
+                <h1 className="px-4 mt-20 text-[22px] font-bold text-black">{t.messages}</h1>
+
+                <div className="px-4 mt-3 flex items-center gap-3">
+                    <div className="flex-1 h-10 rounded-2xl bg-[#F4F6FA] px-3 flex items-center">
+                        <Search className="w-5 h-5 text-black/70" />
+                        <input value={leftQuery} onChange={(e) => setLeftQuery(e.target.value)} placeholder={t.search} className="ml-2 flex-1 bg-transparent border-none text-[14px] text-[#111] placeholder-black/60 outline-none" />
+                    </div>
+                </div>
+
+                <section className="px-3 pb-24 mt-4">
+                    <div className="space-y-2">
+                        {chats.map((chat) => (
+                            <button
+                                key={chat.id}
+                                onClick={() => setActivePeer(chat.other_user)}
+                                className="w-full bg-[#F4F6FA] rounded-2xl p-3 flex items-center gap-3 active:scale-[0.99] text-left"
+                            >
+                                <div className="relative shrink-0">
+                                    {/* ✅ Avatar bosiladigan */}
+                                    <img
+                                        src={makeAbsUrl(chat.other_user?.avatar_url) || "/user1.png"}
+                                        alt={chat.other_user?.full_name}
+                                        className="w-12 h-12 rounded-full object-cover border cursor-pointer"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleUserClick(chat.other_user?.id);
+                                        }}
+                                    />
+                                </div>
+
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between gap-2">
+                                        {/* ✅ Ism bosiladigan */}
+                                        <div
+                                            className="text-[14px] font-semibold text-black truncate cursor-pointer hover:text-[#3066BE]"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleUserClick(chat.other_user?.id);
+                                            }}
+                                        >
+                                            {chat.other_user?.full_name || chat.other_user?.username}
+                                        </div>
+                                        <div className="text-[11px] text-[#AEAEAE] shrink-0">{formatTime(chat.last_message?.created_at)}</div>
+                                    </div>
+                                    <div className="mt-0.5 flex items-center justify-between gap-2">
+                                        <p className="text-[12px] text-gray-600 truncate">{chat.last_message?.text || "—"}</p>
+                                    </div>
+                                </div>
+
+                                <ChevronRight className="w-4 h-4 text-[#AEAEAE] shrink-0" />
+                            </button>
+                        ))}
+                    </div>
+                </section>
+
+                <MobileConversation open={!!activePeer} peer={activePeer || undefined} onClose={() => setActivePeer(null)} />
+
+                <MobileFooter />
             </div>
         </>
     );

@@ -7,7 +7,7 @@ const toIsoDate = (year, month) => {
 };
 
 export const fetchExperiences = async () => {
-    const { data } = await api.get("experience/experiences/");
+    const { data } = await api.get("/api/experiences/");
     return Array.isArray(data) ? data : (data.results || []);
 };
 
@@ -30,7 +30,7 @@ export const createExperience = async ({
     Object.keys(payload).forEach(k => payload[k] === "" || payload[k] === undefined
         ? delete payload[k] : null);
 
-    return api.post("experience/experiences/", payload, {
+    return api.post("/api/experiences/", payload, {
         headers: { "Content-Type": "application/json" },
     });
 };

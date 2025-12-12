@@ -26,7 +26,7 @@ export default function ProfilePortfolioModal({ isOpen, onClose }) {
 
     const handleSubmit = async () => {
         try {
-            const projectRes = await api.post("/portfolio/projects/", {
+            const projectRes = await api.post("/api/projects/", {
                 title,
                 description,
                 skills,
@@ -40,7 +40,7 @@ export default function ProfilePortfolioModal({ isOpen, onClose }) {
                 formData.append("file", selectedFile);
                 formData.append("file_type", selectedFileType);
 
-                await api.post("/portfolio/portfolio-media/", formData, {
+                await api.post("/api/portfolio-media/", formData, {
                     headers: {
                         "Content-Type": "multipart/form-data",
                     },

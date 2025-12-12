@@ -1,201 +1,285 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { X } from "lucide-react";
 import api from "../utils/api";
 
-export default function ProfileExperienceModal({
-    isOpen,
-    onClose,
-    onSave = () => {},
-    editMode = false,
-    initialData = {},
-}) {
-    const [company, setCompany] = useState("");
-    const [city, setCity] = useState("");
-    const [country, setCountry] = useState("");
-    const [position, setPosition] = useState("");
-    const [startDate, setStartDate] = useState("");
-    const [endDate, setEndDate] = useState("");
-    const [description, setDescription] = useState("");
-    const [currentlyWorking, setCurrentlyWorking] = useState(false);
+export default function ProfileExperienceModal({ isOpen, onClose, onSuccess }) {
+    const [formData, setFormData] = useState({
+        company_name: "",
+        city: "",
+        country: "",
+        position: "",
+        start_date: "",
+        end_date: "",
+        is_current: false,
+        description: "",
+    });
 
-    useEffect(() => {
-        if (editMode && initialData) {
-            setCompany(initialData.company_name || "");
-            setCity(initialData.city || "");
-            setCountry(initialData.country || "");
-            setPosition(initialData.position || "");
-            setStartDate(initialData.start_date || "");
-            setEndDate(initialData.end_date || "");
-            setDescription(initialData.description || "");
-            setCurrentlyWorking(!initialData.end_date);
-        } else {
-            setCompany("");
-            setCity("");
-            setCountry("");
-            setPosition("");
-            setStartDate("");
-            setEndDate("");
-            setDescription("");
-            setCurrentlyWorking(false);
-        }
-    }, [isOpen]);
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-
-        const payload = {
-            company_name: company,
-            position: position,
-            start_date: startDate,
-            end_date: currentlyWorking ? null : endDate,
-            description: description,
-            city,
-            country,
-        };
-
-        try {
-            if (editMode) {
-                await api.patch(`/experience/experiences/${initialData.id}/`, payload);
-            } else {
-                await api.post("/experience/experiences/", payload);
-            }
-
-            onSave(payload);
-            onClose();
-        } catch (err) {
-            console.error("Xatolik:", err);
-            alert("Xatolik yuz berdi");
-        }
-    };
-
-
+    const [errors, setErrors] = useState({});
 
     if (!isOpen) return null;
 
+    const handleChange = (e) => {
+        const { name, value, type, checked } = e.target;
+
+        setFormData(prev => ({
+            ...prev,
+            [name]: type === 'checkbox' ? checked : value
+        }));
+
+        // ✅ Agar checkbox belgilansa, end_date ni bo'shatish
+        if (name === 'is_current' && checked) {
+            setFormData(prev => ({
+                ...prev,
+                end_date: ""
+            }));
+        }
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setErrors({});
+
+        try {
+            // ✅ Ma'lumotlarni tayyorlash
+            const dataToSend = {
+                company_name: formData.company_name,
+                position: formData.position,
+                start_date: formData.start_date,
+                is_current: formData.is_current,
+            };
+
+            // ✅ Optional fields - faqat bo'sh bo'lmasa qo'shish
+            if (formData.city) {
+                dataToSend.city = formData.city;
+            }
+
+            if (formData.country) {
+                dataToSend.country = formData.country;
+            }
+
+            if (formData.description) {
+                dataToSend.description = formData.description;
+            }
+
+            // ✅ end_date - faqat is_current false bo'lsa va bo'sh bo'lmasa
+            if (!formData.is_current && formData.end_date) {
+                dataToSend.end_date = formData.end_date;
+            }
+            // ✅ Agar is_current true bo'lsa, end_date yubormaslik (omit)
+
+            console.log("📤 Experience yuborilmoqda:", dataToSend);
+
+            await api.post("/api/experiences/", dataToSend);
+
+            console.log("✅ Experience saqlandi!");
+
+            // Reset form
+            setFormData({
+                company_name: "",
+                city: "",
+                country: "",
+                position: "",
+                start_date: "",
+                end_date: "",
+                is_current: false,
+                description: "",
+            });
+
+            onSuccess();
+            onClose();
+        } catch (err) {
+            console.error("❌ Xatolik:", err);
+            console.error("❌ Response:", err.response?.data);
+
+            if (err.response?.data) {
+                setErrors(err.response.data);
+            }
+        }
+    };
+
     return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center text-black">
-            <div className="bg-white w-[1110px] h-[850px] rounded-[10px] shadow-lg px-10 py-8 relative overflow-y-auto">
-                {/* Close button */}
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-[15px] w-[800px] max-h-[90vh] overflow-y-auto p-6 relative">
                 <button
                     onClick={onClose}
-                    className="absolute top-[25px] right-6 bg-white border-none text-[#3066BE]"
+                    className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
                 >
-                    <X size={20} />
+                    <X size={24} />
                 </button>
 
-                {/* Title */}
-                <h3 className="text-[24px] leading-[36px] ml-[353px] font-bold text-[#000000]">
-                    {editMode ? "Редактировать опыт работы" : "Добавить опыт работы"}
-                </h3>
+                <h2 className="text-2xl font-bold mb-6">Добавить опыт работы</h2>
 
-                <div className="w-full h-[1px] bg-[#AEAEAE] my-6"></div>
-
-                <form className="space-y-5" onSubmit={handleSubmit}>
-                    {/* Компания */}
-                    <div>
-                        <label className="block font-semibold mb-2">Компания:</label>
+                <form onSubmit={handleSubmit}>
+                    {/* Company */}
+                    <div className="mb-4">
+                        <label className="block text-sm font-medium mb-2">
+                            Компания: <span className="text-red-500">*</span>
+                        </label>
                         <input
                             type="text"
+                            name="company_name"
+                            value={formData.company_name}
+                            onChange={handleChange}
                             placeholder="Нап. Google, Microsoft"
-                            value={company}
-                            onChange={(e) => setCompany(e.target.value)}
-                            className="w-full h-[42px] px-4 border border-black rounded-[10px]"
+                            className="w-full border border-gray-300 rounded-lg px-4 py-2"
                             required
+                            style={{
+                                backgroundColor: '#FFFFFF',
+                                color: '#000000'
+                            }}
                         />
+                        {errors.company_name && (
+                            <p className="text-red-500 text-sm mt-1">{errors.company_name}</p>
+                        )}
                     </div>
 
-                    {/* Город и Страна */}
-                    <div className="flex gap-4">
-                        <div className="flex-1">
-                            <label className="block font-semibold mb-2">Город:</label>
+                    {/* City & Country */}
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label className="block text-sm font-medium mb-2">Город:</label>
                             <input
                                 type="text"
+                                name="city"
+                                value={formData.city}
+                                onChange={handleChange}
                                 placeholder="Введите город"
-                                value={city}
-                                onChange={(e) => setCity(e.target.value)}
-                                className="w-full h-[42px] px-4 border border-black rounded-[10px]"
+                                className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                                style={{
+                                    backgroundColor: '#FFFFFF',
+                                    color: '#000000'
+                                }}
                             />
                         </div>
-                        <div className="flex-1">
-                            <label className="block font-semibold mb-2">Страна:</label>
+                        <div>
+                            <label className="block text-sm font-medium mb-2">Страна:</label>
                             <input
                                 type="text"
+                                name="country"
+                                value={formData.country}
+                                onChange={handleChange}
                                 placeholder="Введите страну"
-                                value={country}
-                                onChange={(e) => setCountry(e.target.value)}
-                                className="w-full h-[42px] px-4 border border-black rounded-[10px]"
+                                className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                                style={{
+                                    backgroundColor: '#FFFFFF',
+                                    color: '#000000'
+                                }}
                             />
                         </div>
                     </div>
 
-                    {/* Заголовок */}
-                    <div>
-                        <label className="block font-medium mb-2">Заголовок:</label>
+                    {/* Position */}
+                    <div className="mb-4">
+                        <label className="block text-sm font-medium mb-2">
+                            Заголовок: <span className="text-red-500">*</span>
+                        </label>
                         <input
                             type="text"
-                            placeholder="Нап. frontend разработчик"
-                            value={position}
-                            onChange={(e) => setPosition(e.target.value)}
-                            className="w-full h-[42px] px-4 border border-black rounded-[10px]"
+                            name="position"
+                            value={formData.position}
+                            onChange={handleChange}
+                            placeholder="Нап. Frontend разработчик"
+                            className="w-full border border-gray-300 rounded-lg px-4 py-2"
                             required
+                            style={{
+                                backgroundColor: '#FFFFFF',
+                                color: '#000000'
+                            }}
                         />
+                        {errors.position && (
+                            <p className="text-red-500 text-sm mt-1">{errors.position}</p>
+                        )}
                     </div>
 
-                    {/* Дата */}
-                    <div className="flex gap-4">
-                        <div className="flex-1">
-                            <label className="block font-semibold mb-2">Дата начала:</label>
+                    {/* Dates */}
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label className="block text-sm font-medium mb-2">
+                                Дата начала: <span className="text-red-500">*</span>
+                            </label>
                             <input
                                 type="date"
-                                value={startDate}
-                                onChange={(e) => setStartDate(e.target.value)}
-                                className="w-full h-[42px] px-4 border border-black rounded-[10px]"
+                                name="start_date"
+                                value={formData.start_date}
+                                onChange={handleChange}
+                                className="w-full border border-gray-300 rounded-lg px-4 py-2"
                                 required
+                                style={{
+                                    backgroundColor: '#FFFFFF',
+                                    color: '#000000'
+                                }}
                             />
                         </div>
-                        <div className="flex-1">
-                            <label className="block font-semibold mb-2">Дата окончания:</label>
+                        <div>
+                            <label className="block text-sm font-medium mb-2">
+                                Дата окончания:
+                            </label>
                             <input
                                 type="date"
-                                value={endDate}
-                                onChange={(e) => setEndDate(e.target.value)}
-                                className="w-full h-[42px] px-4 border border-black rounded-[10px]"
-                                disabled={currentlyWorking}
+                                name="end_date"
+                                value={formData.end_date}
+                                onChange={handleChange}
+                                className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                                disabled={formData.is_current}
+                                style={{
+                                    backgroundColor: formData.is_current ? '#F3F4F6' : '#FFFFFF',
+                                    color: '#000000',
+                                    cursor: formData.is_current ? 'not-allowed' : 'text'
+                                }}
                             />
                         </div>
                     </div>
 
-                    {/* Checkbox */}
-                    <div className="flex items-center gap-2">
-                        <input
-                            type="checkbox"
-                            checked={currentlyWorking}
-                            onChange={() => setCurrentlyWorking(!currentlyWorking)}
-                            className="w-4 h-4"
-                        />
-                        <label className="font-semibold">Сейчас я работаю здесь</label>
+                    {/* ✅ CHECKBOX - KO'RINADIGAN! */}
+                    <div className="mb-4">
+                        <label className="flex items-center gap-3 cursor-pointer select-none">
+                            <div className="relative flex-shrink-0">
+                                <input
+                                    type="checkbox"
+                                    name="is_current"
+                                    checked={formData.is_current}
+                                    onChange={handleChange}
+                                    className="peer sr-only"
+                                />
+                                <div className="w-5 h-5 border-2 border-gray-300 rounded peer-checked:bg-[#3066BE] peer-checked:border-[#3066BE] flex items-center justify-center transition cursor-pointer">
+                                    {formData.is_current && (
+                                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                        </svg>
+                                    )}
+                                </div>
+                            </div>
+                            <span className="text-sm font-medium">
+                                Сейчас я работаю здесь
+                            </span>
+                        </label>
                     </div>
 
-                    {/* Описание */}
-                    <div>
-                        <label className="block font-semibold mb-2">Описание (не обязательно):</label>
+                    {/* Description */}
+                    <div className="mb-6">
+                        <label className="block text-sm font-medium mb-2">
+                            Описание (не обязательно):
+                        </label>
                         <textarea
+                            name="description"
+                            value={formData.description}
+                            onChange={handleChange}
                             placeholder="Напишите..."
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                            className="w-full h-[148px] border border-black rounded-[10px] px-4 py-2 text-[14px]"
+                            rows={4}
+                            className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                            style={{
+                                backgroundColor: '#FFFFFF',
+                                color: '#000000'
+                            }}
                         />
                     </div>
 
-                    {/* Button */}
-                    <div className="flex justify-end pt-2">
-                        <button
-                            type="submit"
-                            className="w-[222px] h-[59px] bg-[#3066BE] text-white rounded-[10px] font-semibold text-[16px] hover:bg-[#2a58a6] transition"
-                        >
-                            {editMode ? "Сохранить" : "Публиковать"}
-                        </button>
-                    </div>
+                    {/* Submit button */}
+                    <button
+                        type="submit"
+                        className="w-full bg-[#3066BE] text-white py-3 rounded-lg font-semibold hover:bg-[#2452a6] transition"
+                    >
+                        Публиковать
+                    </button>
                 </form>
             </div>
         </div>

@@ -1,0 +1,32 @@
+{
+  "recommendations": [
+    // React & Frontend
+    "dsznajder.es7-react-js-snippets",
+    "bradlc.vscode-tailwindcss",
+    "esbenp.prettier-vscode",
+    "formulahendry.auto-rename-tag",
+    "formulahendry.auto-close-tag",
+    "christian-kohler.path-intellisense",
+    "heybourn.headwind",
+    "xabikos.javascriptsnippets",
+    "usernamehw.errorlens",
+
+    // Python & Django
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "batisteo.vscode-django",
+    "ms-python.isort",
+    "ms-python.black-formatter",
+    "alexcvzz.vscode-sqlite",
+    "humao.rest-client",
+    "mikestead.dotenv",
+
+    // Tools
+    "rangav.vscode-thunder-client",
+    "ms-azuretools.vscode-docker",
+    "eamodio.gitlens",
+    "pkief.material-icon-theme",
+    "streetsidesoftware.code-spell-checker",
+    "aaron-bond.better-comments"
+  ]
+}

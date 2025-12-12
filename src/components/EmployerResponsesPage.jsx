@@ -474,7 +474,7 @@ export default function HomeEmployer() {
                 <EmployerApplicationsMobile />
             </div>
 
-            <div className="hidden lg-block font-sans relative">
+            <div className="hidden lg:block font-sans relative">
                 {/* ==========================
                             NAVBAR
                 ========================== */}
@@ -875,7 +875,7 @@ export default function HomeEmployer() {
                 {activeModalIndex !== null && (
                     <VacancyModal
                         onClose={() => setActiveModalIndex(null)}
-                        vacancy={vacancies[activeModalIndex]}
+                        vacancy={vacancies.results[activeModalIndex]}
                     />
                 )}
 

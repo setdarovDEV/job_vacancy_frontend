@@ -1,46 +1,58 @@
-// services/chatApi.js
+// src/services/chatApi.js
 import api from "../utils/api";
 
 export const chatApi = {
-    async listRooms(q = "") {
-        const { data } = await api.get(`/api/chat/rooms/`, { params: { q } });
+    // Get all user's chats
+    listChats: async () => {
+        const { data } = await api.get("/api/chats/");
         return data;
     },
-    async listMessages(roomId) {
-        const { data } = await api.get(`/api/chat/messages/`, { params: { room: roomId } });
+
+    // Get or create chat with specific user
+    getOrCreateChat: async (userId) => {
+        const { data } = await api.post("/api/chats/get_or_create/", { user_id: userId });
         return data;
     },
-    async sendMessage(roomId, { text, file }) {
-        const form = new FormData();
-        form.append("room", roomId);
-        if (text) form.append("text", text);
-        if (file) form.append("attachment", file);
-        const { data } = await api.post(`/api/chat/messages/`, form);
-        return data;
-    },
-    async markRead(roomId, upToId) {
-        return api.post(`/api/chat/messages/mark-read/`, { room_id: roomId, up_to_id: upToId });
-    },
-    async touch(roomId) {
-        return api.post(`/api/chat/messages/touch/`, { room_id: roomId });
-    },
-    async peerStatus(roomId) {
-        const { data } = await api.get(`/api/chat/rooms/${roomId}/peer-status/`);
-        return data;
-    },
-    async searchUsers(q) {
-        const { data } = await api.get(`/api/chat/users/search/`, { params: { q } });
-        return data;
-    },
-    async getOrCreateByUsername(username) {
-        const { data } = await api.post(`/api/chat/rooms/get-or-create-by-username/`, { username });
-        return data;
-    },
-    // ✅ Ariza bo‘yicha xona yaratish/topish
-    async getOrCreateByApplication(applicationId) {
-        const { data } = await api.post(`/api/chat/rooms/by-application/`, {
-            application_id: applicationId,
+
+    // Get messages for specific chat
+    getMessages: async (chatId, limit = 100) => {
+        const { data } = await api.get(`/api/chats/${chatId}/messages/`, {
+            params: { limit },
         });
-        return data; // { id, peer, ... }
+        return data;
+    },
+
+    // Send message (text or file)
+    sendMessage: async (chatId, payload) => {
+        const formData = new FormData();
+
+        if (payload.text) {
+            formData.append("text", payload.text);
+        }
+
+        if (payload.file) {
+            formData.append("file", payload.file);
+        }
+
+        if (payload.image) {
+            formData.append("image", payload.image);
+        }
+
+        const { data } = await api.post(`/api/chats/${chatId}/messages/`, formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+        });
+
+        return data;
+    },
+
+    // Mark message as read (optional, if backend supports)
+    markRead: async (chatId, messageId) => {
+        try {
+            await api.patch(`/api/chats/${chatId}/messages/${messageId}/`, {
+                is_read: true,
+            });
+        } catch (err) {
+            console.warn("Mark read failed:", err);
+        }
     },
 };

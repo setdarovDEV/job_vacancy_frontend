@@ -57,7 +57,7 @@ export default function LoginTablet({
 
                     {/* Signup */}
                     <div className="text-center text-[12px] text-[#3066BE] mt-4">
-                        <Link to="/signup" className="hover:underline">
+                        <Link to="/register" className="hover:underline">
                             Еще нет учетной записи?
                         </Link>
                     </div>

@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from "react";
-import NavbarTabletLogin from "./NavbarTabletLogin";
+import NavbarTabletLogin from "./NavbarTabletLogIn.jsx";
 import api from "../../utils/api.js";
 import UserSearch from "./UserSearchTablet";
 import {useNavigate} from "react-router-dom";
@@ -31,6 +31,7 @@ export default function CommunityTablet() {
     const [posts, setPosts] = useState([]);
     const [paging, setPaging] = useState({ page: 1 });
     const [selectedUser, setSelectedUser] = useState(null);
+    const [topCompanies, setTopCompanies] = useState([]);
 
     const fetchPost = async ({ authorId = null, page = 1 } = {}) => {
         try {
@@ -239,11 +240,21 @@ export default function CommunityTablet() {
         }
     };
 
-    const [topCompanies, setTopCompanies] = useState([]);
     useEffect(() => {
-        api.get("/api/companies/top/", { params: { limit: 5 } })
-            .then(({ data }) => setTopCompanies(data))
-            .catch((e) => console.error("Top companies error:", e));
+    const fetchTopCompanies = async () => {
+        try {
+        const { data } = await api.get("/api/companies/top/", {
+            params: { ordering: "-followers_count", limit: 5 },
+        });
+        const items = Array.isArray(data) ? data : data.results || [];
+        setTopCompanies(items);
+        console.log("✅ Top companies:", items);
+        } catch (e) {
+        console.error("❌ Top companies error:", e);
+        }
+    };
+
+    fetchTopCompanies();
     }, []);
 
 // sahifaning ichida yoki alohida util qilib
@@ -390,28 +401,28 @@ export default function CommunityTablet() {
         const post = posts.find(p => p.id === givenPost.id) || givenPost;
         return (
             <div key={post.id ?? idx} className={`${idx === arr.length - 1 ? 'mb-[72px]' : ''}`}>
-                <div className="bg-white p-5 rounded-2xl shadow-sm hover:shadow-md transition duration-300 flex flex-col gap-4">
+                <div className="flex flex-col gap-4 p-5 transition duration-300 bg-white shadow-sm rounded-2xl hover:shadow-md">
 
                     {/* USTKI QISM */}
-                    <div className="flex justify-between items-start gap-3">
+                    <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3">
                             <div className="w-[48px] h-[48px] rounded-full overflow-hidden border border-gray-200">
                                 <img
                                     key={profileImage}
-                                    src={profileImage || "/user-white.jpg"}
+                                    src={mediaUrl(post.author?.avatar_url || post.author_avatar, "/user1.png")}
                                     alt="avatar"
-                                    className="w-full h-full object-cover rounded-full"
+                                    className="object-cover w-full h-full rounded-full"
                                 />
                             </div>
 
                             <h2 className="text-[18px] font-bold text-black">
-                                {user ? capitalizeName(user.full_name) : "Ism yuklanmoqda..."}
+                                {capitalizeName(post.author?.full_name || post.author_name || "Foydalanuvchi")}
                             </h2>
                         </div>
 
                         <div className="flex flex-col items-center gap-1 shrink-0">
-                            <button className="w-8 h-8 relative rounded bg-white border-2 border-transparent hover:border-black transition">
-                                <img src="/three-dots.svg" alt="menu" className="absolute inset-0 m-auto w-4 h-4" />
+                            <button className="relative w-8 h-8 transition bg-white border-2 border-transparent rounded hover:border-black">
+                                <img src="/three-dots.svg" alt="menu" className="absolute inset-0 w-4 h-4 m-auto" />
                             </button>
                             <div className="text-[13px] leading-[18px] text-[#AEAEAE]">
                                 {timeAgo(post.created_at, langCode)}
@@ -445,7 +456,7 @@ export default function CommunityTablet() {
                             tabIndex={0}
                             onClick={() => toggleCommentsOpen(post.id)}
                             onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && toggleCommentsOpen(post.id)}
-                            className="flex items-center gap-2 cursor-pointer hover:text-blue-600 transition"
+                            className="flex items-center gap-2 transition cursor-pointer hover:text-blue-600"
                         >
                             <MessageCircle size={18} />
                             {texts[langCode].comment}
@@ -455,7 +466,7 @@ export default function CommunityTablet() {
                     {/* Kommentlar */}
                     {commentOpen === post.id && (
                         <div className="mt-1">
-                            <div className="flex w-full items-center gap-2">
+                            <div className="flex items-center w-full gap-2">
                                 <input
                                     type="text"
                                     value={newCommentMap[post.id] || ""}
@@ -504,7 +515,7 @@ export default function CommunityTablet() {
                         </div>
                     )}
                 </div>
-                <div className="w-full h-px bg-gray-200 mt-4" />
+                <div className="w-full h-px mt-4 bg-gray-200" />
             </div>
         );
     }
@@ -523,7 +534,7 @@ export default function CommunityTablet() {
                     {/* Qator: qidiruv (markazda) + ikonlar */}
                     <div className="flex items-center justify-between gap-3">
                         {/* Qidiruv */}
-                        <div className="flex-1 flex justify-center">
+                        <div className="flex justify-center flex-1">
                             <div className="w-full max-w-[420px]">
                                 <UserSearch onSelect={handlePickUser} />
                             </div>
@@ -531,20 +542,6 @@ export default function CommunityTablet() {
 
                         {/* O‘ngdagi ikonlar */}
                         <div className="flex items-center gap-3 shrink-0">
-                            {/* Bell */}
-                            <button className="relative p-2 rounded-md hover:bg-gray-100 bg-white text-black" aria-label="Notifications">
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth="2"
-                                        d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14V9a6 6 0 10-12 0v5c0 .386-.146.735-.405 1.005L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                                    />
-                                </svg>
-                                <span className="absolute -top-1 -right-1 w-[18px] h-[18px] rounded-full bg-red-600 text-white text-[10px] grid place-items-center">
-            1
-          </span>
-                            </button>
                         </div>
                     </div>
 
@@ -554,7 +551,7 @@ export default function CommunityTablet() {
                             <span className="text-black">Filtr:</span>
                             <img
                                 src={mediaUrl(selectedUser.avatar_url ?? "", "/profile.png")}
-                                className="w-5 h-5 rounded-full object-cover"
+                                className="object-cover w-5 h-5 rounded-full"
                                 alt=""
                             />
                             <span className="text-[#3066BE] truncate">@{selectedUser.username}</span>
@@ -610,7 +607,7 @@ export default function CommunityTablet() {
                         {/* RIGHT (faqat 2ta post) */}
                         <main className="flex flex-col gap-6">
                             {(loading || posts.length > 0) && (
-                                <div className="w-full h-px bg-gray-200 mb-1" />
+                                <div className="w-full h-px mb-1 bg-gray-200" />
                             )}
 
                             {loading && (
@@ -626,7 +623,11 @@ export default function CommunityTablet() {
                     </div>
 
                     {/* 2-QATOR: TOP ACCOUNTS (BUTUN ENI) */}
-                    <TopAccountsCarousel lang={langCode?.toUpperCase()} texts={texts} />
+                    <TopAccountsCarousel
+                        lang={langCode?.toUpperCase()}
+                        texts={texts}
+                        companies={topCompanies}   // 🔹 qo‘shildi!
+                    />
 
                     {/* 3-QATOR: QOLGAN POSTLAR */}
                     <div className="flex flex-col gap-6 w-[450px] ml-[284px]">
@@ -635,7 +636,7 @@ export default function CommunityTablet() {
                 </div>
 
                 {showModal && (
-                    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
                         <div className="bg-white rounded-2xl pt-5 pb-4 px-5 w-[680px] max-w-[95%] relative shadow-xl">
 
                             {/* Yopish tugmasi */}
@@ -662,18 +663,7 @@ export default function CommunityTablet() {
                             />
 
                             {/* PASTKI QISM: rasm + tugma */}
-                            <div className="flex justify-between items-center mt-4">
-                                {/* Rasm yuklash */}
-                                <label className="cursor-pointer">
-                                    <img src="/image.png" alt="img" className="w-6 h-6" />
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        className="hidden"
-                                        onChange={handleImageSelect}
-                                    />
-                                </label>
-
+                            <div className="flex items-center justify-between mt-4">
                                 {/* Yaratish tugmasi */}
                                 <button
                                     onClick={handleCreatePost}
@@ -701,7 +691,7 @@ export default function CommunityTablet() {
                 <img
                     src="/footer-bg.png"
                     alt="Footer background"
-                    className="absolute inset-0 w-full h-full object-cover z-0"
+                    className="absolute inset-0 z-0 object-cover w-full h-full"
                 />
                 <div className="absolute inset-0 bg-[#3066BE]/55 z-10" />
 
@@ -758,4 +748,3 @@ export default function CommunityTablet() {
         </>
     );
 }
-

@@ -137,11 +137,11 @@ export default function ProfilePageMobile() {
 
     useEffect(() => {
         // skills
-        api.get("skills/skills/").then(r => setSkills(r.data)).catch(() => {});
+        api.get("/api/skills/").then(r => setSkills(r.data)).catch(() => {});
         // portfolio
         (async () => {
             try {
-                const p = await api.get("portfolio/projects/");
+                const p = await api.get("/api/projects/");
                 const projects = p.data?.results || [];
                 const mediaReqs = projects.map(pr => api.get(`portfolio/portfolio-media/?project=${pr.id}`));
                 const mediaRes = await Promise.all(mediaReqs);
@@ -150,7 +150,7 @@ export default function ProfilePageMobile() {
             } catch (_) {}
         })();
         // certificates
-        api.get("certificate/certificates/").then(r => {
+        api.get("/api/certificates/").then(r => {
             // ba'zan API list yoki results qaytaradi
             setCertificates(r.data.results || r.data || []);
         }).catch(() => {});
@@ -176,10 +176,10 @@ export default function ProfilePageMobile() {
 
     const saveCertificate = async (formData) => {
         try {
-            await api.post("certificate/certificates/", formData, {
+            await api.post("/api/certificates/", formData, {
                 headers: { "Content-Type": "multipart/form-data" },
             });
-            const r = await api.get("certificate/certificates/");
+            const r = await api.get("/api/certificates/");
             setCertificates(r.data.results || r.data || []);
             setCertModalOpen(false);
         } catch (e) { console.error(e); }
@@ -189,7 +189,7 @@ export default function ProfilePageMobile() {
     const reloadPortfolio = async () => {
         // seni mavjud fetch’ing bilan uyg‘un
         try {
-            const p = await api.get("portfolio/projects/");
+            const p = await api.get("/api/projects/");
             const projects = p.data?.results || [];
             const mediaReqs = projects.map(pr => api.get(`portfolio/portfolio-media/?project=${pr.id}`));
             const mediaRes = await Promise.all(mediaReqs);
@@ -201,7 +201,7 @@ export default function ProfilePageMobile() {
     // Listni qayta yuklash
     const reloadExperiences = useCallback(async () => {
         try {
-            const { data } = await api.get("experience/experiences/");
+            const { data } = await api.get("/api/experiences/");
             setExperiences(data); // UI’ingda qayerda ko‘rsatsang, shu state’dan foydalan
         } catch (e) {
             console.error("Reload experiences error:", e);

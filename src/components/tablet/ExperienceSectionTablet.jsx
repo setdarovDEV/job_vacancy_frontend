@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { Pencil, Plus, Trash2, X } from "lucide-react";
 import api from "../../utils/api";
 
-const BASE = "experience/experiences/"; // GET/POST -> experience/experiences/ ; PATCH/DELETE -> experience/experiences/:id/
+const BASE = "/api/experiences/"; // GET/POST -> experience/experiences/ ; PATCH/DELETE -> experience/experiences/:id/
 
 const MONTHS = [
     { v: "01", t: "Январь" }, { v: "02", t: "Февраль" }, { v: "03", t: "Март" },

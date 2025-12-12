@@ -26,7 +26,7 @@ export default function ProfileRightPane({
         try {
             setSkillsLoading(true);
             setSkillsErr("");
-            const { data } = await api.get("/skills/skills/");   // faqat user skilleri
+            const { data } = await api.get("/api/skills/");   // faqat user skilleri
             setLocalSkills(Array.isArray(data) ? data : []);
         } catch (e) {
             setSkillsErr("Навыки не загрузились");

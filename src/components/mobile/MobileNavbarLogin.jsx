@@ -69,48 +69,6 @@ export default function MobileNavbar() {
                                     <a href="/companies" className="block px-4 py-3 text-sm text-black hover:text-[#3066BE]">
                                         {texts[langCode].companies}
                                     </a>
-
-                                    <div className="h-px bg-gray-200 my-1" />
-
-                                    {/* Language item */}
-                                    <button
-                                        onClick={() => setOpenLang(v => !v)}
-                                        className="w-full px-4 py-3 text-left text-sm hover:bg-gray-50 flex items-center justify-between bg-white border-none"
-                                    >
-                                      <span className="flex items-center gap-2">
-                                        <img src={selectedLang.flag} alt={selectedLang.code} className="w-5 h-3 rounded object-cover" />
-                                        <span className="text-black">Язык</span>
-                                      </span>
-                                        <svg className={`w-4 h-4 transition-transform ${openLang ? "rotate-180" : ""}`} viewBox="0 0 20 20" fill="currentColor">
-                                            <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clipRule="evenodd" />
-                                        </svg>
-                                    </button>
-
-                                    {openLang && (
-                                        <div className="px-2 pb-2">
-                                            <button
-                                                onClick={() => { setSelectedLang({ flag: "/ru.png", code: "RU" }); setOpenMenu(false); setOpenLang(false); }}
-                                                className="w-full flex items-center gap-2 px-2 py-2 rounded hover:bg-gray-50 text-sm bg-white border-none"
-                                            >
-                                                <img src="/ru.png" alt="RU" className="w-5 h-3 rounded object-cover" />
-                                                <p className="text-black">Русский</p>
-                                            </button>
-                                            <button
-                                                onClick={() => { setSelectedLang({ flag: "/uz.png", code: "UZ" }); setOpenMenu(false); setOpenLang(false); }}
-                                                className="w-full flex items-center gap-2 px-2 py-2 rounded hover:bg-gray-50 text-sm bg-white border-none"
-                                            >
-                                                <img src="/uz.png" alt="UZ" className="w-5 h-3 rounded object-cover" />
-                                                <p className="text-black">O‘zbekcha</p>
-                                            </button>
-                                            <button
-                                                onClick={() => { setSelectedLang({ flag: "/uk.png", code: "EN" }); setOpenMenu(false); setOpenLang(false); }}
-                                                className="w-full flex items-center gap-2 px-2 py-2 rounded hover:bg-gray-50 text-sm bg-white border-none"
-                                            >
-                                                <img src="/uk.png" alt="EN" className="w-5 h-3 rounded object-cover" />
-                                                <p className="text-black">English</p>
-                                            </button>
-                                        </div>
-                                    )}
                                 </div>
                             )}
                         </div>

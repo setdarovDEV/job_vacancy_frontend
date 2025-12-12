@@ -8,19 +8,21 @@ import UserSearch from "../components/UserSearch";
 import ProfileDropdown from "../components/ProfileDropdown.jsx";
 import CommunityTablet from "../components/tablet/CommunityTabletPage.jsx";
 import CommunityMobile from "../components/mobile/CommunityMobile.jsx";
+import CompanyModal from "../components/CompanyModal.jsx";
 
 // API bazasi: axios instance baseURL'idan foydalanamiz.
 // Agar u '/api' bilan tugasa, media (avatar/logo) uchun shu '/api' ni olib tashlab, domenni ishlatamiz.
-const API_BASE = (api?.defaults?.baseURL || "https://job-vacancy-z5uo.onrender.com").replace(/\/+$/, "");
+const API_BASE = (api?.defaults?.baseURL || "https://jobvacancy-api.duckdns.org").replace(/\/+$/, "");
 const API_ORIGIN = API_BASE.replace(/\/api$/i, "");
 
 // Relative fayl yo‘llarini to‘liq HTTPS URL ga aylantirish
-const mediaUrl = (path, fallback = "/profile.png") => {
-    if (!path || typeof path !== "string") return fallback;
-    if (/^(?:https?:)?\/\//i.test(path) || /^data:/i.test(path) || /^blob:/i.test(path)) return path;
-    const p = path.startsWith("/") ? path : `/${path}`;
-    return `${API_ORIGIN}${p}`;
+const mediaUrl = (path, fallback = "/company.png") => {
+    if (!path) return fallback;
+    if (/^https?:\/\//i.test(path)) return path; // to‘liq URL bo‘lsa
+    const clean = path.replace(/^\/+/, ""); // boshidagi / ni olib tashlaydi
+    return `${API_ORIGIN}/${clean}`; // har doim domen bilan to‘liq bog‘laydi
 };
+
 
 // ==========================
 // COMPONENT START
@@ -43,6 +45,8 @@ export default function CommunityPage() {
     const [commentOpen, setCommentOpen] = useState(null); // qaysi post uchun panel ochiq
     const [commentsMap, setCommentsMap] = useState({}); // { [postId]: {items, count, next, loading} }
     const [newCommentMap, setNewCommentMap] = useState({});
+    const [selectedCompany, setSelectedCompany] = useState(null);
+    const [selectedCompanyId, setSelectedCompanyId] = useState(null);
 
     const navigate = useNavigate();
     const [profileImage] = useState(localStorage.getItem("profile_image") || null);
@@ -244,10 +248,9 @@ export default function CommunityPage() {
             .catch((e) => console.error("Top companies error:", e));
     }, []);
 
-    const handleView = (rawId) => {
-        const id = rawId ?? null;
-        if (!id) return console.warn("TopCompany: id yo‘q:", rawId);
-        navigate(`/companies?open=${encodeURIComponent(id)}`);
+    const handleView = (companyId) => {
+        if (!companyId) return;
+        setSelectedCompanyId(companyId);
     };
 
     const capitalizeName = (fullName) => {
@@ -386,7 +389,7 @@ export default function CommunityPage() {
     // ==========================
     return (
         <>
-            <div className="hidden lg:block font-sans relative bg-white">
+            <div className="relative hidden font-sans bg-white lg:block">
                 {/* NAVBAR */}
                 <nav className="fixed top-0 left-0 w-full z-50 bg-[#F4F6FA] shadow-md">
                     <div className="w-full max-w-[1800px] mx-auto flex items-center justify-between px-4 sm:px-6 md:px-10 h-[70px] md:h-[80px] lg:h-[90px]">
@@ -412,58 +415,19 @@ export default function CommunityPage() {
                         </div>
 
                         {/* Right side: flag + profile */}
-                        <div className="hidden md:flex items-center gap-2 sm:gap-3 md:gap-4">
-                            {/* Lang selector */}
-                            <div className="relative flex items-center gap-2 cursor-pointer" onClick={() => setShowLang(!showLang)}>
-                                <img src={selectedLang.flag} alt={selectedLang.code} className="w-6 h-4 sm:w-7 sm:h-4 md:w-8 md:h-5 object-cover" />
-                                <svg className="w-3 h-3 sm:w-4 sm:h-4" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" clipRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" />
-                                </svg>
-                                {showLang && (
-                                    <div className="absolute top-full left-0 mt-2 bg-white border rounded shadow-lg w-12 z-50">
-                                        <div
-                                            onClick={() => {
-                                                setSelectedLang({ flag: "/ru.png", code: "RU" });
-                                                setShowLang(false);
-                                            }}
-                                            className="hover:bg-gray-100 px-1 py-2 cursor-pointer flex justify-center"
-                                        >
-                                            <img src="/ru.png" alt="RU" className="w-8 h-5" />
-                                        </div>
-                                        <div
-                                            onClick={() => {
-                                                setSelectedLang({ flag: "/uz.png", code: "UZ" });
-                                                setShowLang(false);
-                                            }}
-                                            className="hover:bg-gray-100 px-1 py-2 cursor-pointer flex justify-center"
-                                        >
-                                            <img src="/uz.png" alt="UZ" className="w-8 h-5" />
-                                        </div>
-                                        <div
-                                            onClick={() => {
-                                                setSelectedLang({ flag: "/uk.png", code: "EN" });
-                                                setShowLang(false);
-                                            }}
-                                            className="hover:bg-gray-100 px-1 py-2 cursor-pointer flex justify-center"
-                                        >
-                                            <img src="/uk.png" alt="EN" className="w-8 h-5" />
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
+                        <div className="items-center hidden gap-2 md:flex sm:gap-3 md:gap-4">
                             <ProfileDropdown />
                         </div>
 
                         {/* mobile flag + burger */}
-                        <div className="md:hidden flex items-center gap-3 pr-4 sm:pr-6 pt-2">
+                        <div className="flex items-center gap-3 pt-2 pr-4 md:hidden sm:pr-6">
                             <div className="relative flex items-center gap-1 cursor-pointer" onClick={() => setShowLang(!showLang)}>
-                                <img src={selectedLang.flag} alt={selectedLang.code} className="w-6 h-4 object-cover" />
+                                <img src={selectedLang.flag} alt={selectedLang.code} className="object-cover w-6 h-4" />
                                 <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
                                     <path fillRule="evenodd" clipRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" />
                                 </svg>
                             </div>
-                            <button onClick={() => setShowMobileMenu(!showMobileMenu)} className="bg-white p-2 rounded-md focus:outline-none">
+                            <button onClick={() => setShowMobileMenu(!showMobileMenu)} className="p-2 bg-white rounded-md focus:outline-none">
                                 <svg className="w-8 h-8" fill="none" stroke="#3066BE" viewBox="0 0 24 24" strokeWidth="2">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
                                 </svg>
@@ -493,44 +457,12 @@ export default function CommunityPage() {
 
                 {/* SEARCH BLOK NAVBAR TAGIDA */}
                 <div className="bg-white py-4 mt-[90px]">
-                    <div className="max-w-7xl mx-auto w-full px-4 flex items-center justify-between">
-                        <div className="max-w-[396px] mx-auto w-full mb-4">
-                            <UserSearch onSelect={handlePickUser} />
-                            {selectedUser && (
-                                <div className="mt-2 flex items-center gap-2 text-sm">
-                                    <span className="text-black">Filtr: </span>
-                                    <img src={mediaUrl(selectedUser.avatar_url ?? "", "/profile.png")} className="w-5 h-5 rounded-full object-cover" />
-                                    <span className="text-[#3066BE]">@{selectedUser.username}</span>
-                                    <button
-                                        className="ml-auto bg-white border-[#3066BE] text-[#3066BE]"
-                                        onClick={() => {
-                                            setSelectedUser(null);
-                                            fetchPostList({ page: 1 });
-                                        }}
-                                    >
-                                        Tozalash
-                                    </button>
-                                </div>
-                            )}
-                        </div>
+                    <div className="flex items-center justify-between w-full px-4 mx-auto max-w-7xl">
 
-                        {/* O‘ngdagi iconlar */}
-                        <div className="flex items-center gap-6 ml-6 absolute top-[32px] right-[40px] z-20">
-                            <div className="cursor-pointer">
-                                <span className="text-2xl text-black">?</span>
-                            </div>
-
-                            <div className="relative cursor-pointer">
-                                <svg className="w-6 h-6 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14V9a6 6 0 10-12 0v5c0 .386-.146.735-.405 1.005L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                                </svg>
-                                <span className="absolute -top-1 -right-1 bg-red-600 text-white rounded-full w-4 h-4 text-[10px] flex items-center justify-center">1</span>
-                            </div>
-                        </div>
                     </div>
                 </div>
 
-                <div className="max-w-7xl mx-auto w-full px-4 flex gap-6 mt-10">
+                <div className="flex w-full gap-6 px-4 mx-auto mt-10 max-w-7xl">
                     {/* LEFT: create post */}
                     <div className="hidden lg:block w-1/4 ml-[20px]">
                         <div className="bg-[#FFFFFF] focus-within:bg-[#F4F6FA] p-5 rounded-xl shadow-lg">
@@ -553,7 +485,7 @@ export default function CommunityPage() {
 
                     {/* MODAL */}
                     {showModal && (
-                        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
                             <div className="bg-white rounded-xl p-6 w-[804px] h-[459px] max-w-[95%] relative">
                                 <button
                                     onClick={() => setShowModal(false)}
@@ -571,13 +503,7 @@ export default function CommunityPage() {
                                     onChange={(e) => setNewPostContent(e.target.value)}
                                 ></textarea>
 
-                                <div className="flex justify-between items-center mt-4">
-                                    <div>
-                                        <label>
-                                            <img src="/image.png" alt="img" className="w-6 h-6 cursor-pointer" />
-                                            <input type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
-                                        </label>
-                                    </div>
+                                <div className="flex items-center justify-between mt-4">
                                     <button
                                         onClick={handleCreatePost}
                                         disabled={creating}
@@ -591,7 +517,7 @@ export default function CommunityPage() {
                     )}
 
                     {/* CENTER: postlar listi */}
-                    <div className="w-full lg:w-2/4 flex flex-col gap-6 px-4">
+                    <div className="flex flex-col w-full gap-6 px-4 lg:w-2/4">
                         <div className="w-full h-[1px] bg-gray-300 mb-3"></div>
 
                         {loading && <div className="text-center text-[#AEAEAE] py-6">Yuklanmoqda...</div>}
@@ -602,23 +528,21 @@ export default function CommunityPage() {
                             <div key={post.id ?? idx} className={`${idx === arr.length - 1 ? "mb-[86px]" : ""}`}>
                                 <div className="bg-white p-6 rounded-2xl shadow-sm hover:shadow-md transition duration-300 h-[350px] flex flex-col justify-between">
                                     {/* USTKI QISM */}
-                                    <div className="flex justify-between items-start">
+                                    <div className="flex items-start justify-between">
                                         <div className="flex items-center gap-4">
                                             <div className="w-[58px] h-[58px] rounded-full overflow-hidden border border-gray-300">
                                                 <img
-                                                    key={profileImage}
-                                                    src={profileImage || "/user-white.jpg"}
-                                                    alt="avatar"
-                                                    className="w-full h-full object-cover rounded-full border"
+                                                    src={mediaUrl(post.author?.avatar, "/user1.png")}
+                                                    alt={post.author?.full_name || "User"}
+                                                    className="object-cover w-full h-full border rounded-full"
                                                 />
                                             </div>
 
-                                            <h2 className="text-[24px] font-bold text-black mt-2">{user ? capitalizeName(user.full_name) : "Ism yuklanmoqda..."}</h2>
+                                            <h2 className="text-[24px] font-bold text-black mt-2">
+                                                {capitalizeName(post.author?.full_name || "Foydalanuvchi")}
+                                            </h2>
                                         </div>
                                         <div className="flex flex-col items-center gap-1">
-                                            <button className="w-8 h-8 relative rounded bg-white border-2 border-transparent hover:border-black transition">
-                                                <img src="/three-dots.svg" alt="menu" className="absolute inset-0 m-auto w-4 h-4" />
-                                            </button>
                                             <div className="text-[20px] leading-[27px] text-[#AEAEAE]">{timeAgo(post.created_at, langCode)}</div>
                                         </div>
                                     </div>
@@ -647,7 +571,7 @@ export default function CommunityPage() {
                                             tabIndex={0}
                                             onClick={() => toggleCommentsOpen(post.id)}
                                             onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && toggleCommentsOpen(post.id)}
-                                            className="flex items-center gap-2 cursor-pointer hover:text-blue-600 transition"
+                                            className="flex items-center gap-2 transition cursor-pointer hover:text-blue-600"
                                         >
                                             <MessageCircle size={20} /> {texts[langCode].comment}
                                         </div>
@@ -656,7 +580,7 @@ export default function CommunityPage() {
                                     {commentOpen === post.id && (
                                         <div className="mt-3">
                                             {/* Yangi komment input */}
-                                            <div className="flex w-full items-center gap-3 mt-3">
+                                            <div className="flex items-center w-full gap-3 mt-3">
                                                 <input
                                                     type="text"
                                                     value={newCommentMap[post.id] || ""}
@@ -700,69 +624,107 @@ export default function CommunityPage() {
                     </div>
 
                     {/* RIGHT: top аккаунты */}
-                    <div className="hidden lg:block w-1/4">
+                    <div className="hidden w-1/4 lg:block">
                         <div className="bg-white p-4 rounded-xl shadow border border-gray-200 mb-[100px]">
-                            <div className="flex justify-between items-center mb-4">
+                            <div className="flex items-center justify-between mb-4">
                                 <span className="font-semibold text-black">{texts[langCode].topAccounts}</span>
                                 <Link to="/companies" className="text-[#3066BE] text-sm hover:underline">
                                     {texts[langCode].seeAll}
                                 </Link>
                             </div>
 
-                            {topCompanies.length === 0 && <div className="text-[#AEAEAE] text-sm py-2">Данных нет</div>}
+                            {topCompanies.length === 0 && (
+                                <div className="text-[#AEAEAE] text-sm py-2">Данных нет</div>
+                            )}
 
                             {topCompanies.map((c) => (
-                                <div key={c.id} className="flex flex-col justify-between w-[258px] h-[125px] border border-gray-200 rounded-xl p-3 mb-4 hover:shadow transition">
-                                    <div className="flex gap-3 items-center mb-2">
-                                        <div className="w-[38px] h-[38px] bg-[#D9D9D9] rounded-full overflow-hidden">
-                                            {c.logo ? (
-                                                <img
-                                                    src={mediaUrl(c.logo)}
-                                                    alt={c.name}
-                                                    className="w-full h-full object-cover"
-                                                    onError={(e) => {
-                                                        e.currentTarget.onerror = null;
-                                                        e.currentTarget.src = "";
-                                                    }}
-                                                />
-                                            ) : null}
+                                <div
+                                    key={c.id}
+                                    className="flex flex-col justify-between w-[258px] h-[125px] border border-gray-200 rounded-xl p-3 mb-4 hover:shadow transition"
+                                >
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <div className="w-[38px] h-[38px] bg-[#D9D9D9] rounded-full overflow-hidden flex items-center justify-center">
+                                            <img
+                                                src={mediaUrl(c.logo_url || c.logo, "/company.png")}
+                                                alt={c.name}
+                                                className="object-cover w-full h-full"
+                                                onError={(e) => {
+                                                    e.currentTarget.onerror = null;
+                                                    e.currentTarget.src = "/company-default.png";
+                                                }}
+                                            />
                                         </div>
 
                                         <div className="flex flex-col">
-                                            <span className="text-[#000000] text-[14px] leading-[21px] font-semibold">{c.name}</span>
-                                            <span className="text-[#AEAEAE] text-[8px] leading-[12px] font-normal">{texts[langCode].communityDesc}</span>
+                                            <span className="text-[#000000] text-[14px] leading-[21px] font-semibold">
+                                              {c.name}
+                                            </span>
+                                                                            <span className="text-[#AEAEAE] text-[8px] leading-[12px] font-normal">
+                                              {texts[langCode].communityDesc}
+                                            </span>
                                         </div>
                                     </div>
 
                                     <div className="flex justify-between mt-3">
+                                        {/* 🔹 Смотреть knopkasi */}
                                         <button
                                             className="bg-white text-black rounded-md px-3 py-1 text-[10px] border-none"
                                             onClick={(e) => {
                                                 e.preventDefault();
                                                 e.stopPropagation();
-                                                handleView(c?.id ?? c?.company?.id ?? c?.company_id ?? c?.pk ?? c?._id);
+                                                handleView(
+                                                    c?.id ??
+                                                    c?.company?.id ??
+                                                    c?.company_id ??
+                                                    c?.pk ??
+                                                    c?._id
+                                                );
                                             }}
                                         >
                                             {texts[langCode].view}
                                         </button>
 
+                                        {/* 🔹 Подписаться / Отписаться tugmasi */}
                                         <FollowButton
                                             companyId={c.id}
                                             defaultFollowing={!!(c.is_following ?? c.is_subscribed ?? c.followed)}
                                             defaultCount={c.followers_count}
                                             texts={texts}
                                             langCode={langCode}
+                                            onChange={({ following, followers_count }) => {
+                                                // ✅ State ni yangilaymiz: topCompanies ichida c.id bo‘yicha
+                                                setTopCompanies((prev) =>
+                                                    prev.map((item) =>
+                                                        item.id === c.id
+                                                            ? {
+                                                                ...item,
+                                                                is_following: following,
+                                                                followers_count: followers_count,
+                                                            }
+                                                            : item
+                                                    )
+                                                );
+                                            }}
                                         />
                                     </div>
                                 </div>
                             ))}
                         </div>
                     </div>
+
                 </div>
+
+                {selectedCompanyId && (
+                    <CompanyModal
+                        companyId={selectedCompanyId}
+                        onClose={() => setSelectedCompanyId(null)}
+                    />
+                )}
+
 
                 {/* FOOTER */}
                 <footer className="w-full h-[393px] relative overflow-hidden">
-                    <img src="/footer-bg.png" alt="Footer background" className="absolute inset-0 w-full h-full object-cover z-0" />
+                    <img src="/footer-bg.png" alt="Footer background" className="absolute inset-0 z-0 object-cover w-full h-full" />
                     <div className="absolute inset-0 bg-[#3066BE]/50 z-10"></div>
 
                     <div className="relative z-20">
@@ -825,8 +787,35 @@ export default function CommunityPage() {
 
             {/* Tablet */}
             <div className="hidden md:block lg:hidden">
-                <CommunityTablet />
+            <CommunityTablet
+                posts={posts}
+                loading={loading}
+                user={user}
+                texts={texts}
+                langCode={langCode}
+                selectedUser={selectedUser}
+                setSelectedUser={setSelectedUser}
+                toggleLike={toggleLike}
+                toggleCommentsOpen={toggleCommentsOpen}
+                commentsMap={commentsMap}
+                newCommentMap={newCommentMap}
+                setNewCommentMap={setNewCommentMap}
+                handleAddComment={handleAddComment}
+                loadMoreComments={loadMoreComments}
+                likePending={likePending}
+                timeAgo={timeAgo}
+                handlePickUser={handlePickUser}
+                fetchPostList={fetchPostList}
+                setShowModal={setShowModal}
+                showModal={showModal}
+                newPostContent={newPostContent}
+                setNewPostContent={setNewPostContent}
+                handleImageSelect={handleImageSelect}
+                handleCreatePost={handleCreatePost}
+                creating={creating}
+            />
             </div>
+
 
             {/* Mobile */}
             <div className="block md:hidden">

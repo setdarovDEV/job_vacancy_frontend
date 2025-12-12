@@ -11,7 +11,7 @@ const LanguageSection = ({ isEditable }) => {
 
 
     useEffect(() => {
-        api.get("/language/languages/")
+        api.get("/api/languages/")
             .then(res => {
                 // ✅ DRF pagination bo‘lsa, results ichidan olamiz
                 setLanguages(res.data.results || []);
@@ -27,7 +27,7 @@ const LanguageSection = ({ isEditable }) => {
                 const res = await api.patch(`/language/languages/${editId}/`, formData);
                 setLanguages(languages.map(lang => lang.id === editId ? res.data : lang));
             } else {
-                const res = await api.post("/language/languages/", formData);
+                const res = await api.post("/api/languages/", formData);
                 setLanguages([...languages, res.data]);
             }
             resetForm();

@@ -60,7 +60,7 @@ export default function PortfolioFullModal({ isOpen, onClose, onSuccess }) {
         if (!canPublish) return;
         try {
             setLoading(true);
-            const { data: project } = await api.post("portfolio/projects/", {
+            const { data: project } = await api.post("/api/projects/", {
                 title: title.trim(),
                 description: desc.trim(),
                 tags: parseTags(skills).map(t=>t.replace(/^#/,"")),
@@ -70,7 +70,7 @@ export default function PortfolioFullModal({ isOpen, onClose, onSuccess }) {
                     const fd = new FormData();
                     fd.append("project", project.id);
                     fd.append("file", file);
-                    return api.post("portfolio/portfolio-media/", fd, { headers: { "Content-Type": "multipart/form-data" }});
+                    return api.post("/api/portfolio-media/", fd, { headers: { "Content-Type": "multipart/form-data" }});
                 }));
             }
             setTitle(""); setDesc(""); setSkills(""); setFiles([]);

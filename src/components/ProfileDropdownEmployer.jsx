@@ -1,10 +1,9 @@
 import React, { useState, useRef, useEffect } from "react";
-import { UserRound, Sun, Settings, LogOut, Users } from "lucide-react"; // User2 -> Отклики
+import { UserRound, Sun, Settings, LogOut, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import ChangeProfileImageModal from "./AvatarUploadModal";
 import { toast } from "react-toastify";
 import api from "../utils/api";
-import ProfileDropdownJobSeekerTablet from "./tablet/ProfileDropdownJObSeekerTablet.jsx";
 import ProfileDropdownEmployerTablet from "./tablet/ProfileDropdownEmployerTablet.jsx";
 
 export default function ProfileDropdownEmployer() {
@@ -71,72 +70,89 @@ export default function ProfileDropdownEmployer() {
 
     return (
         <>
+            {/* Tablet version */}
             <div className="block lg:hidden">
                 <ProfileDropdownEmployerTablet />
             </div>
+
+            {/* Desktop version */}
             <div className="hidden lg:block relative text-left" ref={dropdownRef}>
-                {/* Avatar btn */}
+                {/* Avatar button */}
                 <button
                     onClick={() => setIsOpen(!isOpen)}
-                    className="relative w-[56px] h-[56px] rounded-full bg-gray-200 overflow-hidden border-2 border-none"
+                    className="relative w-[52px] h-[52px] rounded-full bg-gray-200 overflow-hidden border-2 border-gray-300 hover:border-[#3066BE] transition"
                 >
-                    <div className="absolute inset-0">
-                        <img
-                            src={profileImage || "/user.jpg"}
-                            alt="avatar"
-                            className="w-full h-full object-cover border-none rounded-full"
-                        />
-                    </div>
+                    <img
+                        src={profileImage || "/user1.png"}
+                        alt="avatar"
+                        className="w-full h-full object-cover"
+                    />
                 </button>
 
-                {/* Dropdown */}
+                {/* Dropdown menu */}
                 {isOpen && (
-                    <div className="absolute right-0 top-full mt-2 w-[300px] text-black bg-[#F4F6FA] rounded-xl shadow-[ -4px_-2px_20px_0px_rgba(0,0,0,0.15)] z-40">
+                    <div className="absolute right-0 top-full mt-2 w-[280px] bg-white rounded-xl shadow-lg border border-gray-200 z-50">
                         {/* Header */}
-                        <div className="px-4 h-[79px] flex items-center gap-3 border-b border-black relative">
+                        <div className="px-4 py-4 flex items-center gap-3 border-b border-gray-200">
                             <img
-                                src={profileImage || "/user.jpg"}
-                                className="w-[60px] h-[60px] rounded-full object-cover cursor-pointer"
+                                src={profileImage || "/user1.png"}
+                                className="w-[54px] h-[54px] rounded-full object-cover cursor-pointer border-2 border-gray-200"
                                 alt="avatar"
                                 onClick={() => setIsAvatarModalOpen(true)}
                             />
-                            <div>
-                                <p className="text-[16px] font-semibold underline text-black">
+                            <div className="flex-1 min-w-0">
+                                <p className="text-[15px] font-semibold text-black truncate">
                                     {user ? formatName(user.full_name) : "Yuklanmoqda..."}
                                 </p>
-                                {/* 🔥 EMPLOYER uchun rasmdagi kabi “Работодатель” ko‘rsatamiz */}
-                                <p className="text-[14px] text-black mt-[4px]">
+                                <p className="text-[13px] text-gray-600 mt-0.5 truncate">
                                     {user?.role === "EMPLOYER" ? "Работодатель" : (user?.title || "Профессия не указана")}
                                 </p>
                             </div>
                         </div>
 
-                        {/* Items */}
-                        <div className="px-4 py-2 space-y-3">
-                            <a href="/profile" className="flex items-center gap-2 text-sm text-black hover:text-blue-600">
-                                <UserRound size={18} /> Ваш профиль
+                        {/* Menu items */}
+                        <div className="px-3 py-2 space-y-1">
+                            <a
+                                href="/home-employer"
+                                className="flex items-center gap-2.5 px-3 py-2.5 text-[14px] text-gray-700 hover:bg-gray-100 rounded-lg transition"
+                            >
+                                <UserRound size={18} className="text-gray-600" />
+                                Ваш профиль
                             </a>
 
-                            {/* ✅ Qo‘shildi: EMPLOYER uchun “Отклики” */}
-                            <a href="/employer/applications" className="flex items-center gap-2 text-sm text-black hover:text-blue-600">
-                                <Users size={18} /> Отклики
+                            <a
+                                href="/employer/applications"
+                                className="flex items-center gap-2.5 px-3 py-2.5 text-[14px] text-gray-700 hover:bg-gray-100 rounded-lg transition"
+                            >
+                                <Users size={18} className="text-gray-600" />
+                                Отклики
                             </a>
 
-                            <a href="/" className="flex items-center gap-2 text-sm text-black hover:text-blue-600">
-                                <Sun size={18} /> Тема: light
+                            <a
+                                href="/"
+                                className="flex items-center gap-2.5 px-3 py-2.5 text-[14px] text-gray-700 hover:bg-gray-100 rounded-lg transition"
+                            >
+                                <Sun size={18} className="text-gray-600" />
+                                Тема: light
                             </a>
-                            <a href="/settings" className="flex items-center gap-2 text-sm text-black hover:text-blue-600">
-                                <Settings size={18} /> Настройки
+
+                            <a
+                                href="/settings"
+                                className="flex items-center gap-2.5 px-3 py-2.5 text-[14px] text-gray-700 hover:bg-gray-100 rounded-lg transition"
+                            >
+                                <Settings size={18} className="text-gray-600" />
+                                Настройки
                             </a>
                         </div>
 
                         {/* Logout */}
-                        <div className="border-t border-black mt-2 pt-2 px-4 bg-[#F4F6FA]">
+                        <div className="border-t border-gray-200 px-3 py-2">
                             <button
                                 onClick={handleLogout}
-                                className="flex items-center gap-2 text-sm ml-[-15px] bg-[#F4F6FA] border-none text-black hover:text-red-600"
+                                className="flex items-center gap-2.5 px-3 py-2.5 text-[14px] text-red-600 hover:bg-red-50 rounded-lg transition w-full text-left"
                             >
-                                <LogOut size={18} /> Выйти
+                                <LogOut size={18} />
+                                Выйти
                             </button>
                         </div>
                     </div>
@@ -145,25 +161,14 @@ export default function ProfileDropdownEmployer() {
                 {isAvatarModalOpen && (
                     <ChangeProfileImageModal
                         onClose={() => setIsAvatarModalOpen(false)}
-                        onSuccess={(url) => { setProfileImage(url); localStorage.setItem("profile_image", url); }}
+                        onSuccess={(url) => {
+                            setProfileImage(url);
+                            localStorage.setItem("profile_image", url);
+                        }}
                         setProfileImage={setProfileImage}
                     />
                 )}
             </div>
         </>
-    );
-}
-
-function SaveChangesButton() {
-    const handleSave = () => {
-        toast.success("Ma'lumotlar saqlandi ✅");
-        setTimeout(() => window.location.reload(), 1000);
-    };
-    return (
-        <div className="mt-6 flex justify-end">
-            <button onClick={handleSave} className="px-6 py-3 bg-[#3066BE] text-white rounded-lg font-semibold hover:bg-[#2452a6] transition">
-                Saqlash
-            </button>
-        </div>
     );
 }

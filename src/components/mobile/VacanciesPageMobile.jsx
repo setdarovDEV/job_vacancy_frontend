@@ -1,11 +1,11 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import MobileNavbar from "./MobileNavbarLogin.jsx";
 import MobileFooter from "./MobileFooter";
 import FilterModalMobile from "./CompaniesFilterFullModal.jsx";
 import VacancyDetailsModalMobile from "./VacancyDetailsModalMobile";
-import { MapPin, Bell, Bookmark } from "lucide-react";
 import api from "../../utils/api";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
 export default function VacanciesPageMobile() {
     const [vacancies, setVacancies] = useState([]);
@@ -13,6 +13,10 @@ export default function VacanciesPageMobile() {
     const [showFilter, setShowFilter] = useState(false);
     const [detailsVacancy, setDetailsVacancy] = useState(null);
     const [activeModalIndex, setActiveModalIndex] = useState(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+
+    const navigate = useNavigate();
 
     // filters
     const [title, setTitle] = useState("");
@@ -23,7 +27,36 @@ export default function VacanciesPageMobile() {
     const [user, setUser] = useState(null);
     const [skills, setSkills] = useState([]);
 
-    const currentPage = 1; // mobilda hozircha 1 sahifa (paginationsiz); kerak bo‘lsa qo‘shamiz
+
+    useEffect(() => {
+        let alive = true;
+        setLoading(true);
+
+        api
+            .get(`/api/vacancies/jobposts/?page=${currentPage}`)
+            .then((res) => {
+                if (!alive) return;
+                setVacancies(res.data.results || []);
+                if (res.data.count) {
+                    setTotalPages(Math.ceil(res.data.count / 50)); // ← 50 ta limit backenddan
+                }
+            })
+            .catch((e) => console.error(e))
+            .finally(() => alive && setLoading(false));
+
+        return () => {
+            alive = false;
+        };
+    }, [currentPage]);
+
+
+    const handlePageChange = (num) => {
+        if (num >= 1 && num <= totalPages) {
+            setCurrentPage(num);
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+    };
+
 
     // Fetch vacancies
     useEffect(() => {
@@ -78,6 +111,25 @@ export default function VacanciesPageMobile() {
             if (detailsVacancy?.id === jobId) setDetailsVacancy(updated);
         } catch (e) {
             console.error("Baholashda xatolik:", e);
+        }
+    };
+
+    useEffect(() => {
+        // userni olish
+        api.get("/api/auth/me/").then((res) => setUser(res.data)).catch(() => {});
+    }, []);
+
+    const handlePublishClick = () => {
+        if (!user) {
+            alert("Сначала войдите в систему / Avval tizimga kiring");
+            return;
+        }
+        if (user.role === "JOB_SEEKER") {
+            alert("❗️Вы не можете публиковать вакансии (faqat ish beruvchilar uchun).");
+        } else if (user.role === "EMPLOYER") {
+            navigate("/profile");
+        } else {
+            alert("Bu amal siz uchun mavjud emas.");
         }
     };
 
@@ -182,30 +234,12 @@ export default function VacanciesPageMobile() {
         <div className="min-h-screen bg-white">
             <MobileNavbar title="Vakansiyalar" />
 
-            <div className="flex items-center justify-end gap-4">
-                {/* Bell with badge */}
-                <button
-                    className="w-10 h-10 flex items-center justify-center border-none rounded-full bg-white text-black"
-                    aria-label="Notifications"
-                >
-                    <div className="relative">
-                        <Bell className="w-5 h-5" />
-                        <span
-                            className="absolute -top-1 -right-1 w-4 h-4 bg-red-600 text-white rounded-full flex items-center justify-center text-[10px] font-semibold z-10"
-                        >
-                          1
-                        </span>
-                    </div>
-                </button>
-
-            </div>
-
             {/* Search bar — like input + separate filter icon */}
-            <div className="px-4 pt-3 flex items-center justify-between gap-3">
+            <div className="px-4 pt-3 flex items-center mt-[20px] justify-between gap-3">
                 {/* Pill (looks like input, opens modal) */}
                 <button
                     onClick={() => setShowFilter(true)}
-                    className="h-10 w-[143px] ml-[116px] rounded-2xl bg-[#F4F6FA] px-3 pr-4 flex items-center gap-3 active:scale-[.99] shadow-[0_0_0_1px_rgba(0,0,0,0.06)]"
+                    className="h-10 w-[143px] ml-[130px] rounded-2xl bg-[#F4F6FA] px-3 pr-4 flex items-center gap-3 active:scale-[.99] shadow-[0_0_0_1px_rgba(0,0,0,0.06)]"
                     aria-label="Open search"
                 >
                     {/* left icon */}
@@ -251,9 +285,12 @@ export default function VacanciesPageMobile() {
                 </h1>
 
                 <div className="mt-4 md:mt-6">
-                    <h2 className="text-[16px] md:text-[18px] leading-[150%] font-bold text-black mb-2">
+                    <button
+                        onClick={handlePublishClick}
+                        className="mt-2 px-4 py-2 rounded-xl bg-white text-black text-[14px] font-semibold active:scale-95 transition ml-[-18px] "
+                    >
                         {texts[selectedLang.code].publishVacancy}
-                    </h2>
+                    </button>
                     <div className="w-[52px] h-[4px] bg-[#D9D9D9] rounded mb-4 md:mb-6"></div>
                     <hr className="border-t border-[#D9D9D9] mb-4 md:mb-6" />
                 </div>
@@ -283,8 +320,10 @@ export default function VacanciesPageMobile() {
                                     >
                                         <p className="ml-[-22px]">{vacancy.title}</p>
                                     </button>
-                                    <p className="text-[12px] md:text-sm text-black/55 md:ml-[27px] mb-[6px] md:mb-[10px]">
-                                        ${vacancy.budget_min} - ${vacancy.budget_max}
+                                    <p className="text-[12px] md:text-sm text-black/55 mb-[6px] md:mb-[10px]">
+                                        {vacancy.budget
+                                            ? vacancy.budget
+                                            : "Зарплата не указана"}
                                     </p>
                                 </div>
 
@@ -342,6 +381,52 @@ export default function VacanciesPageMobile() {
                     </div>
                 </div>
 
+            </div>
+
+            {/* Pagination — backend bilan ishlaydigan */}
+            <div className="w-full flex justify-center mt-8 mb-20">
+                <div className="flex items-center gap-3">
+                    {[...Array(totalPages)].map((_, i) => {
+                        const num = i + 1;
+                        return (
+                            <button
+                                key={num}
+                                onClick={() => handlePageChange(num)}
+                                className={`w-10 h-10 flex items-center justify-center rounded-full border-2 text-[15px] font-semibold transition-all duration-200 
+            ${
+                                    num === currentPage
+                                        ? "bg-[#3066BE] border-[#3066BE] text-white"
+                                        : "bg-white border-[#3066BE] text-[#3066BE] hover:bg-[#3066BE] hover:text-white"
+                                }`}
+                            >
+                                {num}
+                            </button>
+                        );
+                    })}
+
+                    {/* Arrow (next) */}
+                    <button
+                        disabled={currentPage === totalPages}
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        className={`w-10 h-10 flex items-center justify-center rounded-full border-2 text-[#3066BE] transition 
+        ${
+                            currentPage === totalPages
+                                ? "opacity-40 cursor-not-allowed border-[#B0C4DE]"
+                                : "hover:bg-[#3066BE] hover:text-white border-[#3066BE]"
+                        }`}
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            strokeWidth="2.2"
+                            stroke="currentColor"
+                            className="w-5 h-5"
+                        >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </button>
+                </div>
             </div>
 
             <MobileFooter />

@@ -1,38 +1,36 @@
-// services/chatApi.js
-import api from "../utils/api";
+// src/services/chatApi.js
+import api from "../utils/api.js";
 
 export const chatApi = {
-    // 1. Hamma xonalar
-    async fetchChatRooms() {
-        const res = await api.get("/api/chat/rooms/");
+    async listChats() {
+        const res = await api.get("/api/chats/");
         return res.data;
     },
 
-    // 2. Yangi xona yaratish
-    async createRoom(userId) {
-        const res = await api.post("/api/chat/rooms/", {
-            users: [userId],
+    async getMessages(chatId, limit = 100) {
+        const res = await api.get(`/api/chats/${chatId}/messages/?limit=${limit}`);
+        return res.data;
+    },
+
+    async sendMessage(chatId, { text, file, image }) {
+        const formData = new FormData();
+        if (text) formData.append("text", text);
+        if (file) formData.append("file", file);
+        if (image) formData.append("image", image);
+        const res = await api.post(`/api/chats/${chatId}/messages/`, formData, {
+            headers: { "Content-Type": "multipart/form-data" },
         });
         return res.data;
     },
 
-    // 3. Biror xonadagi xabarlar
-    async fetchMessages(roomId) {
-        const res = await api.get(`/api/chat/rooms/${roomId}/messages/`);
+    async getOrCreate(userId) {
+        const res = await api.post("/api/chats/get_or_create/", { user_id: userId });
         return res.data;
     },
 
-    // 4. Xabar yuborish
-    async sendMessage({ roomId, text }) {
-        const res = await api.post("/api/chat/messages/", {
-            room: roomId,
-            text: text,
-        });
-        return res.data;
-    },
-
-    // 5. O'qilgan deb belgilash
-    async markRead(roomId, messageId) {
-        return api.post(`/api/chat/messages/${messageId}/mark_read/`);
+    async markRead(chatId, lastId) {
+        // backendda alohida “mark as read” yo‘q, shuning uchun hozircha no-op
+        // agar keyin WS qo‘shilsa — shu yerda ishlatamiz
+        return Promise.resolve(true);
     },
 };

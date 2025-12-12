@@ -94,20 +94,32 @@ export default function ProfilePageMobile() {
 
     useEffect(() => {
         // skills
-        api.get("skills/skills/").then(r => setSkills(r.data)).catch(() => {});
+        api.get("/api/skills/")
+            .then(r => {
+                if (Array.isArray(r.data)) {
+                    setSkills(r.data);
+                } else if (r.data.results && Array.isArray(r.data.results)) {
+                    setSkills(r.data.results);
+                } else {
+                    setSkills([]);
+                }
+            })
+            .catch(() => setSkills([]));  // ✅ Error'da ham array
         // portfolio
         (async () => {
             try {
-                const p = await api.get("portfolio/projects/");
+                const p = await api.get("/api/projects/");
                 const projects = p.data?.results || [];
-                const mediaReqs = projects.map(pr => api.get(`portfolio/portfolio-media/?project=${pr.id}`));
+                const mediaReqs = projects.map(pr =>
+                    api.get(`/api/portfolio-media/?project=${pr.id}`)  // ✅ /api/ prefix
+                );
                 const mediaRes = await Promise.all(mediaReqs);
                 const all = mediaRes.flatMap(m => m.data.results || []);
                 setPortfolioItems(all);
             } catch (_) {}
         })();
         // certificates
-        api.get("certificate/certificates/").then(r => {
+        api.get("/api/certificates/").then(r => {
             // ba'zan API list yoki results qaytaradi
             setCertificates(r.data.results || r.data || []);
         }).catch(() => {});
@@ -133,10 +145,10 @@ export default function ProfilePageMobile() {
 
     const saveCertificate = async (formData) => {
         try {
-            await api.post("certificate/certificates/", formData, {
+            await api.post("/api/certificates/", formData, {
                 headers: { "Content-Type": "multipart/form-data" },
             });
-            const r = await api.get("certificate/certificates/");
+            const r = await api.get("/api/certificates/");
             setCertificates(r.data.results || r.data || []);
             setCertModalOpen(false);
         } catch (e) { console.error(e); }
@@ -144,11 +156,12 @@ export default function ProfilePageMobile() {
 
     const [isPortfolioOpen, setIsPortfolioOpen] = useState(false);
     const reloadPortfolio = async () => {
-        // seni mavjud fetch’ing bilan uyg‘un
         try {
-            const p = await api.get("portfolio/projects/");
+            const p = await api.get("/api/projects/");
             const projects = p.data?.results || [];
-            const mediaReqs = projects.map(pr => api.get(`portfolio/portfolio-media/?project=${pr.id}`));
+            const mediaReqs = projects.map(pr =>
+                api.get(`/api/portfolio-media/?project=${pr.id}`)  // ✅
+            );
             const mediaRes = await Promise.all(mediaReqs);
             const all = mediaRes.flatMap(m => m.data.results || []);
             setPortfolioItems(all);
@@ -158,7 +171,7 @@ export default function ProfilePageMobile() {
     // Listni qayta yuklash
     const reloadExperiences = useCallback(async () => {
         try {
-            const { data } = await api.get("experience/experiences/");
+            const { data } = await api.get("/api/experiences/");
             setExperiences(data); // UI’ingda qayerda ko‘rsatsang, shu state’dan foydalan
         } catch (e) {
             console.error("Reload experiences error:", e);
@@ -507,7 +520,7 @@ export default function ProfilePageMobile() {
                 onClose={() => { setSkillModalOpen(false); setSelectedSkill(null); }}
                 skill={selectedSkill}
                 initialSkills={skills.map(s => s.name)}
-                onSave={() => api.get("skills/skills/").then(r => setSkills(r.data))}
+                onSave={() => api.get("/api/skills/").then(r => setSkills(r.data))}
             />
 
             <CertificateModal

@@ -1,279 +1,241 @@
-// src/components/VacancyModal.jsx
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import {
-    X,
-    ArrowLeft,
-    Bookmark,
-    BookmarkCheck,
-    Clock,
-    MapPin,
-    DollarSign,
-    CalendarRange,
-    Star,
-} from "lucide-react";
+// src/components/VacancyTabletModal.jsx
+import React, { useEffect, useState } from "react";
+import api from "../../utils/api.js";
+import { toast } from "react-toastify";
+import axios from "axios";
 
-function timeAgoRU(dateLike) {
-    const d = dateLike ? new Date(dateLike) : new Date();
-    const diffMs = Date.now() - d.getTime();
-    const m = Math.max(0, Math.floor(diffMs / 60000));
-    if (m < 1) return "только что";
-    if (m < 60) return `${m} мин назад`;
-    const h = Math.floor(m / 60);
-    if (h < 24) return `${h} ч назад`;
-    const day = Math.floor(h / 24);
-    return `${day} дн назад`;
-}
-function formatMoneyRange(min, max) {
-    const a = (min ?? 0).toString();
-    const b = (max ?? 0).toString();
-    return `${a}$–${b}$`;
-}
-function formatDateRangeRu(start, end) {
-    const months = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
-    const s = start ? new Date(start) : null;
-    const e = end ? new Date(end) : null;
-    if (!s && !e) return "—";
-    const part = (dt) => `${dt.getDate()} ${months[dt.getMonth()]}`;
-    if (s && e) return `${part(s)} – ${part(e)}`;
-    return part(s || e);
-}
+export default function VacancyTabletModal({ onClose, vacancy }) {
+    const [loading, setLoading] = useState(true);
+    const [data, setData] = useState(null);
+    const [isSaved, setIsSaved] = useState(false);
+    const [isApplied, setIsApplied] = useState(false);
 
-export default function VacancyModal({
-                                         vacancy,
-                                         onClose,
-                                         onBookmarkToggle,   // optional(vacancyId, nextState)
-                                         onApply,            // optional
-                                     }) {
-    const [bookmarked, setBookmarked] = useState(!!vacancy?.is_bookmarked);
-    const closeBtnRef = useRef(null);
-
-    // Body scroll lock & ESC
+    // ✅ Vakansiya ma'lumotini olish
     useEffect(() => {
-        const prev = document.body.style.overflow;
-        document.body.style.overflow = "hidden";
-        const onKey = (e) => e.key === "Escape" && onClose?.();
-        window.addEventListener("keydown", onKey);
-        closeBtnRef.current?.focus();
-        return () => {
-            document.body.style.overflow = prev;
-            window.removeEventListener("keydown", onKey);
+        const fetchVacancyDetail = async () => {
+            if (!vacancy?.id) return;
+            try {
+                setLoading(true);
+                const res = await api.get(`/api/vacancies/jobposts/${vacancy.id}/`);
+                setData(res.data);
+                setIsSaved(res.data.is_saved);
+                setIsApplied(res.data.is_applied);
+            } catch (err) {
+                console.error("Vakansiya detailni olishda xatolik:", err);
+                toast.error("Vakansiyani yuklashda xatolik yuz berdi");
+            } finally {
+                setLoading(false);
+            }
         };
-    }, [onClose]);
+        fetchVacancyDetail();
+    }, [vacancy?.id]);
 
-    const createdAgo = useMemo(() => timeAgoRU(vacancy?.created_at), [vacancy?.created_at]);
-    const money = useMemo(() => formatMoneyRange(vacancy?.budget_min, vacancy?.budget_max), [vacancy]);
-    const deadline = useMemo(() => formatDateRangeRu(vacancy?.deadline_start, vacancy?.deadline_end), [vacancy]);
-
-    const skills = Array.isArray(vacancy?.skills)
-        ? vacancy.skills.map((s) => (typeof s === "string" ? s : s?.name ?? ""))
-        : [];
-
-    const client = vacancy?.client || {};
-    const rating = Number(client?.rating ?? vacancy?.average_stars ?? 0);
-    const reviews = client?.review_count ?? 0;
-
-    const handleOverlay = (e) => {
-        if (e.target.dataset?.overlay === "1") onClose?.();
+    // ✅ Apply funksiyasi
+    const handleApply = async () => {
+        if (isApplied) return;
+        try {
+            await api.post("/api/applications/apply/", {
+                job_post: data.id,
+                cover_letter: "",
+            });
+            toast.success("Arizangiz yuborildi ✅");
+            setIsApplied(true);
+        } catch (err) {
+            if (err.response?.status === 400) {
+                toast.warn("Siz allaqachon ariza yuborgansiz ❗️");
+                setIsApplied(true);
+            } else {
+                toast.error("Xatolik yuz berdi");
+            }
+            console.error("Xatolik:", err);
+        }
     };
-    const toggleBookmark = () => {
-        const next = !bookmarked;
-        setBookmarked(next);
-        onBookmarkToggle?.(vacancy?.id, next);
+
+    // ✅ Saqlash / unsave qilish funksiyasi
+    const toggleSaveVacancy = async () => {
+        try {
+            const token = localStorage.getItem("access_token");
+            if (!token) {
+                toast.error("Сначала войдите в систему!");
+                return;
+            }
+
+            const method = isSaved ? "delete" : "post";
+            await axios({
+                method,
+                url: `https://jobvacancy-api.duckdns.org/api/vacancies/jobposts/${data.id}/save/`,
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            setIsSaved(!isSaved);
+            toast.success(isSaved ? "Удалено из сохранённых ❌" : "Вакансия сохранена ✅");
+        } catch (err) {
+            console.error("❌ Toggle save error:", err);
+            toast.error("Ошибка при сохранении или удалении вакансии");
+        }
     };
+
+    if (loading)
+        return (
+            <div className="fixed inset-0 flex items-center justify-center bg-black/40 z-50">
+                <div className="bg-white rounded-xl shadow-lg p-6 text-center">
+                    <p className="text-lg text-[#3066BE] font-semibold">Загрузка вакансии...</p>
+                </div>
+            </div>
+        );
 
     return (
-        <div
-            data-overlay="1"
-            onClick={handleOverlay}
-            className="fixed inset-0 z-[80] bg-black/50 backdrop-blur-[1px] flex items-start justify-center p-3 md:p-6"
-            role="dialog"
-            aria-modal="true"
-        >
-            <div className="w-full max-w-[920px] bg-white rounded-2xl shadow-2xl overflow-hidden animate-[fadeIn_.18s_ease-out]">
-                {/* Header */}
-                <div className="flex items-center justify-between px-4 md:px-6 py-3 border-b">
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex justify-center items-start p-3 overflow-auto">
+            <div
+                className="bg-white shadow-lg rounded-xl flex flex-col mt-4 w-full max-w-[700px]"
+                style={{ maxHeight: "90vh" }}
+            >
+                {/* HEADER */}
+                <div className="sticky top-0 bg-white z-10 border-b border-gray-200 px-4 py-3 flex items-center justify-between rounded-t-xl">
                     <button
                         onClick={onClose}
-                        ref={closeBtnRef}
-                        className="inline-flex items-center gap-2 text-sm  text-[#3066BE] bg-white hover:text-black"
+                        className="flex items-center gap-2 text-[#3066BE] hover:text-black transition"
                     >
-                        <ArrowLeft className="w-5 h-5" />
+                        <img
+                            src="/back.png"
+                            alt="Back"
+                            className="w-[28px] h-[16px] object-contain"
+                        />
+                        <span className="text-sm font-medium">Назад</span>
                     </button>
 
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={toggleBookmark}
-                            className="p-2 rounded-full bg-white text-[#3066BE] hover:bg-gray-100"
-                            aria-label="Bookmark"
-                            title="Сохранить"
-                        >
-                            {bookmarked ? <BookmarkCheck className="w-5 h-5" /> : <Bookmark className="w-5 h-5" />}
-                        </button>
-                        <button
-                            onClick={onClose}
-                            className="p-2 rounded-full bg-white text-[#3066BE] hover:bg-gray-100"
-                            aria-label="Close"
-                            title="Закрыть"
-                        >
-                            <X className="w-5 h-5" />
-                        </button>
+                    <button
+                        onClick={toggleSaveVacancy}
+                        className="p-2 rounded-full hover:bg-gray-100 transition"
+                    >
+                        <img
+                            src="/save.png"
+                            alt="save"
+                            className={`w-5 h-5 ${isSaved ? "filter brightness-50" : ""}`}
+                        />
+                    </button>
+                </div>
+
+                {/* CONTENT */}
+                <div className="overflow-y-auto px-4 py-4" style={{ maxHeight: "calc(90vh - 150px)" }}>
+                    <h2 className="text-[22px] leading-[140%] text-black font-semibold mb-3">
+                        {data?.title}
+                    </h2>
+
+                    {/* Time & Location */}
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="flex items-center gap-1.5 text-[#AEAEAE] text-[11px] font-medium">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="12"
+                                height="12"
+                                fill="none"
+                                stroke="#AEAEAE"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            >
+                                <circle cx="12" cy="12" r="10" />
+                                <polyline points="12 6 12 12 16 14" />
+                            </svg>
+                            <span>{data?.timeAgo || "—"}</span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 text-[#AEAEAE] text-[11px] font-medium">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="12"
+                                height="12"
+                                fill="none"
+                                stroke="#AEAEAE"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            >
+                                <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 1 1 18 0z" />
+                                <circle cx="12" cy="10" r="3" />
+                            </svg>
+                            <span>{data?.location || "Не указано"}</span>
+                        </div>
+                    </div>
+
+                    <div className="w-full h-[1px] bg-[#AEAEAE] my-4"></div>
+
+                    {/* Description */}
+                    <h3 className="text-[15px] text-black font-semibold mb-2">Описание</h3>
+                    <p className="text-[13px] text-gray-700 mb-4 leading-relaxed">
+                        {data?.description || "Описание отсутствует."}
+                    </p>
+
+                    {/* Budget & Deadline */}
+                    <div className="flex flex-col gap-2 mb-4">
+                        <div className="flex items-center gap-2 text-[14px] font-medium">
+                            <span>💰</span>
+                            <span className="text-[#3066BE]">{data?.budget || "Не указано"}</span>
+                        </div>
+                        <div className="text-[13px] text-gray-600">
+                            <span className="font-semibold">Крайний срок:</span>{" "}
+                            {data?.duration
+                                ? new Date(data.duration).toLocaleDateString()
+                                : "Не указано"}
+                        </div>
+                    </div>
+
+                    <div className="w-full h-[1px] bg-[#AEAEAE] my-4"></div>
+
+                    {/* Skills */}
+                    <p className="text-[15px] text-black font-semibold mb-2">Навыки и опыт</p>
+                    <div className="flex flex-wrap gap-2">
+                        {data?.skills?.length ? (
+                            data.skills.map((s, i) => (
+                                <span
+                                    key={i}
+                                    className="bg-gray-100 border text-black text-[12px] px-3 py-1 rounded-full font-medium"
+                                >
+                                    {s}
+                                </span>
+                            ))
+                        ) : (
+                            <span className="text-[#AEAEAE] text-[13px]">Навыки не указаны</span>
+                        )}
                     </div>
                 </div>
 
-                {/* Content */}
-                <div className="h-[85vh] overflow-y-auto px-4 md:px-8 py-6">
-                    {/* Title & meta */}
-                    <h1 className="text-[22px] md:text-[26px] font-extrabold text-black leading-tight">
-                        {vacancy?.title || "Вакансия"}
-                    </h1>
+                {/* FOOTER - ACTION BUTTONS */}
+                <div className="sticky bottom-0 bg-white border-t border-gray-200 px-4 py-4 flex flex-col gap-3 rounded-b-xl">
+                    {/* Apply button */}
+                    <button
+                        onClick={handleApply}
+                        disabled={isApplied}
+                        className={`w-full h-[48px] rounded-lg text-[14px] font-semibold transition-all duration-200 flex items-center justify-center
+                            ${
+                            isApplied
+                                ? "bg-gray-300 text-gray-700 cursor-not-allowed"
+                                : "bg-[#3066BE] text-white hover:bg-[#2b58a8]"
+                        }`}
+                    >
+                        {isApplied ? "Отклик отправлен ✅" : "Откликнуться"}
+                    </button>
 
-                    <div className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-gray-500">
-                        <div className="flex items-center gap-2">
-                            <Clock className="w-4 h-4" />
-                            <span>Опубликовано {createdAgo}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <MapPin className="w-4 h-4" />
-                            <span>{vacancy?.location || "Уточняется"}</span>
-                        </div>
-                    </div>
-
-                    <hr className="my-6 border-gray-200" />
-
-                    {/* Description */}
-                    <section>
-                        <h2 className="text-[16px] font-semibold text-gray-900 mb-3">Описание</h2>
-                        <p className="text-gray-700 leading-7 whitespace-pre-line">
-                            {vacancy?.description || "—"}
-                        </p>
-                    </section>
-
-                    {/* Money & Deadline */}
-                    <div className="my-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="flex items-center justify-between md:justify-start md:gap-3 bg-gray-50 rounded-xl border px-4 py-3">
-                            <div className="flex items-center gap-2 text-gray-500">
-                                <DollarSign className="w-5 h-5" />
-                                <span className="text-sm">Бюджет</span>
-                            </div>
-                            <div className="font-medium text-gray-900">{money}</div>
-                        </div>
-
-                        <div className="flex items-center justify-between md:justify-start md:gap-3 bg-gray-50 rounded-xl border px-4 py-3">
-                            <div className="flex items-center gap-2 text-gray-500">
-                                <CalendarRange className="w-5 h-5" />
-                                <span className="text-sm">Крайний срок</span>
-                            </div>
-                            <div className="font-medium text-gray-900">{deadline}</div>
-                        </div>
-                    </div>
-
-                    <hr className="my-6 border-gray-200" />
-
-                    {/* Skills */}
-                    <section>
-                        <h3 className="text-[16px] font-semibold text-gray-900 mb-3">Навыки и опыт</h3>
-                        {skills.length ? (
-                            <div className="flex flex-wrap gap-2">
-                                {skills.map((tag, i) => (
-                                    <span
-                                        key={`${tag}-${i}`}
-                                        className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 border"
-                                    >
-                    {tag}
-                  </span>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="text-sm text-gray-500">—</div>
-                        )}
-                    </section>
-
-                    <hr className="my-6 border-gray-200" />
-
-                    {/* Client */}
-                    <section>
-                        <h3 className="text-[16px] font-semibold text-gray-900 mb-4">О клиенте</h3>
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            {/* Left: details */}
-                            <div className="md:col-span-2 space-y-4">
-                                <div className="flex items-center gap-3 text-sm text-gray-700">
-                                    <div className="flex items-center gap-2">
-                    <span
-                        className={`inline-block w-2.5 h-2.5 rounded-full ${client?.is_payment_verified ? "bg-emerald-500" : "bg-gray-300"}`}
-                    />
-                                        <span>{client?.is_payment_verified ? "Платеж подтвержден" : "Платеж не подтвержден"}</span>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-center gap-2 text-sm">
-                                    {[...Array(5)].map((_, i) => (
-                                        <Star
-                                            key={i}
-                                            className={`w-4 h-4 ${i < Math.round(rating) ? "fill-yellow-400 stroke-yellow-400" : "stroke-gray-300"}`}
-                                        />
-                                    ))}
-                                    <span className="ml-2 text-gray-600">{rating.toFixed(1)} из {reviews} отзывов</span>
-                                </div>
-
-                                <div className="text-sm text-gray-600">
-                                    <span>{vacancy?.location || "Уточняется"}</span>
-                                </div>
-
-                                <div className="text-sm text-gray-600">
-                                    Компания: <span className="font-medium">{client?.company_name || "—"}</span>
-                                </div>
-
-                                <div className="text-sm text-gray-600">
-                                    {(client?.posted_count || client?.total_jobs) ? (
-                                        <>
-                                            {(client?.posted_count ?? client?.total_jobs)} вакансий размещено · Уровень найма{" "}
-                                            {(client?.hire_rate_percent ?? 0)}% · {client?.open_jobs_count ?? 0} открытые вакансии
-                                        </>
-                                    ) : (
-                                        "Статистика недоступна"
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Right: other jobs */}
-                            <div>
-                                <div className="text-sm font-semibold mb-2">
-                                    Другие открытые вакансии этого клиента
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                    {(client?.other_open_vacancies || []).slice(0, 5).map((j, idx) => (
-                                        <a
-                                            key={idx}
-                                            href={j?.url || "#"}
-                                            className="text-sm text-[#3066BE] hover:underline"
-                                        >
-                                            {j?.title || j}
-                                        </a>
-                                    ))}
-                                    {!(client?.other_open_vacancies || []).length && (
-                                        <div className="text-sm text-gray-500">—</div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-
-                    {/* CTA */}
-                    <div className="mt-8 flex flex-col md:flex-row gap-3 md:gap-4">
-                        <button
-                            onClick={() => onApply?.(vacancy)}
-                            className="w-full md:w-auto inline-flex justify-center items-center rounded-xl px-5 py-3 bg-[#3066BE] text-white font-semibold hover:brightness-110 active:translate-y-[1px]"
-                        >
-                            Откликнуться
-                        </button>
-                        <button
-                            onClick={toggleBookmark}
-                            className="w-full md:w-auto inline-flex justify-center items-center rounded-xl px-5 py-3 border-[#3066BE] bg-white text-[#3066BE] font-semibold hover:bg-gray-50"
-                        >
-                            {bookmarked ? "В избранном" : "Сохранить"}
-                        </button>
-                    </div>
+                    {/* Save button */}
+                    <button
+                        onClick={toggleSaveVacancy}
+                        className={`flex items-center justify-center gap-2 text-[14px] font-semibold rounded-lg w-full h-[48px] border transition-all duration-200
+                            ${
+                            isSaved
+                                ? "bg-[#3066BE] text-white border-[#3066BE] hover:bg-[#2b58a8]"
+                                : "bg-white text-[#3066BE] border-[#3066BE] hover:bg-[#f2f7ff]"
+                        }`}
+                    >
+                        <img
+                            src="/save.png"
+                            alt="save"
+                            className={`w-4 h-4 transition-all duration-200 ${
+                                isSaved ? "filter brightness-200" : ""
+                            }`}
+                        />
+                        {isSaved ? "Сохранено" : "Сохранить"}
+                    </button>
                 </div>
             </div>
         </div>

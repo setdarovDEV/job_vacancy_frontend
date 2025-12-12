@@ -188,6 +188,17 @@ export default function HomeEmployerApplicationsTablet() {
         }
     };
 
+    async function onClickWrite(appId) {
+        try {
+            const room = await chatApi.getOrCreateByApplication(appId);
+            navigate(`/chat?room=${room.id}`, { state: { peer: room.peer, ts: Date.now() } });
+        } catch (e) {
+            console.error(e);
+            alert("Chat xonasini ochishda xatolik.");
+        }
+    }
+
+
     // User
     useEffect(() => {
         const fetchUser = async () => {

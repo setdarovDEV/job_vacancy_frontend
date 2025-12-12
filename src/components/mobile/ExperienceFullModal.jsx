@@ -67,7 +67,7 @@ export default function ExperienceFullModal({ isOpen, onClose, onSuccess }) {
                 is_current: isCurrent,
                 description: desc.trim() || null,
             };
-            await api.post("experience/experiences/", payload);
+            await api.post("/api/experiences/", payload);
             reset();
             onSuccess?.();
             onClose?.();

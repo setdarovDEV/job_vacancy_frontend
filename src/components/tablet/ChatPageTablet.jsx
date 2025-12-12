@@ -1,368 +1,271 @@
-import React, { useEffect, useMemo, useCallback, useState, useRef } from "react";
-import { chatApi } from "../../services/chatApi";
-import { ChatWS } from "../../services/chatWS";
+import React, { useEffect, useState, useRef, useMemo } from "react";
 import api from "../../utils/api.js";
 import NavbarTabletLogin from "./NavbarTabletLogIn.jsx";
-import UserSearch from "./UserSearchTablet.jsx";
 
 export default function ChatPageTablet() {
-    const [selectedLang, setSelectedLang] = useState({ flag: "/ru.png", code: "RU" });
     const [leftQuery, setLeftQuery] = useState("");
+    const [suggests, setSuggests] = useState([]);
     const [rooms, setRooms] = useState([]);
     const [activeRoom, setActiveRoom] = useState(null);
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState("");
     const [file, setFile] = useState(null);
-    const [peer, setPeer] = useState({ full_name: "", avatar: "/profile.png" });
-    const [statusText, setStatusText] = useState("");
-    const [typing, setTyping] = useState(false);
     const [sending, setSending] = useState(false);
+    const [peer, setPeer] = useState({});
+    const fileRef = useRef(null);
+    const inputRef = useRef(null);
+    const endRef = useRef(null);
 
     const user = JSON.parse(localStorage.getItem("user"));
-    const meIdStr = String(user?.id || user?.pk || user?.uuid || "");
+    const meIdStr = String(user?.id || "");
 
-    const wsRef = useRef(null);
-    const inputRef = useRef(null);
-    const fileRef = useRef(null);
-    const endRef = useRef(null);
-    const msgBoxRef = useRef(null);
-    const [selectedUser, setSelectedUser] = useState(null);
-
-    const formatName = (s) => String(s).split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
-    const displayName = useMemo(() => formatName(peer?.full_name || peer?.username || peer?.email || ""), [peer]);
-    const isMineMsg = (m) => String(m.user_id) === meIdStr;
-
-
-    const handlePickUser = (u) => {
-        setSelectedUser(u);
-        fetchPost({ authorId: u.id, page: 1 });   // ✅ page=1 dan boshlaymiz
+    // === Helpers ===
+    const scrollToBottom = () => {
+        setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
     };
 
-    const texts = {
-        RU: {
-            community: "Сообщество",
-            vacancies: "Вакансии",
-            chat: "Чат",
-            companies: "Компании",
-            login: "Войти",
-            logo: "Logo",
-            links: ["Помощь", "Наши вакансии", "Реклама на сайте", "Требования к ПО",
-                "Инвесторам", "Каталог компаний", "Работа по профессиям"],
-            copyright: "© 2025 «HeadHunter – Вакансии». Все права защищены. Карта сайта",
-            anonymous: "Разместить пост анонимно",
-            asSchoolStudent: "как студент школы",
-            asCollegeStudent: "как студент колледжа",
-            asUniversityStudent: "как студент университета",
-            createPost: "Создать публикацию",
-            createPublication: "Создать публикацию",
-            placeholder: "Поделитесь своим опытом или получите совет от других профессионалов...",
-            publish: "Опубликовать",
-            like: "Лайк",
-            comment: "Комментарий",
-            send: "Отправить",
-            search: "Поиск...",
-            postText: "Я сказал, что мой ожидаемый ctc составляет 10 lpa, но я чувствую, что у них есть лучший диапазон зарплат от 12 lpa до 16 lpa... Если честно, я думаю что ожидания могут совпасть с предложениями на рынке. Посмотрим что будет дальше.",
-            hour: "2 ч",
-            topAccounts: "Топ аккаунты",
-            seeAll: "Посмотреть все →",
-            communityDesc: "Сообщество профессионалов в области...",
-            view: "Смотреть",
-            subscribe: "Подписаться"
-        },
-        UZ: {
-            community: "Jamiyat",
-            vacancies: "Vakansiyalar",
-            chat: "Chat",
-            companies: "Kompaniyalar",
-            login: "Kirish",
-            logo: "Logo",
-            links: ["Yordam", "Bizning vakantiyalar", "Saytda reklama", "Dasturiy ta'minot talablari",
-                "Investorlar uchun", "Kompaniyalar katalogi", "Kasblar bo‘yicha ishlar"],
-            copyright: "© 2025 «HeadHunter – Vakansiyalar». Barcha huquqlar himoyalangan. Sayt xaritasi",
-            anonymous: "Postni anonim joylashtirish",
-            asSchoolStudent: "maktab o‘quvchisi sifatida",
-            asCollegeStudent: "kollej talabasi sifatida",
-            asUniversityStudent: "universitet talabasi sifatida",
-            createPost: "Post yaratish",
-            createPublication: "Post yaratish",
-            placeholder: "O‘z tajribangiz bilan o‘rtoqlashing yoki boshqa professionallardan maslahat oling...",
-            publish: "Yaratish",
-            like: "Layk",
-            comment: "Izoh",
-            send: "Yuborish",
-            search: "Qidiruv...",
-            postText: "Men aytdimki, mening kutilayotgan ish haqi (ctc) 10 lpa, lekin ular 12 lpa dan 16 lpa gacha yaxshiroq diapazonga ega deb o‘ylayman... Ochig‘i, o‘ylaymanki, kutgan narsalarim bozor takliflari bilan mos kelishi mumkin. Ko‘ramiz, nima bo‘ladi.",
-            hour: "2 s",
-            topAccounts: "Top akkauntlar",
-            seeAll: "Hammasini ko‘rish →",
-            communityDesc: "Konsalting sohasidagi professionallar jamiyati...",
-            view: "Ko‘rish",
-            subscribe: "Obuna bo‘lish"
-        },
-        EN: {
-            community: "Community", vacancies: "Vacancies", chat: "Chat", companies: "Companies",
-            login: "Login",
-            logo: "Logo",
-            links: ["Help", "Our Vacancies", "Advertising on site", "Software Requirements",
-                "For Investors", "Company Catalog", "Jobs by Profession"],
-            copyright: "© 2025 «HeadHunter – Vacancies». All rights reserved. Sitemap",
-            anonymous: "Post anonymously",
-            asSchoolStudent: "as a school student",
-            asCollegeStudent: "as a college student",
-            asUniversityStudent: "as a university student",
-            createPost: "Create post",
-            createPublication: "Create publication",
-            placeholder: "Share your experience or get advice from other professionals...",
-            publish: "Publish",
-            like: "Like",
-            comment: "Comment",
-            send: "Send",
-            search: "Search...",
-            postText: "I said my expected ctc is 10 lpa, but I feel they have a better salary range from 12 lpa to 16 lpa... Honestly, I think my expectations might match the market offers. Let’s see what happens next.",
-            hour: "2 h",
-            topAccounts: "Top accounts",
-            seeAll: "See all →",
-            communityDesc: "Community of professionals in consulting...",
-            view: "View",
-            subscribe: "Subscribe"
+    const isMineMsg = (m) => String(m.sender?.id) === meIdStr;
+
+    // === Load chats ===
+    useEffect(() => {
+        const fetchChats = async () => {
+            try {
+                const res = await api.get("/api/chats/");
+                setRooms(res.data || []);
+            } catch (err) {
+                console.error("❌ Chat list error:", err);
+            }
+        };
+        fetchChats();
+    }, []);
+
+    // === Load messages when chat selected ===
+    useEffect(() => {
+        if (!activeRoom?.id) return;
+        const loadMessages = async () => {
+            try {
+                const res = await api.get(`/api/chats/${activeRoom.id}/messages/`);
+                setMessages(res.data);
+                scrollToBottom();
+            } catch (err) {
+                console.error("❌ Xabarlarni yuklashda xato:", err);
+            }
+        };
+        loadMessages();
+    }, [activeRoom?.id]);
+
+    // === Qidiruv ===
+    useEffect(() => {
+        const query = leftQuery.trim();
+        if (!query) {
+            setSuggests([]);
+            return;
+        }
+
+        const delay = setTimeout(async () => {
+            try {
+                const res = await api.get(`/api/auth/users/search/?q=${encodeURIComponent(query)}`);
+                const filtered = (res.data.results || []).filter(
+                    (u) => u.role !== "ADMIN" && String(u.id) !== meIdStr
+                );
+                setSuggests(filtered);
+            } catch (err) {
+                console.error("❌ Qidiruvda xato:", err);
+            }
+        }, 400);
+
+        return () => clearTimeout(delay);
+    }, [leftQuery]);
+
+    // === Chat yaratish yoki tanlash ===
+    const handleSelectUser = async (u) => {
+        try {
+            const res = await api.post("/api/chats/get_or_create/", { user_id: u.id });
+            setActiveRoom(res.data);
+            setPeer(res.data.other_user);
+            setSuggests([]);
+            setLeftQuery("");
+
+            const msgs = await api.get(`/api/chats/${res.data.id}/messages/`);
+            setMessages(msgs.data);
+            scrollToBottom();
+        } catch (err) {
+            console.error("❌ Chat yaratishda xato:", err);
         }
     };
-    const langCode = selectedLang?.code === "GB" ? "EN" : selectedLang?.code || "RU";
+
+    // === Send message ===
+    const onClickSend = async () => {
+        if (!input.trim() && !file) return;
+        try {
+            setSending(true);
+            const form = new FormData();
+            form.append("text", input);
+            if (file) form.append("file", file);
+
+            await api.post(`/api/chats/${activeRoom.id}/messages/`, form, {
+                headers: { "Content-Type": "multipart/form-data" },
+            });
+
+            const res = await api.get(`/api/chats/${activeRoom.id}/messages/`);
+            setMessages(res.data);
+            setInput("");
+            setFile(null);
+            scrollToBottom();
+        } catch (err) {
+            console.error("❌ Xabar yuborishda xato:", err);
+        } finally {
+            setSending(false);
+        }
+    };
 
     return (
         <>
             <NavbarTabletLogin />
-            {/* ========================== */}
-            {/* SEARCH BLOK — TABLET       */}
-            {/* ========================== */}
-            <div className="bg-white  md:mt-[90px] md:block mr-[10px] lg:hidden">
-                <div className="mx-auto max-w-[960px] mt-[-80px] px-4 py-3">
-                    {/* Qator: qidiruv (markazda) + ikonlar */}
-                    <div className="flex items-center justify-between gap-3">
-                        {/* Qidiruv */}
-                        <div className="flex-1 flex justify-center">
-                            <div className="w-full max-w-[420px]">
-                                <UserSearch onSelect={handlePickUser} />
-                            </div>
-                        </div>
+            <div className="font-sans bg-white px-4 md:mt-[90px] mb-10">
+                <div className="w-full max-w-[1440px] mx-auto flex flex-col md:flex-row gap-4 min-h-[calc(100vh-0px)] pb-[84px]">
 
-                        {/* O‘ngdagi ikonlar */}
-                        <div className="flex items-center gap-3 shrink-0">
-                            {/* Bell */}
-                            <button className="relative p-2 rounded-md hover:bg-gray-100 bg-white text-black" aria-label="Notifications">
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth="2"
-                                        d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14V9a6 6 0 10-12 0v5c0 .386-.146.735-.405 1.005L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                                    />
-                                </svg>
-                                <span className="absolute -top-1 -right-1 w-[18px] h-[18px] rounded-full bg-red-600 text-white text-[10px] grid place-items-center">
-            1
-          </span>
-                            </button>
-                        </div>
-                    </div>
+                    {/* LEFT - Chat list */}
+                    <div className="w-full md:w-[40%] bg-white border rounded-2xl p-4 flex flex-col relative">
+                        <h2 className="text-[28px] font-bold text-black mb-4">Сообщения</h2>
 
-                    {/* Tanlangan user filtri (chip) */}
-                    {selectedUser && (
-                        <div className="mt-2 flex items-center gap-2 text-[13px]">
-                            <span className="text-black">Filtr:</span>
-                            <img
-                                src={mediaUrl(selectedUser.avatar_url ?? "", "/profile.png")}
-                                className="w-5 h-5 rounded-full object-cover"
-                                alt=""
+                        {/* Search */}
+                        <div className="relative">
+                            <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-4.35-4.35M15 15A7.5 7.5 0 104.5 4.5 7.5 7.5 0 0015 15z" />
+                            </svg>
+                            <input
+                                type="text"
+                                placeholder="Поиск..."
+                                className="w-full pl-10 pr-3 py-2 border rounded-md text-black placeholder-[#AEAEAE] text-[16px]"
+                                value={leftQuery}
+                                onChange={(e) => setLeftQuery(e.target.value)}
                             />
-                            <span className="text-[#3066BE] truncate">@{selectedUser.username}</span>
-
-                            <button
-                                className="ml-auto h-8 px-3 rounded-md border border-[#3066BE] text-[#3066BE] bg-white hover:bg-[#F5F8FF] transition"
-                                onClick={() => {
-                                    setSelectedUser(null);
-                                    fetchPosts();
-                                }}
-                            >
-                                Tozalash
-                            </button>
-                        </div>
-                    )}
-                </div>
-            </div>
-        <div className="font-sans relative bg-white px-4">
-            <div className="w-full max-w-[1440px] mx-auto mb-[-80px] py-6 flex flex-col md:flex-row gap-4 min-h-[calc(100vh-0px)] pb-[84px]">
-                {/* LEFT - Chat list */}
-                <div className="w-full md:w-[40%] bg-white border rounded-2xl p-4 flex flex-col">
-                    <h2 className="text-[28px] md:text-[34px] font-bold text-black mb-4">Сообщения</h2>
-                    <input
-                        type="text"
-                        placeholder="Поиск..."
-                        className="w-full pl-10 pr-3 py-2 border rounded-md text-black placeholder-[#AEAEAE] text-[16px] md:text-[18px]"
-                        value={leftQuery}
-                        onChange={(e) => setLeftQuery(e.target.value)}
-                    />
-                    <div className="flex-1 overflow-y-auto flex flex-col gap-3 mt-4">
-                        {(Array.isArray(rooms) ? rooms : []).map((r) => (
-                            <div
-                                key={r.id}
-                                className="flex items-center gap-3 p-3 bg-[#F4F6FA] rounded-xl hover:shadow cursor-pointer"
-                            >
-                                <img src={r.peer?.avatar || "/profile.png"} className="w-[42px] h-[42px] rounded-full object-cover" />
-                                <div className="flex-1">
-                                    <h3 className="font-semibold text-black text-[14px] md:text-[16px]">
-                                        {r.peer?.full_name || r.peer?.username || "—"}
-                                    </h3>
-                                    <p className="text-gray-500 text-sm truncate">{r.last_message_text || "—"}</p>
-                                </div>
-                                <span className="text-xs text-gray-400">{r.last_message_time || ""}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                {/* RIGHT - Messages */}
-                <div className="flex-1 bg-[#F7F7F7] border-none rounded-2xl flex flex-col">
-                    <div className="flex items-center gap-3 p-4">
-                        <img src={peer?.avatar || "/profile.png"} className="w-[42px] h-[42px] rounded-full object-cover" />
-                        <div>
-                            <h3 className="font-semibold text-[16px] md:text-[18px] text-black">{displayName}</h3>
-                            <p className="text-sm text-gray-500">{typing ? "печатает..." : (statusText || "—")}</p>
-                        </div>
-                    </div>
-
-                    <div
-                        ref={msgBoxRef}
-                        className="flex-1 p-4 overflow-y-auto flex flex-col gap-4 bg-[#F8F8F8CC]"
-                    >
-                        {messages.length === 0 ? (
-                            <div className="text-gray-400">Hozircha xabar yo‘q</div>
-                        ) : (
-                            messages.map((m, idx) => {
-                                const key = m.id ?? `tmp-${idx}`;
-                                const timeStr = m.created_at
-                                    ? new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                                    : "";
-
-                                const mine = isMineMsg(m);
-                                const bubbleBase = "max-w-[75%] px-4 py-2 rounded-2xl whitespace-pre-wrap break-words shadow-sm border";
-                                const mineCls = "self-end bg-[#3066BE] text-white border-transparent rounded-br-sm";
-                                const otherCls = "self-start bg-white text-black border-[#E9EEF5] rounded-bl-sm";
-
-                                return (
-                                    <div key={key} className={`${bubbleBase} ${mine ? mineCls : otherCls}`}>
-                                        <div>{m.message}</div>
-                                        {timeStr && (
-                                            <div className={`mt-1 text-[11px] flex items-center gap-1 ${mine ? "justify-end text-white/80" : "justify-start text-gray-500"}`}>
-                                                <span>{timeStr}</span>
-                                                {mine && m.status === "read" && (
-                                                    <img src="/double-check.png" alt="✓✓" className="w-[14px] h-[7px]" />
-                                                )}
+                            {leftQuery && suggests.length > 0 && (
+                                <div className="absolute z-50 bg-white shadow-md rounded-md mt-2 w-full max-h-64 overflow-y-auto border">
+                                    {suggests.map((u) => (
+                                        <div
+                                            key={u.id}
+                                            onClick={() => handleSelectUser(u)}
+                                            className="flex items-center gap-3 p-2 hover:bg-gray-100 cursor-pointer"
+                                        >
+                                            <img
+                                                src={u.avatar_url || "/user.jpg"}
+                                                className="w-8 h-8 rounded-full"
+                                                alt=""
+                                            />
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-medium">{u.full_name}</span>
+                                                <span className="text-xs text-gray-500">@{u.username}</span>
                                             </div>
-                                        )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Chat list */}
+                        <div className="flex-1 overflow-y-auto flex flex-col gap-3 mt-4">
+                            {(rooms || []).map((r) => (
+                                <div
+                                    key={r.id}
+                                    onClick={() => {
+                                        setActiveRoom(r);
+                                        setPeer(r.other_user);
+                                    }}
+                                    className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition ${activeRoom?.id === r.id ? "bg-[#E8EEFF]" : "bg-[#F4F6FA] hover:shadow"}`}
+                                >
+                                    <img src={r.other_user?.avatar_url || "/profile.png"} className="w-[42px] h-[42px] rounded-full object-cover" />
+                                    <div className="flex-1">
+                                        <h3 className="font-semibold text-black text-[15px]">{r.other_user?.full_name || "—"}</h3>
+                                        <p className="text-gray-500 text-sm truncate">{r.last_message?.text || "—"}</p>
                                     </div>
-                                );
-                            })
-                        )}
-                        <div ref={endRef} />
+                                </div>
+                            ))}
+                        </div>
                     </div>
 
-                    <div className="p-4 flex flex-col gap-3 bg-[#F7F7F7]">
-                        <input
-                            ref={inputRef}
-                            type="text"
-                            placeholder="Напишите сообщение..."
-                            className="w-full px-4 py-2 rounded-xl bg-[#F7F7F7] text-black border-none"
-                            value={input}
-                            onChange={(e) => setInput(e.target.value)}
-                            disabled={!activeRoom}
-                        />
-                        <input
-                            ref={fileRef}
-                            type="file"
-                            className="hidden"
-                            onChange={(e) => setFile(e.target.files?.[0] || null)}
-                        />
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <button onClick={() => fileRef.current?.click()} disabled={!activeRoom} className="bg-[#F7F7F7] border-none">
-                                    <i className="fas fa-paperclip text-[#3066BE] border-none bg-[#F7F7F7] text-xl"></i>
-                                </button>
-                                <button disabled={!activeRoom} className="bg-[#F7F7F7] border-none">
-                                    <i className="far fa-smile text-[#3066BE] text-xl"></i>
+                    {/* RIGHT - Messages */}
+                    <div className="flex-1 bg-[#F7F7F7] border-none rounded-2xl flex flex-col">
+                        <div className="flex items-center gap-3 p-4 border-b">
+                            <img src={peer?.avatar_url || "/profile.png"} className="w-[42px] h-[42px] rounded-full object-cover" />
+                            <div>
+                                <h3 className="font-semibold text-[16px] text-black">{peer?.full_name || "—"}</h3>
+                                <p className="text-sm text-gray-500">{peer?.is_online ? "Online" : "Offline"}</p>
+                            </div>
+                        </div>
+
+                        {/* Messages */}
+                        <div className="flex-1 p-4 overflow-y-auto flex flex-col gap-4 bg-[#F8F8F8]" ref={endRef}>
+                            {messages.length === 0 ? (
+                                <div className="text-gray-400">Hozircha xabar yo‘q</div>
+                            ) : (
+                                messages.map((m) => {
+                                    const mine = isMineMsg(m);
+                                    return (
+                                        <div
+                                            key={m.id}
+                                            className={`max-w-[75%] px-4 py-2 rounded-2xl whitespace-pre-wrap break-words shadow-sm border ${
+                                                mine
+                                                    ? "self-end bg-[#3066BE] text-white border-transparent rounded-br-sm"
+                                                    : "self-start bg-white text-black border-[#E9EEF5] rounded-bl-sm"
+                                            }`}
+                                        >
+                                            <div>{m.text}</div>
+                                            <div
+                                                className={`mt-1 text-[11px] flex items-center gap-1 ${
+                                                    mine ? "justify-end text-white/80" : "justify-start text-gray-500"
+                                                }`}
+                                            >
+                                                <span>
+                                                  {new Date(m.created_at).toLocaleTimeString([], {
+                                                      hour: "2-digit",
+                                                      minute: "2-digit",
+                                                  })}
+                                                </span>
+                                                {mine && <img src="/double-check.png" alt="✓✓" className="w-[14px] h-[7px]" />}
+                                            </div>
+                                        </div>
+
+                                    );
+                                })
+                            )}
+                        </div>
+
+                        {/* Bottom input */}
+                        <div className="p-4 flex flex-col gap-3 bg-[#F7F7F7]">
+                            <input
+                                ref={inputRef}
+                                type="text"
+                                placeholder="Напишите сообщение..."
+                                className="w-full px-4 py-2 rounded-xl bg-[#F7F7F7] text-black border-none focus:outline-none"
+                                value={input}
+                                onChange={(e) => setInput(e.target.value)}
+                                disabled={!activeRoom}
+                            />
+                            <input
+                                ref={fileRef}
+                                type="file"
+                                className="hidden"
+                                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                            />
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <button onClick={() => fileRef.current?.click()} disabled={!activeRoom}>
+                                        <i className="fas fa-paperclip text-[#3066BE] text-xl"></i>
+                                    </button>
+                                </div>
+                                <button
+                                    onClick={onClickSend}
+                                    disabled={!activeRoom || sending || (!input.trim() && !file)}
+                                >
+                                    <i className="fas fa-paper-plane text-[#3066BE] text-xl"></i>
                                 </button>
                             </div>
-                            <button
-                                disabled={!activeRoom || sending || (!input.trim() && !file)}
-                                title={!activeRoom ? "Avval chatni oching" : "Yuborish"}
-                                className="bg-[#F7F7F7] border-none"
-                            >
-                                <i className="fas fa-paper-plane text-[#3066BE] text-xl"></i>
-                            </button>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-
-
-    <footer className="relative overflow-hidden md:block lg:hidden mt-[50px] w-full">
-        {/* Background */}
-        <img
-            src="/footer-bg.png"
-            alt="Footer background"
-            className="absolute inset-0 w-full h-full object-cover z-0"
-        />
-        <div className="absolute inset-0 bg-[#3066BE]/55 z-10" />
-
-        {/* Content */}
-        <div className="relative z-20 w-full px-6 py-8 text-white">
-            {/* Top area */}
-            <div className="flex flex-col gap-6">
-                {/* Logo */}
-                <h2 className="text-[36px] font-black">
-                    {texts?.[langCode]?.logo || "Community"}
-                </h2>
-
-                {/* Links (2 columns) */}
-                <div className="grid grid-cols-2 text-white gap-x-10 gap-y-3">
-                    {texts?.[langCode]?.links?.slice(0, 4).map((link, i) => (
-                        <a
-                            key={`l-${i}`}
-                            href="#"
-                            className="flex items-center text-white gap-2 text-[15px] hover:text-[#E7ECFF] transition-colors"
-                        >
-                            <span>›</span> {link}
-                        </a>
-                    ))}
-                    {texts?.[langCode]?.links?.slice(4).map((link, i) => (
-                        <a
-                            key={`r-${i}`}
-                            href="#"
-                            className="flex items-center text-white gap-2 text-[15px] hover:text-[#E7ECFF] transition-colors"
-                        >
-                            <span>›</span> {link}
-                        </a>
-                    ))}
-                </div>
-            </div>
-
-            {/* Bottom bar */}
-            <div className="mt-6 bg-[#3066BE]/70 rounded-[10px] px-4 py-4 w-full">
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                    <p className="text-[13px] leading-snug">
-                        {texts?.[langCode]?.copyright}
-                    </p>
-
-                    <div className="flex items-center gap-4 text-[20px]">
-                        <a href="#" className="text-white hover:opacity-90"><i className="fab fa-whatsapp" /></a>
-                        <a href="#" className="text-white hover:opacity-90"><i className="fab fa-instagram" /></a>
-                        <a href="#" className="text-white hover:opacity-90"><i className="fab fa-facebook" /></a>
-                        <a href="#" className="text-white hover:opacity-90"><i className="fab fa-twitter" /></a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </footer>
-    </>
+        </>
     );
 }
