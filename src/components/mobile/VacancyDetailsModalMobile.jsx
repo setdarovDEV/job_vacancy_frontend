@@ -1,110 +1,168 @@
-// src/components/mobile/VacancyMobileModal.jsx
-import React, { useEffect } from "react";
-import { X, ArrowLeft } from "lucide-react";
+// src/components/mobile/VacancyMobileModal.jsx - MOBILE MODAL (Improved Design)
+import React, { useEffect, useState } from "react";
+import { X, ArrowLeft, Clock, MapPin, DollarSign, Calendar, Briefcase, Star, Bookmark, CheckCircle } from "lucide-react";
+import api from "../../utils/api";
+import { toast } from "react-toastify";
 
 export default function VacancyMobileModal({ vacancy, onClose }) {
+    const [loading, setLoading] = useState(true);
+    const [data, setData] = useState(null);
+    const [isSaved, setIsSaved] = useState(false);
+    const [isApplied, setIsApplied] = useState(false);
+
     useEffect(() => {
-        const onKey = (e) => e.key === "Escape" && onClose();
-        document.addEventListener("keydown", onKey);
-        document.body.style.overflow = "hidden";
-
-        return () => {
-            document.removeEventListener("keydown", onKey);
-            document.body.style.overflow = "";
+        const fetchVacancyDetail = async () => {
+            if (!vacancy?.id) return;
+            try {
+                setLoading(true);
+                const res = await api.get(`/api/vacancies/jobposts/${vacancy.id}/`);
+                setData(res.data);
+                setIsSaved(res.data.is_saved);
+                setIsApplied(res.data.is_applied);
+            } catch (err) {
+                console.error("Vakansiya detailni olishda xatolik:", err);
+                toast.error("Xatolik yuz berdi");
+            } finally {
+                setLoading(false);
+            }
         };
-    }, [onClose]);
+        fetchVacancyDetail();
 
-    if (!vacancy) return null;
+        document.body.style.overflow = "hidden";
+        return () => { document.body.style.overflow = ""; };
+    }, [vacancy?.id]);
 
-    // API bo‘yicha rating = number
-    const safeStars = Math.max(0, Math.min(5, Math.round(vacancy.rating || 0)));
+    const handleApply = async () => {
+        if (isApplied) return;
+        try {
+            await api.post("/api/applications/apply/", {
+                job_post: data.id,
+                cover_letter: "",
+            });
+            toast.success("Ariza yuborildi ✅");
+            setIsApplied(true);
+        } catch (err) {
+            if (err.response?.status === 400) {
+                toast.warn("Allaqachon yuborilgan ❗️");
+                setIsApplied(true);
+            } else {
+                toast.error("Xatolik");
+            }
+        }
+    };
+
+    const toggleSaveVacancy = async () => {
+        try {
+            const method = isSaved ? "delete" : "post";
+            await api({ method, url: `/api/vacancies/jobposts/${data.id}/save/` });
+            setIsSaved(!isSaved);
+            toast.success(isSaved ? "Удалено ❌" : "Сохранено ✅");
+        } catch (err) {
+            console.error("Toggle save error:", err);
+            toast.error("Ошибка");
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="fixed inset-0 z-[200] bg-white flex items-center justify-center">
+                <div className="text-center">
+                    <div className="w-12 h-12 mx-auto mb-3 border-4 border-[#3066BE] border-t-transparent rounded-full animate-spin"></div>
+                    <p className="text-base text-[#3066BE] font-semibold">Загрузка...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (!data) return null;
 
     return (
         <div className="fixed inset-0 z-[200] bg-white flex flex-col overflow-hidden">
 
-            {/* HEADER */}
-            <div className="flex-shrink-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shadow-sm">
-                <button
-                    onClick={onClose}
-                    className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition"
-                >
-                    <ArrowLeft size={20} className="text-gray-700" />
-                </button>
+            {/* ✅ HEADER - Modern Gradient */}
+            <div className="flex-shrink-0 bg-gradient-to-r from-[#3066BE] to-[#4A90E2] px-4 py-3 text-white shadow-lg">
+                <div className="flex items-center justify-between mb-3">
+                    <button
+                        onClick={onClose}
+                        className="w-9 h-9 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition-all"
+                    >
+                        <ArrowLeft size={20} className="text-white" />
+                    </button>
 
-                <h2 className="text-[15px] font-bold text-black">Детали вакансии</h2>
+                    <h2 className="text-[14px] font-bold">Детали вакансии</h2>
 
-                <button
-                    onClick={onClose}
-                    className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition"
-                >
-                    <X size={20} className="text-gray-700" />
-                </button>
+                    <button
+                        onClick={toggleSaveVacancy}
+                        className="w-9 h-9 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition-all"
+                    >
+                        <Bookmark size={18} className={`text-white ${isSaved ? "fill-white" : ""}`} />
+                    </button>
+                </div>
+
+                <h1 className="text-[20px] font-bold leading-[1.3] mb-2">
+                    {data.title || "Без названия"}
+                </h1>
+
+                <div className="flex items-center gap-3 text-white/90 text-[11px]">
+                    <span className="flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5" />
+                        {data.created_at ? new Date(data.created_at).toLocaleDateString() : "—"}
+                    </span>
+                    <span className="flex items-center gap-1">
+                        <MapPin className="w-3.5 h-3.5" />
+                        {data.is_remote ? "Удалённо" : (data.location || "Не указано")}
+                    </span>
+                </div>
             </div>
 
-            {/* BODY */}
-            <main className="flex-1 min-h-0 overflow-y-auto">
+            {/* ✅ BODY - Scrollable Content */}
+            <main className="flex-1 min-h-0 overflow-y-auto bg-[#F9FAFB]">
 
-                {/* Title + Created date + Location */}
-                <div className="px-4 pt-4 pb-3 border-b border-gray-200">
-                    <h1 className="text-[18px] font-extrabold text-black mb-2">
-                        {vacancy.title || "Без названия"}
-                    </h1>
-
-                    <div className="flex items-center gap-3 text-[11px] text-gray-500">
-
-                        {/* Date */}
-                        <span className="flex items-center gap-1">
-                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            {vacancy.created_at ? new Date(vacancy.created_at).toLocaleDateString() : "—"}
-                        </span>
-
-                        {/* Location */}
-                        <span className="flex items-center gap-1">
-                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 21s7-4.35 7-10a7 7 0 1 0-14 0c0 5.65 7 10 7 10z" />
-                                <circle cx="12" cy="11" r="2.5" />
-                            </svg>
-                            {vacancy.is_remote ? "Удалённо" : (vacancy.location || "Не указано")}
-                        </span>
+                {/* Budget Card */}
+                <div className="mx-4 mt-4 mb-3 bg-gradient-to-br from-[#F0F7FF] to-[#E6F0FF] border border-[#3066BE]/20 rounded-2xl p-4 shadow-sm">
+                    <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-full bg-[#3066BE]/10 flex items-center justify-center">
+                            <DollarSign className="w-6 h-6 text-[#3066BE]" />
+                        </div>
+                        <div>
+                            <p className="text-[11px] text-[#6B7280] font-medium mb-0.5">Бюджет проекта</p>
+                            <p className="text-[20px] font-bold text-[#3066BE]">
+                                {data.budget || "Не указано"}
+                            </p>
+                            <p className="text-[11px] text-[#6B7280] mt-0.5">
+                                {data.is_fixed_price ? "Фиксированная цена" : "Почасовая оплата"}
+                            </p>
+                        </div>
                     </div>
                 </div>
 
-                {/* SECTIONS */}
-                <div className="divide-y divide-gray-200">
+                {/* Sections */}
+                <div className="bg-white divide-y divide-gray-200">
 
-                    {/* Описание */}
+                    {/* Description */}
                     <section className="p-4">
-                        <h2 className="text-[14px] font-semibold mb-2 text-black">Описание</h2>
-                        <p className="text-[13px] leading-relaxed text-gray-700">
-                            {vacancy.description || "Описание не указано"}
+                        <h2 className="text-[15px] font-bold mb-2 text-black flex items-center gap-2">
+                            <div className="w-1 h-5 bg-[#3066BE] rounded-full"></div>
+                            Описание
+                        </h2>
+                        <p className="text-[14px] leading-relaxed text-[#4B5563]">
+                            {data.description || "Описание не указано"}
                         </p>
                     </section>
 
-                    {/* Бюджет */}
-                    <section className="p-4 space-y-2">
-                        <h2 className="text-[14px] font-semibold text-black">Бюджет</h2>
-
-                        <p className="text-[14px] font-medium text-[#3066BE]">
-                            {vacancy.budget || "Не указано"}
-                        </p>
-
-                        <p className="text-[12px] text-gray-600">
-                            {vacancy.is_fixed_price ? "Фиксированная цена" : "Почасовая оплата"}
-                        </p>
-                    </section>
-
-                    {/* Навыки */}
-                    {vacancy.skills?.length > 0 && (
+                    {/* Skills */}
+                    {data.skills?.length > 0 && (
                         <section className="p-4">
-                            <h2 className="text-[14px] font-semibold mb-3 text-black">Навыки и опыт</h2>
+                            <h2 className="text-[15px] font-bold mb-3 text-black flex items-center gap-2">
+                                <div className="w-1 h-5 bg-[#3066BE] rounded-full"></div>
+                                Навыки и опыт
+                            </h2>
 
                             <div className="flex flex-wrap gap-2">
-                                {vacancy.skills.map((tag, i) => (
+                                {data.skills.map((tag, i) => (
                                     <span
                                         key={i}
-                                        className="bg-[#E5E5E5] text-black text-[12px] px-3 py-1 rounded-full font-medium"
+                                        className="bg-white border-2 border-[#3066BE]/20 text-[#3066BE] text-[13px] px-3 py-1.5 rounded-full font-medium"
                                     >
                                         {tag}
                                     </span>
@@ -113,75 +171,120 @@ export default function VacancyMobileModal({ vacancy, onClose }) {
                         </section>
                     )}
 
-                    {/* О клиенте */}
+                    {/* Additional Info */}
                     <section className="p-4 space-y-3">
-                        <h2 className="text-[14px] font-semibold text-black">О клиенте</h2>
+                        <h2 className="text-[15px] font-bold text-black flex items-center gap-2">
+                            <div className="w-1 h-5 bg-[#3066BE] rounded-full"></div>
+                            Дополнительно
+                        </h2>
 
-                        {/* Payment verified */}
-                        {vacancy.payment_verified && (
-                            <div className="flex items-center gap-2 text-[12px] text-gray-700">
-                                <svg className="w-4 h-4 text-green-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                Платеж подтвержден
+                        {data.duration && (
+                            <div className="flex items-center gap-3 p-3 bg-[#F9FAFB] rounded-xl border border-gray-200">
+                                <Calendar className="w-5 h-5 text-[#6B7280]" />
+                                <div>
+                                    <p className="text-[12px] text-[#6B7280] font-medium">Крайний срок</p>
+                                    <p className="text-[14px] font-semibold text-black">
+                                        {new Date(data.duration).toLocaleDateString()}
+                                    </p>
+                                </div>
                             </div>
                         )}
 
-                        {/* Rating */}
-                        <div className="flex items-center gap-1">
-                            {[...Array(5)].map((_, i) => (
-                                <svg
-                                    key={i}
-                                    className={`w-4 h-4 ${i < safeStars ? "fill-yellow-400" : "fill-gray-300"}`}
-                                    viewBox="0 0 20 20"
-                                >
-                                    <path d="M10 15l-5.878 3.09L5.82 12.5 1 8.91l6.09-.9L10 2.5l2.91 5.51 6.09.9-4.82 3.59 1.698 5.59z" />
-                                </svg>
-                            ))}
-                            <span className="ml-2 text-[12px] text-gray-600">
-                                {safeStars} из 5 отзывов
-                            </span>
-                        </div>
+                        {data.payment_verified && (
+                            <div className="flex items-center gap-2 p-3 bg-green-50 rounded-xl border border-green-200">
+                                <CheckCircle className="w-5 h-5 text-green-600" />
+                                <span className="text-[13px] text-green-700 font-medium">
+                                    Платеж подтвержден
+                                </span>
+                            </div>
+                        )}
 
-                        {/* Company info */}
-                        {vacancy.company && (
-                            <div className="flex items-center gap-3 mt-3 p-3 bg-gray-50 rounded-lg">
-                                <div className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold">
-                                    {vacancy.company.name.charAt(0)}
+                        {data.average_stars > 0 && (
+                            <div className="flex items-center gap-2 p-3 bg-[#FFFBEB] rounded-xl border border-yellow-200">
+                                <div className="flex items-center gap-1">
+                                    {[...Array(5)].map((_, i) => (
+                                        <Star
+                                            key={i}
+                                            size={16}
+                                            className={`${i < data.average_stars ? "fill-yellow-400 text-yellow-400" : "fill-gray-300 text-gray-300"}`}
+                                        />
+                                    ))}
                                 </div>
-                                <div>
-                                    <p className="font-medium text-[13px] text-black">
-                                        {vacancy.company.name}
-                                    </p>
-                                    <p className="text-[11px] text-gray-600">
-                                        Сфера: {vacancy.company.industry}
-                                    </p>
-                                    <p className="text-[11px] text-gray-600">
-                                        {vacancy.company.location}
-                                    </p>
-                                </div>
+                                <span className="text-[13px] font-medium text-[#92400E]">
+                                    {data.average_stars.toFixed(1)} из 5
+                                </span>
                             </div>
                         )}
                     </section>
+
+                    {/* Company Info */}
+                    {data.company && (
+                        <section className="p-4">
+                            <h2 className="text-[15px] font-bold mb-3 text-black flex items-center gap-2">
+                                <div className="w-1 h-5 bg-[#3066BE] rounded-full"></div>
+                                О компании
+                            </h2>
+
+                            <div className="flex items-center gap-3 p-3 bg-[#F9FAFB] rounded-xl border border-gray-200">
+                                <div className="w-12 h-12 bg-[#3066BE] text-white rounded-full flex items-center justify-center font-bold text-[18px]">
+                                    {data.company.name?.charAt(0) || "C"}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="font-semibold text-[14px] text-black truncate">
+                                        {data.company.name}
+                                    </p>
+                                    {data.company.industry && (
+                                        <p className="text-[12px] text-[#6B7280] truncate">
+                                            {data.company.industry}
+                                        </p>
+                                    )}
+                                    {data.company.location && (
+                                        <p className="text-[12px] text-[#6B7280] truncate">
+                                            {data.company.location}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        </section>
+                    )}
                 </div>
 
-                {/* Bottom spacing */}
-                <div className="h-20" />
+                <div className="h-24" />
             </main>
 
-            {/* FOOTER */}
-            <div className="flex-shrink-0 bg-white border-t border-gray-200 px-4 py-3 shadow-lg">
+            {/* ✅ FOOTER - Sticky Action Buttons */}
+            <div className="flex-shrink-0 bg-white border-t border-gray-200 px-4 py-3 shadow-xl">
                 <div className="flex gap-2">
+                    {/* Apply Button */}
                     <button
-                        onClick={onClose}
-                        className="flex-1 h-[44px] bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition text-[14px]"
+                        onClick={handleApply}
+                        disabled={isApplied}
+                        className={`flex-1 h-[48px] rounded-xl font-semibold transition-all duration-200 flex items-center justify-center gap-2 text-[14px] ${
+                            isApplied
+                                ? "bg-gray-300 text-gray-600 cursor-not-allowed"
+                                : "bg-[#3066BE] text-white hover:bg-[#2b58a8] active:scale-95 shadow-lg"
+                        }`}
                     >
-                        Закрыть
+                        {isApplied ? (
+                            <>
+                                <CheckCircle className="w-4 h-4" />
+                                Отправлено
+                            </>
+                        ) : (
+                            "Откликнуться"
+                        )}
                     </button>
+
+                    {/* Save Button */}
                     <button
-                        className="flex-1 h-[44px] bg-[#3066BE] text-white rounded-lg font-semibold hover:bg-[#2452a6] transition text-[14px]"
+                        onClick={toggleSaveVacancy}
+                        className={`w-[48px] h-[48px] rounded-xl transition-all duration-200 flex items-center justify-center border-2 ${
+                            isSaved
+                                ? "bg-[#3066BE] border-[#3066BE]"
+                                : "bg-white border-[#3066BE]"
+                        } active:scale-95`}
                     >
-                        Откликнуться
+                        <Bookmark className={`w-5 h-5 ${isSaved ? "fill-white text-white" : "text-[#3066BE]"}`} />
                     </button>
                 </div>
             </div>

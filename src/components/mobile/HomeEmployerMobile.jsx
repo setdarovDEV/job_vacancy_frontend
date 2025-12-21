@@ -15,7 +15,7 @@ import CertificateModal from "../../components/CertificateModal";
 import CompanyModalMobile from "./CompanyCreateModal.jsx";
 
 
-export default function ProfilePageMobile() {
+export default function HomeEmployerMobile({ viewOnly = false, targetUserId = null }) {
     // ===== STATE =====
     const [user, setUser] = useState(null);
     const [profileImage, setProfileImage] = useState(localStorage.getItem("profile_image") || null);
@@ -47,9 +47,106 @@ export default function ProfilePageMobile() {
     const [loadingCompanies, setLoadingCompanies] = useState(true);
     const [showCompanyModal, setShowCompanyModal] = useState(false);
 
+    const canEdit = !viewOnly;
+
+    // ✅ YANGI: targetUserId o'zgarganda employer ma'lumotlarini qayta yuklash
+    useEffect(() => {
+        if (viewOnly && targetUserId) {
+            console.log("🔄 HomeEmployerMobile: Loading employer profile for:", targetUserId);
+            
+            setUser(null);
+            setProfileImage(null);
+            setVacancies([]);
+            setCompanies([]);
+            setLocation("Joylashuv...");
+            setLoadingVacancies(true);
+
+            const loadEmployerData = async () => {
+                try {
+                    const res = await api.get(`/api/auth/profile/${targetUserId}/`);
+                    setUser(res.data);
+
+                    if (res.data.avatar || res.data.profile_image) {
+                        const avatarUrl = res.data.avatar || res.data.profile_image;
+                        const fullUrl = avatarUrl.startsWith("http")
+                            ? avatarUrl
+                            : `${api.defaults.baseURL}${avatarUrl}`;
+                        setProfileImage(fullUrl);
+                    }
+
+                    // Employer vakansiyalari
+                    try {
+                        const vacanciesRes = await api.get("/api/vacancies/jobposts/", {
+                            params: { employer: targetUserId }
+                        });
+                        
+                        const results = Array.isArray(vacanciesRes.data) 
+                            ? vacanciesRes.data 
+                            : (vacanciesRes.data.results || []);
+                        setVacancies(results);
+                    } catch (vacErr) {
+                        try {
+                            const allVacanciesRes = await api.get("/api/vacancies/jobposts/");
+                            const allVacancies = Array.isArray(allVacanciesRes.data) 
+                                ? allVacanciesRes.data 
+                                : (allVacanciesRes.data.results || []);
+                            
+                            const employerVacancies = allVacancies.filter(
+                                v => String(v.employer?.id) === String(targetUserId) || 
+                                     String(v.created_by) === String(targetUserId) ||
+                                     String(v.user?.id) === String(targetUserId)
+                            );
+                            setVacancies(employerVacancies);
+                        } catch (filterErr) {
+                            setVacancies([]);
+                        }
+                    }
+
+                    // Employer kompaniyalari
+                    try {
+                        const companiesRes = await api.get("/api/companies/", {
+                            params: { owner: targetUserId }
+                        });
+                        
+                        const companiesData = Array.isArray(companiesRes.data) 
+                            ? companiesRes.data 
+                            : (companiesRes.data.results || []);
+                        setCompanies(companiesData);
+                    } catch (compErr) {
+                        try {
+                            const allCompaniesRes = await api.get("/api/companies/");
+                            const allCompanies = Array.isArray(allCompaniesRes.data) 
+                                ? allCompaniesRes.data 
+                                : (allCompaniesRes.data.results || []);
+                            
+                            const employerCompanies = allCompanies.filter(
+                                c => String(c.owner?.id) === String(targetUserId) || 
+                                     String(c.created_by) === String(targetUserId) ||
+                                     String(c.user?.id) === String(targetUserId)
+                            );
+                            setCompanies(employerCompanies);
+                        } catch (filterErr) {
+                            setCompanies([]);
+                        }
+                    }
+
+                    setLoadingVacancies(false);
+                } catch (err) {
+                    console.error("❌ Employer profil yuklashda xatolik:", err);
+                    setLoadingVacancies(false);
+                }
+            };
+
+            loadEmployerData();
+        }
+    }, [targetUserId, viewOnly]);
 
     // ===== EFFECTS =====
     useEffect(() => {
+        if (viewOnly && targetUserId) {
+            return; // Yuqoridagi useEffect handle qiladi
+        }
+
         (async () => {
             try {
                 const { data } = await api.get("/api/auth/me/");
@@ -67,10 +164,14 @@ export default function ProfilePageMobile() {
                 console.error("❌ User ma'lumotini olishda xatolik:", e);
             }
         })();
-    }, []);
+    }, [viewOnly, targetUserId]);
 
     // ✅ VAKANSIYALARNI YUKLASH
     useEffect(() => {
+        if (viewOnly && targetUserId) {
+            return; // Yuqoridagi useEffect handle qiladi
+        }
+
         const fetchVacancies = async () => {
             try {
                 setLoadingVacancies(true);
@@ -87,7 +188,7 @@ export default function ProfilePageMobile() {
         };
 
         fetchVacancies();
-    }, []);
+    }, [viewOnly, targetUserId]);
 
     // ✅ KOMPANIYALARNI YUKLASH
     useEffect(() => {
@@ -119,6 +220,10 @@ export default function ProfilePageMobile() {
     }, [user]);
 
     useEffect(() => {
+        if (viewOnly) {
+            return; // viewOnly mode'da geolocation yubormaslik
+        }
+
         // joylashuv va vaqt
         if (!navigator.geolocation) return;
         navigator.geolocation.getCurrentPosition(async ({ coords }) => {
@@ -145,7 +250,7 @@ export default function ProfilePageMobile() {
                 new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })
             );
         }, () => setLocation("Joylashuv bloklangan"));
-    }, []);
+    }, [viewOnly]);
 
     useEffect(() => {
         // skills

@@ -33,7 +33,7 @@ export default function RegisterForm() {
         setIsLoading(true);
 
         if (formData.password !== formData.confirm_password) {
-            setError("Parollar mos emas");
+            setError("Паролинг мос эмас");
             setIsLoading(false);
             return;
         }
@@ -49,14 +49,11 @@ export default function RegisterForm() {
 
             const userId = res.data.user_id;
 
-            console.log("✅ Step 1 - User ID:", userId);
-
             if (userId) {
-                // ✅ Ikkala usul ham - localStorage va URL
                 localStorage.setItem("user_id", String(userId));
                 navigate(`/register/step2?uid=${userId}`);
             } else {
-                setError("Foydalanuvchi ID topilmadi");
+                setError("Фойдаланувчи ID топилмади");
             }
         } catch (err) {
             const data = err?.response?.data || {};
@@ -71,7 +68,7 @@ export default function RegisterForm() {
 
             const generalError = data.non_field_errors
                 ? (Array.isArray(data.non_field_errors) ? data.non_field_errors[0] : data.non_field_errors)
-                : data.detail || "Xatolik yuz berdi";
+                : data.detail || "Хатолик юз берди";
 
             setError(generalError);
         } finally {
@@ -82,13 +79,13 @@ export default function RegisterForm() {
     return (
         <React.Fragment>
             {/* Desktop (lg+) */}
-            <div className="hidden lg:flex min-h-screen items-center justify-center bg-white text-black px-4">
-                <div className="bg-[#F4F6FA] w-full max-w-md border-none rounded-[31px] p-10">
-                    <h2 className="text-center text-[32px] font-bold text-black mb-8">
+            <div className="hidden lg:flex min-h-screen items-center justify-center bg-[#F8F9FB]">
+                <div className="bg-white w-full max-w-[440px] rounded-[32px] px-12 py-10 shadow-sm">
+                    <h1 className="text-center text-[28px] font-bold text-black mb-8 tracking-tight">
                         Зарегистрироваться
-                    </h2>
+                    </h1>
 
-                    <form onSubmit={handleSubmit} className="space-y-6">
+                    <form onSubmit={handleSubmit} className="space-y-7">
                         {/* First Name */}
                         <div>
                             <input
@@ -98,8 +95,8 @@ export default function RegisterForm() {
                                 value={formData.first_name}
                                 onChange={handleChange}
                                 className={`w-full border-0 border-b ${
-                                    fieldErrors.first_name ? 'border-red-500' : 'border-black'
-                                } bg-[#F4F6FA] text-base py-2 placeholder-gray-600 focus:outline-none focus:border-blue-600`}
+                                    fieldErrors.first_name ? 'border-red-500' : 'border-gray-300'
+                                } bg-white text-[15px] py-3 placeholder-gray-500 focus:outline-none focus:border-[#3066BE] transition-colors`}
                                 required
                                 disabled={isLoading}
                             />
@@ -117,8 +114,8 @@ export default function RegisterForm() {
                                 value={formData.last_name}
                                 onChange={handleChange}
                                 className={`w-full border-0 border-b ${
-                                    fieldErrors.last_name ? 'border-red-500' : 'border-black'
-                                } bg-[#F4F6FA] text-base py-2 placeholder-gray-600 focus:outline-none focus:border-blue-600`}
+                                    fieldErrors.last_name ? 'border-red-500' : 'border-gray-300'
+                                } bg-white text-[15px] py-3 placeholder-gray-500 focus:outline-none focus:border-[#3066BE] transition-colors`}
                                 required
                                 disabled={isLoading}
                             />
@@ -136,8 +133,8 @@ export default function RegisterForm() {
                                 value={formData.username}
                                 onChange={handleChange}
                                 className={`w-full border-0 border-b ${
-                                    fieldErrors.username ? 'border-red-500' : 'border-black'
-                                } bg-[#F4F6FA] text-base py-2 placeholder-gray-600 focus:outline-none focus:border-blue-600`}
+                                    fieldErrors.username ? 'border-red-500' : 'border-gray-300'
+                                } bg-white text-[15px] py-3 placeholder-gray-500 focus:outline-none focus:border-[#3066BE] transition-colors`}
                                 required
                                 disabled={isLoading}
                             />
@@ -155,8 +152,8 @@ export default function RegisterForm() {
                                 value={formData.password}
                                 onChange={handleChange}
                                 className={`w-full border-0 border-b ${
-                                    fieldErrors.password ? 'border-red-500' : 'border-black'
-                                } bg-[#F4F6FA] text-base py-2 placeholder-gray-600 focus:outline-none focus:border-blue-600`}
+                                    fieldErrors.password ? 'border-red-500' : 'border-gray-300'
+                                } bg-white text-[15px] py-3 placeholder-gray-500 focus:outline-none focus:border-[#3066BE] transition-colors`}
                                 required
                                 disabled={isLoading}
                             />
@@ -173,7 +170,7 @@ export default function RegisterForm() {
                                 placeholder="Подтвердите пароль"
                                 value={formData.confirm_password}
                                 onChange={handleChange}
-                                className="w-full border-0 border-b border-black bg-[#F4F6FA] text-base py-2 placeholder-gray-600 focus:outline-none focus:border-blue-600"
+                                className="w-full border-0 border-b border-gray-300 bg-white text-[15px] py-3 placeholder-gray-500 focus:outline-none focus:border-[#3066BE] transition-colors"
                                 required
                                 disabled={isLoading}
                             />
@@ -181,74 +178,77 @@ export default function RegisterForm() {
 
                         {/* General Error */}
                         {error && (
-                            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
                                 <p className="text-red-600 text-sm">{error}</p>
                             </div>
                         )}
 
                         {/* Checkbox */}
-                        <div className="flex items-start gap-2 mt-4">
+                        <div className="flex items-start gap-3 mt-6">
                             <input
                                 type="checkbox"
                                 required
-                                className="mt-1 w-4 h-4 accent-blue-600"
+                                className="mt-1 w-[18px] h-[18px] accent-[#3066BE] cursor-pointer"
                                 disabled={isLoading}
                             />
-                            <p className="text-xs leading-tight text-gray-700">
+                            <p className="text-[13px] leading-tight text-gray-600">
                                 Я прочитал и принял Политику конфиденциальности и Условия*
                             </p>
                         </div>
 
                         {/* Submit Button */}
-                        <button
-                            type="submit"
-                            disabled={isLoading}
-                            className="w-[177px] h-[57px] ml-[100px] bg-[#3066BE] text-white text-[16px] font-semibold rounded-[10px] px-[25px] py-[15px] hover:bg-[#2a58a6] transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {isLoading ? (
-                                <span>Загрузка...</span>
-                            ) : (
-                                <React.Fragment>
-                                    Следующий
-                                    <img src="/next.png" alt="next icon" className="w-4 h-4" />
-                                </React.Fragment>
-                            )}
-                        </button>
+                        <div className="flex flex-col items-center gap-3 pt-2">
+                            <button
+                                type="submit"
+                                disabled={isLoading}
+                                className="w-[200px] h-[54px] bg-[#3066BE] text-white text-[15px] font-semibold rounded-[12px] hover:bg-[#2856a8] transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                            >
+                                {isLoading ? (
+                                    <span>Загрузка...</span>
+                                ) : (
+                                    <>
+                                        Следующий
+                                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="rotate-180">
+                                            <path d="M10 4L6 8L10 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                        </svg>
+                                    </>
+                                )}
+                            </button>
+
+                            <a
+                                href="/login"
+                                className="text-[13px] text-[#3066BE] font-semibold cursor-pointer hover:underline"
+                            >
+                                Уже есть аккаунт?
+                            </a>
+                        </div>
                     </form>
-
-                    {/* Link form tashqarisida */}
-
-                    <a href="/login"
-                    className="text-[12px] ml-[135px] text-[#3066BE] font-[600] cursor-pointer hover:underline block mt-4"
-                    >
-                    Уже есть аккаунт?
-                </a>
+                </div>
             </div>
-        </div>
 
-    {/* Tablet only (md) */}
-    <div className="hidden md:block lg:hidden">
-        <RegisterTablet
-            formData={formData}
-            onChange={handleChange}
-            onSubmit={handleSubmit}
-            error={error}
-            fieldErrors={fieldErrors}
-            isLoading={isLoading}
-        />
-    </div>
+            {/* Tablet (md) */}
+            <div className="hidden md:block lg:hidden">
+                <RegisterTablet
+                    formData={formData}
+                    onChange={handleChange}
+                    onSubmit={handleSubmit}
+                    error={error}
+                    fieldErrors={fieldErrors}
+                    isLoading={isLoading}
+                />
+            </div>
 
-    {/* Mobile (sm va past) */}
-    <div className="block md:hidden">
-        <RegisterMobile
-            formData={formData}
-            onChange={handleChange}
-            onSubmit={handleSubmit}
-            error={error}
-            fieldErrors={fieldErrors}
-            isLoading={isLoading}
-        />
-    </div>
-</React.Fragment>
-);
+            {/* Mobile (sm) */}
+            <div className="block md:hidden">
+                <RegisterMobile
+                    formData={formData}
+                    onChange={handleChange}
+                    onSubmit={handleSubmit}
+                    error={error}
+                    fieldErrors={fieldErrors}
+                    isLoading={isLoading}
+                />
+            </div>
+        </React.Fragment>
+    );
 }

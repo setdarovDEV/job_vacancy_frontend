@@ -12,15 +12,14 @@ export default function EmailVerifyTablet({
     const navigate = useNavigate();
 
     return (
-        <div className="w-full min-h-screen bg-white flex items-center justify-center px-4 text-black">
-            <div className="w-full max-w-[360px] bg-[#F5F8FC] rounded-2xl px-6 py-8 shadow-md">
-                <h2 className="text-center text-[20px] font-semibold mb-6">
+        <div className="w-full min-h-screen bg-[#F8F9FB] flex items-center justify-center px-4">
+            <div className="w-full max-w-[460px] bg-white rounded-[28px] px-12 py-10 shadow-sm">
+                <h1 className="text-center text-[24px] font-bold text-black mb-10">
                     Ваш E-mail
-                </h2>
+                </h1>
 
-                <form onSubmit={onSubmit}>
-                    {/* Email input */}
-                    <div className="mb-4">
+                <form onSubmit={onSubmit} className="space-y-8">
+                    <div>
                         <input
                             type="email"
                             inputMode="email"
@@ -29,60 +28,51 @@ export default function EmailVerifyTablet({
                             onChange={onChangeEmail}
                             required
                             disabled={isLoading}
-                            className={`w-full border-0 border-b bg-transparent py-2 text-sm focus:outline-none transition-colors
+                            className={`w-full border-0 border-b bg-white py-3 text-[15px] focus:outline-none transition-colors placeholder-gray-500
                                 ${error
                                 ? "border-red-500"
                                 : successMessage
                                     ? "border-green-500"
-                                    : "border-black"
+                                    : "border-gray-300 focus:border-[#3066BE]"
                             }
                                 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                         />
+
+                        {error && (
+                            <p className="text-sm text-red-500 mt-2">{error}</p>
+                        )}
+
+                        {successMessage && (
+                            <p className="text-sm text-green-600 mt-2 font-semibold">
+                                {successMessage}
+                            </p>
+                        )}
                     </div>
 
-                    {/* Error */}
-                    {error && (
-                        <div className="bg-red-50 border border-red-200 rounded-lg p-2 mb-2 text-xs text-red-600 text-center">
-                            {error}
-                        </div>
-                    )}
-
-                    {/* Success */}
-                    {successMessage && (
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-2 mb-2 text-xs text-green-600 text-center font-semibold">
-                            {successMessage}
-                        </div>
-                    )}
-
-                    {/* Loading message */}
                     {isLoading && (
-                        <p className="text-blue-600 text-xs text-center mb-2">
+                        <p className="text-blue-600 text-sm text-center">
                             Отправляем код на ваш E-mail...
                         </p>
                     )}
 
-                    {/* Submit button */}
-                    <button
-                        type="submit"
-                        disabled={isLoading}
-                        className="bg-[#3066BE] w-[158px] ml-[74px] text-white font-semibold py-2 rounded-xl hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {isLoading
-                            ? "Отправка..."
-                            : successMessage
-                                ? "Переход..."
-                                : "Следующий →"}
-                    </button>
-
-                    {/* Back button */}
-                    <div className="text-center mt-4">
+                    <div className="flex justify-center">
                         <button
-                            type="button"
-                            onClick={() => navigate("/register")}
+                            type="submit"
                             disabled={isLoading}
-                            className="text-xs text-[#3066BE] font-semibold hover:underline disabled:opacity-50 bg-transparent border-none"
+                            className="w-[200px] h-[52px] bg-[#3066BE] text-white text-[15px] font-semibold rounded-[12px] hover:bg-[#2856a8] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm"
                         >
-                            ← Назад к регистрации
+                            {isLoading ? (
+                                "Отправка..."
+                            ) : successMessage ? (
+                                "Переход..."
+                            ) : (
+                                <>
+                                    Следующий
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="rotate-180">
+                                        <path d="M10 4L6 8L10 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                    </svg>
+                                </>
+                            )}
                         </button>
                     </div>
                 </form>

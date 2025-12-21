@@ -2,37 +2,56 @@ import React, { useState, useEffect } from "react";
 import { Pencil } from "lucide-react";
 import api from "../utils/api";
 
-export default function DetailBlock({ title, salary, isEditable }) {
+export default function DetailBlock({ title, salary, isEditable, viewOnly = false, targetUserId = null }) {
     const [inputValue, setInputValue] = useState("");
     const [salaryValue, setSalaryValue] = useState(salary || "0.00");
     const [aboutMe, setAboutMe] = useState("");
 
     const [editingField, setEditingField] = useState(null); // 'title' | 'salary' | 'about' | null
-    const [setIsEditable] = useState(false);
 
-
+    // ✅ YANGI: targetUserId o'zgarganda ma'lumotlarni yuklash
     useEffect(() => {
-        const savedTitle = localStorage.getItem("user_title");
-        if (savedTitle) {
-            setInputValue(savedTitle);
-        } else {
-            setInputValue(title);
-        }
+        const loadUserData = async () => {
+            if (viewOnly && targetUserId) {
+                try {
+                    console.log(`📡 Fetching profile for DetailBlock: ${targetUserId}`);
+                    const res = await api.get(`/api/auth/profile/${targetUserId}/`);
+                    console.log("✅ DetailBlock profile data:", res.data);
+                    
+                    setInputValue(res.data.title || res.data.job_title || "");
+                    setSalaryValue(res.data.salary_usd || res.data.salary || "0.00");
+                    setAboutMe(res.data.about_me || res.data.description || "");
+                } catch (err) {
+                    console.error("❌ DetailBlock profile yuklashda xatolik:", err);
+                }
+            } else {
+                // Oddiy rejim - localStorage yoki prop'lardan
+                const savedTitle = localStorage.getItem("user_title");
+                if (savedTitle) {
+                    setInputValue(savedTitle);
+                } else {
+                    setInputValue(title || "");
+                }
 
-        const savedSalary = localStorage.getItem("user_salary");
-        if (savedSalary) {
-            setSalaryValue(savedSalary);
-        } else {
-            setSalaryValue(salary || "0.00");
-        }
+                const savedSalary = localStorage.getItem("user_salary");
+                if (savedSalary) {
+                    setSalaryValue(savedSalary);
+                } else {
+                    setSalaryValue(salary || "0.00");
+                }
 
-        const savedAbout = localStorage.getItem("user_about_me");
-        if (savedAbout) {
-            setAboutMe(savedAbout);
-        }
-    }, [title, salary]);
+                const savedAbout = localStorage.getItem("user_about_me");
+                if (savedAbout) {
+                    setAboutMe(savedAbout);
+                }
+            }
+        };
+
+        loadUserData();
+    }, [title, salary, viewOnly, targetUserId]);
 
     const handleSaveTitle = async () => {
+        if (viewOnly) return;
         try {
             await api.patch("/api/auth/update-title/", { title: inputValue });
             localStorage.setItem("user_title", inputValue);
@@ -44,6 +63,7 @@ export default function DetailBlock({ title, salary, isEditable }) {
     };
 
     const handleSaveSalary = async () => {
+        if (viewOnly) return;
         try {
             await api.patch("/api/auth/update-salary/", { salary_usd: salaryValue });
             localStorage.setItem("user_salary", salaryValue);
@@ -55,6 +75,7 @@ export default function DetailBlock({ title, salary, isEditable }) {
     };
 
     const handleSaveAbout = async () => {
+        if (viewOnly) return;
         try {
             await api.patch("/api/auth/update-about/", { about_me: aboutMe });
             localStorage.setItem("user_about_me", aboutMe);
@@ -85,7 +106,7 @@ export default function DetailBlock({ title, salary, isEditable }) {
                         </h3>
                     )}
 
-                    {editingField === null && (
+                    {editingField === null && !viewOnly && (
                         <div
                             className={`w-[23px] h-[23px] rounded-full flex items-center justify-center transition ${
                                 isEditable
@@ -120,7 +141,7 @@ export default function DetailBlock({ title, salary, isEditable }) {
                         </p>
                     )}
 
-                    {editingField === null && (
+                    {editingField === null && !viewOnly && (
                         <div
                             className={`w-[23px] h-[23px] rounded-full flex items-center justify-center transition ${
                                 isEditable
@@ -155,7 +176,7 @@ export default function DetailBlock({ title, salary, isEditable }) {
                     </p>
                 )}
 
-                {editingField === null && (
+                {editingField === null && !viewOnly && (
                     <div
                         className={`w-[23px] h-[23px] rounded-full flex items-center justify-center transition ${
                             isEditable

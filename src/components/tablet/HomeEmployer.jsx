@@ -10,11 +10,9 @@ import api from "../../utils/api";
 import NavbarTabletLogin from "./NavbarTabletLogIn.jsx";
 import VacancyTabletModal from "../../components/tablet/VacancyTabletModal.jsx";
 
-export default function HomeEmployerTablet() {
+export default function HomeEmployerTablet({ viewOnly = false, targetUserId = null }) {
     // STATE (kod o'zgarmaydi)
     const [activeModalIndex, setActiveModalIndex] = useState(null);
-    const [selectedLang, setSelectedLang] = useState({ flag: "/ru.png", code: "RU" });
-    const [showLang, setShowLang] = useState(false);
     const [showMobileMenu, setShowMobileMenu] = useState(false);
     const [showModal, setShowModal] = useState(false);
     const [profileImage, setProfileImage] = useState(null);
@@ -31,11 +29,111 @@ export default function HomeEmployerTablet() {
     const [loading, setLoading] = useState(true);
 
     const navigate = useNavigate();
+    const canEdit = !viewOnly;
 
-    // Barcha useEffect va handler functions o'zgarmaydi...
-    // (avvalgi kodingizdan ko'chirib oling)
-
+    // ✅ YANGI: targetUserId o'zgarganda employer ma'lumotlarini qayta yuklash
     useEffect(() => {
+        if (viewOnly && targetUserId) {
+            console.log("🔄 HomeEmployerTablet: Loading employer profile for:", targetUserId);
+            
+            setUser(null);
+            setProfileImage(null);
+            setVacancies({ results: [] });
+            setCompanies([]);
+            setLocation("Joylashuv aniqlanmoqda...");
+            setLoading(true);
+
+            const loadEmployerData = async () => {
+                try {
+                    const res = await api.get(`/api/auth/profile/${targetUserId}/`);
+                    setUser(res.data);
+
+                    if (res.data.avatar || res.data.profile_image) {
+                        const avatarUrl = res.data.avatar || res.data.profile_image;
+                        const fullUrl = avatarUrl.startsWith("http")
+                            ? avatarUrl
+                            : `${api.defaults.baseURL}${avatarUrl}`;
+                        setProfileImage(fullUrl);
+                    }
+
+                    // Employer vakansiyalari
+                    try {
+                        const vacanciesRes = await api.get("/api/vacancies/jobposts/", {
+                            params: { employer: targetUserId }
+                        });
+                        
+                        if (Array.isArray(vacanciesRes.data)) {
+                            setVacancies({ results: vacanciesRes.data });
+                        } else if (vacanciesRes.data.results) {
+                            setVacancies(vacanciesRes.data);
+                        } else {
+                            setVacancies({ results: [] });
+                        }
+                    } catch (vacErr) {
+                        console.error("❌ Vakansiyalarni yuklashda xatolik:", vacErr);
+                        try {
+                            const allVacanciesRes = await api.get("/api/vacancies/jobposts/");
+                            const allVacancies = Array.isArray(allVacanciesRes.data) 
+                                ? allVacanciesRes.data 
+                                : (allVacanciesRes.data.results || []);
+                            
+                            const employerVacancies = allVacancies.filter(
+                                v => String(v.employer?.id) === String(targetUserId) || 
+                                     String(v.created_by) === String(targetUserId) ||
+                                     String(v.user?.id) === String(targetUserId)
+                            );
+                            setVacancies({ results: employerVacancies });
+                        } catch (filterErr) {
+                            setVacancies({ results: [] });
+                        }
+                    }
+
+                    // Employer kompaniyalari
+                    try {
+                        const companiesRes = await api.get("/api/companies/", {
+                            params: { owner: targetUserId }
+                        });
+                        
+                        const companiesData = Array.isArray(companiesRes.data) 
+                            ? companiesRes.data 
+                            : (companiesRes.data.results || []);
+                        setCompanies(companiesData);
+                    } catch (compErr) {
+                        try {
+                            const allCompaniesRes = await api.get("/api/companies/");
+                            const allCompanies = Array.isArray(allCompaniesRes.data) 
+                                ? allCompaniesRes.data 
+                                : (allCompaniesRes.data.results || []);
+                            
+                            const employerCompanies = allCompanies.filter(
+                                c => String(c.owner?.id) === String(targetUserId) || 
+                                     String(c.created_by) === String(targetUserId) ||
+                                     String(c.user?.id) === String(targetUserId)
+                            );
+                            setCompanies(employerCompanies);
+                        } catch (filterErr) {
+                            setCompanies([]);
+                        }
+                    }
+
+                    setLoading(false);
+                } catch (err) {
+                    console.error("❌ Employer profil yuklashda xatolik:", err);
+                    setLoading(false);
+                }
+            };
+
+            loadEmployerData();
+        }
+    }, [targetUserId, viewOnly]);
+
+    // ✅ ROLE CHECK - viewOnly mode'da role check qilmaslik
+    useEffect(() => {
+        // viewOnly mode'da role check qilmaslik
+        if (viewOnly && targetUserId) {
+            return;
+        }
+
         const getProfile = async () => {
             try {
                 const response = await api.get("/api/auth/profile/");
@@ -50,7 +148,7 @@ export default function HomeEmployerTablet() {
             }
         };
         getProfile();
-    }, [navigate]);
+    }, [navigate, viewOnly, targetUserId]);
 
     useEffect(() => {
         const fetchUser = async () => {
@@ -237,30 +335,16 @@ export default function HomeEmployerTablet() {
             .join(" ");
     };
 
-    const langCode = selectedLang?.code === "GB" ? "EN" : selectedLang?.code || "RU";
-
     const texts = {
-        RU: {
-            community: "Сообщество", vacancies: "Вакансии", chat: "Чат", companies: "Компании",
-            login: "Войти", logo: "Logo",
-            links: ["Помощь", "Наши вакансии", "Реклама на сайте", "Требования к ПО",
-                "Инвесторам", "Каталог компаний", "Работа по профессиям"],
-            copyright: "© 2025 «HeadHunter – Вакансии». Все права защищены. Карта сайта",
-        },
-        UZ: {
-            community: "Jamiyat", vacancies: "Vakansiyalar", chat: "Chat", companies: "Kompaniyalar",
-            login: "Kirish", logo: "Logo",
-            links: ["Yordam", "Bizning vakantiyalar", "Saytda reklama", "Dasturiy ta'minot talablari",
-                "Investorlar uchun", "Kompaniyalar katalogi", "Kasblar bo'yicha ishlar"],
-            copyright: "© 2025 «HeadHunter – Vakansiyalar». Barcha huquqlar himoyalangan. Sayt xaritasi",
-        },
-        EN: {
-            community: "Community", vacancies: "Vacancies", chat: "Chat", companies: "Companies",
-            login: "Login", logo: "Logo",
-            links: ["Help", "Our Vacancies", "Advertising on site", "Software Requirements",
-                "For Investors", "Company Catalog", "Jobs by Profession"],
-            copyright: "© 2025 «HeadHunter – Vacancies». All rights reserved. Sitemap",
-        }
+        community: "Сообщество", 
+        vacancies: "Вакансии", 
+        chat: "Чат", 
+        companies: "Компании",
+        login: "Войти", 
+        logo: "Logo",
+        links: ["Помощь", "Наши вакансии", "Реклама на сайте", "Требования к ПО",
+            "Инвесторам", "Каталог компаний", "Работа по профессиям"],
+        copyright: "© 2025 «HeadHunter – Вакансии». Все права защищены. Карта сайта",
     };
 
     return (
@@ -585,15 +669,15 @@ export default function HomeEmployerTablet() {
 
         <div className="relative z-20 w-full px-8 py-10 text-white max-w-[1024px] mx-auto">
             <div className="flex flex-col gap-8">
-                <h2 className="text-[40px] font-black">{texts[langCode].logo}</h2>
+                <h2 className="text-[40px] font-black">{texts.logo}</h2>
 
                 <div className="grid grid-cols-2 gap-x-16 gap-y-4">
-                    {texts[langCode].links.slice(0, 4).map((link, i) => (
+                    {texts.links.slice(0, 4).map((link, i) => (
                         <a key={`l-${i}`} href="#" className="text-white flex items-center gap-2 text-[16px] hover:text-[#E7ECFF] transition-colors">
                             <span>›</span> {link}
                         </a>
                     ))}
-                    {texts[langCode].links.slice(4).map((link, i) => (
+                    {texts.links.slice(4).map((link, i) => (
                         <a key={`r-${i}`} href="#" className="text-white flex items-center gap-2 text-[16px] hover:text-[#E7ECFF] transition-colors">
                             <span>›</span> {link}
                         </a>
@@ -603,7 +687,7 @@ export default function HomeEmployerTablet() {
 
             <div className="mt-8 bg-[#3066BE]/70 rounded-[12px] px-6 py-5 w-full">
                 <div className="flex flex-wrap items-center justify-between gap-4">
-                    <p className="text-[14px] leading-snug">{texts[langCode].copyright}</p>
+                    <p className="text-[14px] leading-snug">{texts.copyright}</p>
                     <div className="flex items-center gap-5 text-[22px]">
                         <a href="#" className="text-white hover:opacity-90"><i className="fab fa-whatsapp" /></a>
                         <a href="#" className="text-white hover:opacity-90"><i className="fab fa-instagram" /></a>

@@ -6,6 +6,8 @@ import {
     fetchSavedVacancies,
     removeSavedVacancy,
     fetchApplications,
+    formatApplication,
+    formatSavedVacancy,
 } from "../../utils/activity";
 import ResponsivePage from "../../components/ResponsivePage";
 import NavbarTabletLogin from "./NavbarTabletLogIn.jsx";
@@ -18,8 +20,12 @@ export default function ActivityTablet() {
     const [applied, setApplied] = useState({ items: [], loading: false, error: "" });
 
     useEffect(() => {
-        if (tab === "saved" && saved.items.length === 0) loadSaved();
-        if (tab === "applied" && applied.items.length === 0) loadApplied();
+        // Load data when tab changes
+        if (tab === "saved" && !saved.loading) {
+            loadSaved();
+        } else if (tab === "applied" && !applied.loading) {
+            loadApplied();
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tab]);
 
@@ -27,8 +33,11 @@ export default function ActivityTablet() {
         setSaved((s) => ({ ...s, loading: true, error: "" }));
         try {
             const data = await fetchSavedVacancies();
-            setSaved({ items: data.results, loading: false, error: "" });
-        } catch {
+            // Format each vacancy using formatSavedVacancy
+            const formattedItems = (data.results || []).map(formatSavedVacancy).filter(Boolean);
+            setSaved({ items: formattedItems, loading: false, error: "" });
+        } catch (e) {
+            console.error("Error loading saved vacancies:", e);
             setSaved((s) => ({ ...s, loading: false, error: "Не удалось загрузить сохранённые вакансии" }));
         }
     }
@@ -36,8 +45,11 @@ export default function ActivityTablet() {
         setApplied((s) => ({ ...s, loading: true, error: "" }));
         try {
             const data = await fetchApplications();
-            setApplied({ items: data.results, loading: false, error: "" });
-        } catch {
+            // Format each application using formatApplication
+            const formattedItems = (data.results || []).map(formatApplication).filter(Boolean);
+            setApplied({ items: formattedItems, loading: false, error: "" });
+        } catch (e) {
+            console.error("Error loading applications:", e);
             setApplied((s) => ({ ...s, loading: false, error: "Не удалось загрузить отклики" }));
         }
     }
@@ -53,6 +65,7 @@ export default function ActivityTablet() {
     const langCode = selectedLang?.code === "GB" ? "EN" : selectedLang?.code || "RU";
     const texts = {
         RU: {
+            activityTitle: "Ваша активность",
             community: "Сообщество", vacancies: "Вакансии", chat: "Чат", companies: "Компании",
             keyword: "Ключевое слово:", position: "Должность", location: "Местоположение:",
             selectRegion: "Выберите регион", salary: "Зарплата:", selectSalary: "Выберите зарплату",
@@ -76,6 +89,7 @@ export default function ActivityTablet() {
             viewMore: "Посмотреть все →"
         },
         UZ: {
+            activityTitle: "Sizning faolligingiz",
             community: "Jamiyat", vacancies: "Vakansiyalar", chat: "Chat", companies: "Kompaniyalar",
             keyword: "Kalit so'z:", position: "Lavozim", location: "Joylashuv:",
             selectRegion: "Hududni tanlang", salary: "Maosh:", selectSalary: "Maoshni tanlang",
@@ -99,6 +113,7 @@ export default function ActivityTablet() {
             viewMore: "Hammasini ko‘rish →"
         },
         EN: {
+            activityTitle: "Your activity",
             community: "Community", vacancies: "Vacancies", chat: "Chat", companies: "Companies",
             keyword: "Keyword:", position: "Position", location: "Location:",
             selectRegion: "Select region", salary: "Salary:", selectSalary: "Select salary",
@@ -133,25 +148,6 @@ export default function ActivityTablet() {
 
                 {/* TOP spacer */}
                 <div className="h-[76px]" />
-
-                {/* Notification (tablet – ixcham) */}
-                <div className="bg-white">
-                    <div className="relative max-w-[960px] mx-auto h-[0px]">
-                        {/* o‘ngdagi bildirishnoma */}
-                        <div className="absolute -top-[46px] right-4 flex items-center gap-5">
-                            <div className="relative">
-                                <svg className="w-6 h-6 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
-                                          d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14V9a6 6 0 10-12 0v5c0 .386-.146.735-.405 1.005L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
-                                </svg>
-                                <span
-                                    className="absolute -top-1 -right-1 bg-red-600 text-white rounded-full w-4 h-4 text-[10px] grid place-items-center">
-          1
-        </span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
 
                 {/* CONTENT (tablet) */}
                 <div className="max-w-[960px] mx-auto px-4 pb-10">
@@ -314,8 +310,9 @@ function AppliedList({ items, loading, error }) {
     return (
         <ul className="flex flex-col gap-3 md:gap-4">
             {items.map((a) => {
-                const vacancy = a.job_post || a.vacancy || a.post || {};
-                const status = a.status || "отправлено";
+                // formatApplication returns { vacancy: {...}, status, created_at, etc. }
+                const vacancy = a.vacancy || a.job || a.job_post || a.post || {};
+                const status = a.status || "APPLIED";
                 const created = a.created_at || a.created || a.date;
                 return (
                     <li key={a.id} className="border border-[#E5EAF2] rounded-2xl p-4 flex items-start justify-between gap-4">

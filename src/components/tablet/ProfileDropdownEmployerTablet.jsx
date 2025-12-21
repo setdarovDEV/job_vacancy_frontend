@@ -1,8 +1,9 @@
-// src/components/ProfileDropdownEmployerTablet.jsx
+// src/components/tablet/ProfileDropdownEmployerTablet.jsx
 import React, { useEffect, useRef, useState } from "react";
 import { UserRound, Sun, Settings, LogOut, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import ChangeProfileImageModal from "../AvatarUploadModal";
+import { toast } from "react-toastify";
 import api from "../../utils/api";
 
 export default function ProfileDropdownEmployerTablet() {
@@ -10,11 +11,9 @@ export default function ProfileDropdownEmployerTablet() {
     const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
     const [profileImage, setProfileImage] = useState(null);
     const [user, setUser] = useState(null);
-
     const wrapRef = useRef(null);
     const navigate = useNavigate();
-
-    const AVATAR_FALLBACK = "/user.png";
+    const AVATAR_FALLBACK = "/user1.png";
     const BASE_URL = (api?.defaults?.baseURL || "http://127.0.0.1:8000").replace(/\/$/, "");
 
     const buildImageUrl = (path) => {
@@ -24,27 +23,21 @@ export default function ProfileDropdownEmployerTablet() {
     };
 
     useEffect(() => {
-        api.get("/api/auth/profile/")
-            .then((res) => {
-                const img = buildImageUrl(res.data?.profile_image);
-                if (img) {
-                    setProfileImage(img);
-                    localStorage.setItem("profile_image", img);
-                }
-            })
-            .catch(() => {});
+        api.get("/api/auth/profile/").then((res) => {
+            const img = buildImageUrl(res.data?.profile_image);
+            if (img) {
+                setProfileImage(img);
+                localStorage.setItem("profile_image", img);
+            }
+        }).catch(() => {});
     }, []);
 
     useEffect(() => {
-        api.get("/api/auth/me/")
-            .then((res) => setUser(res.data))
-            .catch(() => {});
+        api.get("/api/auth/me/").then((res) => setUser(res.data)).catch(() => {});
     }, []);
 
     useEffect(() => {
-        const onDoc = (e) => {
-            if (wrapRef.current && !wrapRef.current.contains(e.target)) setIsOpen(false);
-        };
+        const onDoc = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setIsOpen(false); };
         const onEsc = (e) => e.key === "Escape" && setIsOpen(false);
         document.addEventListener("mousedown", onDoc);
         document.addEventListener("keydown", onEsc);
@@ -58,13 +51,14 @@ export default function ProfileDropdownEmployerTablet() {
         const refreshToken = localStorage.getItem("refresh_token");
         try {
             if (refreshToken) await api.post("/api/auth/logout/", { refresh: refreshToken });
+            toast.info("Вы вышли из аккаунта ✅");
         } catch {}
         localStorage.removeItem("access_token");
         localStorage.removeItem("refresh_token");
+        localStorage.removeItem("profile_image");
         navigate("/login");
     };
 
-    // “Lola Y.” ko‘rinishi: to‘liq ism + familiya bosh harfi + nuqta
     const prettyName = (full) => {
         if (!full) return "";
         const parts = full.trim().split(/\s+/);
@@ -76,111 +70,41 @@ export default function ProfileDropdownEmployerTablet() {
 
     return (
         <div className="relative" ref={wrapRef}>
-            {/* trigger (avatar) */}
-            <div
-                role="button"
-                aria-haspopup="menu"
-                aria-expanded={isOpen}
-                onClick={() => setIsOpen((v) => !v)}
-                className="w-[52px] h-[52px] rounded-full overflow-hidden border bg-gray-100 flex items-center justify-center cursor-pointer select-none"
-            >
-                <img
-                    src={profileImage || localStorage.getItem("profile_image") || AVATAR_FALLBACK}
-                    onError={(e) => (e.currentTarget.src = AVATAR_FALLBACK)}
-                    alt="avatar"
-                    className="w-full h-full object-cover"
-                />
-            </div>
-
-            {/* dropdown */}
+            <button onClick={() => setIsOpen((v) => !v)} className="w-[48px] h-[48px] rounded-full overflow-hidden border border-gray-300 bg-gray-100 flex items-center justify-center cursor-pointer hover:border-[#3066BE] transition">
+                <img src={profileImage || localStorage.getItem("profile_image") || AVATAR_FALLBACK} onError={(e) => (e.currentTarget.src = AVATAR_FALLBACK)} alt="avatar" className="w-full h-full object-cover" />
+            </button>
             {isOpen && (
-                <div
-                    role="menu"
-                    className="absolute right-0 mt-3 w-[250px] rounded-2xl bg-white text-black shadow-[0_12px_32px_rgba(0,0,0,0.10)] z-[70] overflow-hidden"
-                >
-                    {/* header */}
-                    <div className="px-4 py-4 flex items-center gap-3">
-                        <img
-                            src={profileImage || localStorage.getItem("profile_image") || AVATAR_FALLBACK}
-                            onError={(e) => (e.currentTarget.src = AVATAR_FALLBACK)}
-                            className="w-[56px] h-[56px] rounded-full object-cover shrink-0"
-                            alt="avatar"
-                        />
-                        <div className="min-w-0">
-                            <a
-                                href="/profile"
-                                className="text-[18px] font-semibold text-black underline underline-offset-2 truncate"
-                                title={user?.full_name || ""}
-                            >
-                                {user ? prettyName(user.full_name) : "…"}
-                            </a>
-                            <div className="text-[13px] mt-0.5">
-                                {user?.role === "EMPLOYER" ? "Работодатель" : user?.title || "Пользователь"}
-                            </div>
+                <div className="absolute right-0 mt-2 w-[270px] rounded-xl bg-white text-black shadow-[0_12px_32px_rgba(0,0,0,0.12)] z-50 border border-gray-100 overflow-hidden">
+                    <div className="px-4 py-3.5 flex items-center gap-3 border-b border-gray-200">
+                        <img src={profileImage || localStorage.getItem("profile_image") || AVATAR_FALLBACK} onError={(e) => (e.currentTarget.src = AVATAR_FALLBACK)} className="w-[52px] h-[52px] rounded-full object-cover shrink-0 cursor-pointer border-2 border-gray-200" alt="avatar" onClick={() => setIsAvatarModalOpen(true)} />
+                        <div className="min-w-0 flex-1">
+                            <p className="text-[16px] font-semibold text-black truncate">{user ? prettyName(user.full_name) : "Yuklanmoqda..."}</p>
+                            <p className="text-[13px] text-gray-600 mt-0.5 truncate">{user?.role === "EMPLOYER" ? "Работодатель" : user?.title || "Пользователь"}</p>
                         </div>
                     </div>
-
-                    {/* thick divider */}
-                    <div className="h-[2px] bg-black" />
-
-                    {/* items */}
-                    <nav className="py-2">
-                        <MenuItem href="/profile" icon={<UserRound size={20} />}>
-                            Ваш профиль
-                        </MenuItem>
-
-                        {user?.role === "EMPLOYER" && (
-                            <MenuItem href="/employer/applications" icon={<Users size={20} />}>
-                                Отклики
-                            </MenuItem>
-                        )}
-
-                        <MenuItem href="#" icon={<Sun size={20} />}>
-                            Тема: light
-                        </MenuItem>
-
-                        <MenuItem href="/settings" icon={<Settings size={20} />}>
-                            Настройки
-                        </MenuItem>
+                    <nav className="px-3 py-2 space-y-1">
+                        <MenuItem href="/home-employer" icon={<UserRound size={18} />}>Ваш профиль</MenuItem>
+                        {user?.role === "EMPLOYER" && (<MenuItem href="/employer/applications" icon={<Users size={18} />}>Отклики</MenuItem>)}
+                        <MenuItem href="/settings" icon={<Settings size={18} />}>Настройки</MenuItem>
                     </nav>
-
-                    {/* thick divider */}
-                    <div className="h-[2px] bg-black" />
-
-                    {/* logout */}
-                    <button
-                        type="button"
-                        onClick={handleLogout}
-                        className="w-full h-11 px-4 flex items-center text-black border-none gap-3 text-[15px] hover:text-red-700"
-                    >
-                        <LogOut size={20} />
-                        Выйти
-                    </button>
+                    <div className="border-t border-gray-200 px-3 py-2">
+                        <button type="button" onClick={handleLogout} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[14px] text-red-600 hover:bg-red-50 rounded-lg transition">
+                            <LogOut size={18} />Выйти
+                        </button>
+                    </div>
                 </div>
             )}
-
             {isAvatarModalOpen && (
-                <ChangeProfileImageModal
-                    onClose={() => setIsAvatarModalOpen(false)}
-                    onSuccess={(url) => {
-                        setProfileImage(url);
-                        localStorage.setItem("profile_image", url);
-                    }}
-                    setProfileImage={setProfileImage}
-                />
+                <ChangeProfileImageModal onClose={() => setIsAvatarModalOpen(false)} onSuccess={(url) => { setProfileImage(url); localStorage.setItem("profile_image", url); toast.success("Avatar yangilandi ✅"); }} setProfileImage={setProfileImage} />
             )}
         </div>
     );
 }
 
-/* --- helpers --- */
 function MenuItem({ href, icon, children }) {
     return (
-        <a
-            href={href}
-            className="w-full h-11 px-4 flex items-center text-black mt-[-15px] mb-[-5px] border-none gap-3 text-[15px] hover:text-[#3066BE]"
-        >
-            <span className="shrink-0">{icon}</span>
+        <a href={href} className="flex items-center gap-2.5 px-3 py-2.5 text-[14px] text-gray-700 hover:bg-gray-100 rounded-lg transition">
+            <span className="shrink-0 text-gray-600">{icon}</span>
             <span className="truncate">{children}</span>
         </a>
     );

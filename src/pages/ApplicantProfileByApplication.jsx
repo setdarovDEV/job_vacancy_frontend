@@ -1,674 +1,1590 @@
-// src/pages/ApplicantProfileByApplication.jsx
-import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { Star, MapPin, Mail, Phone, ExternalLink, X, Plus, Pencil, Trash2 } from "lucide-react";
+import { toast } from "react-toastify";
 import api from "../utils/api";
 import ProfileDropdown from "../components/ProfileDropdown.jsx";
-import { normalizeName } from "../utils/normalizeName";
-import ApplicantProfileByApplicationTablet from "../components/tablet/ApplicantProfileByApplicationTablet.jsx";
-import EmployerApplicationsMobile from "../components/mobile/EmployerApplicationsMobile.jsx";
+import { chatApi } from "../utils/chat.js";
+import CreateCompanyModal from "../components/CreateCompanyModal.jsx";
+import MobileFooter from "../components/mobile/MobileFooter.jsx";
 
-export default function ApplicantProfileByApplication() {
-    const [selectedLang, setSelectedLang] = useState({ flag: "/ru.png", code: "RU" });
-    const [showLang, setShowLang] = useState(false);
-    const [showMobileMenu] = useState(false);
+// ============================================================
+// MAIN EMPLOYER APPLICATIONS COMPONENT
+// ============================================================
+export default function EmployerApplications() {
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+    const [isTablet, setIsTablet] = useState(window.innerWidth >= 768 && window.innerWidth < 1024);
+    const [applications, setApplications] = useState({ items: [], loading: false, error: "" });
+    const [selectedApplicant, setSelectedApplicant] = useState(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
 
-    const { applicationId } = useParams();
+    // Responsive handler
+    useEffect(() => {
+        const handleResize = () => {
+            setIsMobile(window.innerWidth < 768);
+            setIsTablet(window.innerWidth >= 768 && window.innerWidth < 1024);
+        };
+        window.addEventListener("resize", handleResize);
+        return () => window.removeEventListener("resize", handleResize);
+    }, []);
+
+    // Load applications
+    useEffect(() => {
+        loadApplications(currentPage);
+    }, [currentPage]);
+
+    // ============================================================
+    // API CALLS
+    // ============================================================
+    async function loadApplications(page = 1) {
+        setApplications(prev => ({ ...prev, loading: true, error: "" }));
+        try {
+            // GET /api/applications/my/applications/ - employer's all applications
+            const res = await api.get("/api/applications/my/applications/", {
+                params: { page }
+            });
+            const data = res.data?.results || res.data || [];
+            console.log("✅ Applications for employer:", data);
+
+            setApplications({
+                items: data,
+                loading: false,
+                error: ""
+            });
+
+            setTotalPages(Math.ceil((res.data?.count || data.length) / 10));
+        } catch (err) {
+            console.error("❌ Load applications error:", err);
+            setApplications(prev => ({
+                ...prev,
+                loading: false,
+                error: "Не удалось загрузить отклики"
+            }));
+        }
+    }
+
+    async function viewApplicantProfile(applicationId) {
+        try {
+            // GET /api/applications/{pk}/applicant/ - full applicant profile
+            const res = await api.get(`/api/applications/${applicationId}/applicant/`);
+            console.log("✅ Full applicant profile:", res.data);
+            setSelectedApplicant(res.data);
+        } catch (err) {
+            console.error("❌ Load applicant profile error:", err);
+            toast.error("Не удалось загрузить профиль");
+        }
+    }
+
+    // ============================================================
+    // RENDER BASED ON SCREEN SIZE
+    // ============================================================
+    if (isMobile) {
+        return (
+            <EmployerApplicationsMobile
+                applications={applications}
+                onViewProfile={viewApplicantProfile}
+                selectedApplicant={selectedApplicant}
+                onCloseProfile={() => setSelectedApplicant(null)}
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+            />
+        );
+    }
+
+    if (isTablet) {
+        return (
+            <EmployerApplicationsTablet
+                applications={applications}
+                onViewProfile={viewApplicantProfile}
+                selectedApplicant={selectedApplicant}
+                onCloseProfile={() => setSelectedApplicant(null)}
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+            />
+        );
+    }
+
+    return (
+        <EmployerApplicationsDesktop
+            applications={applications}
+            onViewProfile={viewApplicantProfile}
+            selectedApplicant={selectedApplicant}
+            onCloseProfile={() => setSelectedApplicant(null)}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+        />
+    );
+}
+
+// ============================================================
+// TEXTS
+// ============================================================
+const TEXTS = {
+    RU: {
+        community: "Сообщество",
+        vacancies: "Вакансии",
+        chat: "Чат",
+        companies: "Компании",
+        logo: "Logo",
+        applicationsTitle: "Отклики",
+        companiesTitle: "Компании",
+        addCompany: "Указав название вашей компании, вы можете повысить доверие сотрудников.",
+        links: [
+            "Помощь",
+            "Наши вакансии",
+            "Реклама на сайте",
+            "Требования к ПО",
+            "Инвесторам",
+            "Каталог компаний",
+            "Работа по профессиям"
+        ],
+        copyright: "© 2025 «HeadHunter – Вакансии». Все права защищены. Карта сайта",
+    },
+};
+
+// ============================================================
+// DESKTOP VERSION (>= 1024px)
+// ============================================================
+function EmployerApplicationsDesktop({ applications, onViewProfile, selectedApplicant, onCloseProfile, currentPage, totalPages, onPageChange }) {
+    const t = TEXTS.RU;
     const navigate = useNavigate();
-    const [data, setData] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
+    const [user, setUser] = useState(null);
+    const [companies, setCompanies] = useState([]);
+    const [selectedCompany, setSelectedCompany] = useState(null);
+    const [showCompanyModal, setShowCompanyModal] = useState(false);
+    const [isEditable, setIsEditable] = useState(false);
 
-    // --- URL helper: backenddan kelgan relative pathlarni to‘liq URLga aylantirish
-    const makeAbsUrl = (path) => {
-        if (!path) return "";
-        const s = String(path).trim();
-        if (/^https?:\/\//i.test(s)) return s;
-        const base = (api?.defaults?.baseURL || "").replace(/\/+$/, ""); // .../api
-        const clean = s.replace(/^\/+/, ""); // boshidagi / larni olamiz
-        return `${base}/${clean}`;
+    useEffect(() => {
+        api.get("/api/auth/profile/").then(res => {
+            const profileImage = res.data.profile_image;
+            let avatarUrl = "/user-white.jpg";
+            
+            if (profileImage) {
+                const baseURL = api.defaults.baseURL || "http://127.0.0.1:8000";
+                avatarUrl = profileImage.startsWith("http")
+                    ? profileImage
+                    : `${baseURL}${profileImage}`;
+            }
+            
+            setUser({
+                full_name: `${res.data.first_name || ""} ${res.data.last_name || ""}`.trim() || res.data.username,
+                location: res.data.location || "Ташкент, Узбекистан - 22:16 местное время",
+                avatar: avatarUrl
+            });
+        }).catch(console.error);
+    }, []);
+
+    // ==========================
+    // COMPANY HANDLERS
+    // ==========================
+    const fetchCompanies = async () => {
+        try {
+            const response = await api.get("/api/companies/");
+            const data = Array.isArray(response.data) ? response.data : response.data.results;
+            setCompanies(data || []);
+        } catch (err) {
+            console.error("❌ Kompaniyalarni olishda xatolik:", err);
+        }
     };
 
     useEffect(() => {
-        let alive = true;
-        setLoading(true);
-        setError("");
+        fetchCompanies();
+    }, []);
 
-        api
-            .get(`/api/applications/${applicationId}/applicant/`)
-            .then((res) => {
-                if (!alive) return;
-                const d = res.data || {};
+    const handleEditCompanies = (company) => {
+        if (!isEditable) return;
+        setSelectedCompany(company);
+        setShowCompanyModal(true);
+    };
 
-                // media yo‘llarini to‘liq qilamiz
-                const avatar = d.avatar ? makeAbsUrl(d.avatar) : "";
-                const certificates = Array.isArray(d.certificates)
-                    ? d.certificates.map((c) => ({ ...c, file_url: makeAbsUrl(c.file_url || c.file) }))
-                    : [];
-                const portfolio_projects = Array.isArray(d.portfolio_projects)
-                    ? d.portfolio_projects.map((p) => ({
-                        ...p,
-                        media: Array.isArray(p.media)
-                            ? p.media.map((m) => ({ ...m, file_url: makeAbsUrl(m.file_url || m.file) }))
-                            : [],
-                    }))
-                    : [];
+    const handleDeleteCompanies = async (companyId) => {
+        if (!isEditable) return;
+        const confirm = window.confirm("Kompaniyani o'chirmoqchimisiz?");
+        if (!confirm) return;
 
-                setData({ ...d, avatar, certificates, portfolio_projects });
-            })
-            .catch((e) => {
-                if (!alive) return;
-                setError(e?.response?.data?.detail || "Profilni yuklashda xatolik.");
-            })
-            .finally(() => alive && setLoading(false));
-
-        return () => {
-            alive = false;
-        };
-    }, [applicationId]);
-
-    if (loading) return <div className="p-6">Yuklanmoqda…</div>;
-    if (error)
-        return (
-            <div className="p-6">
-                <div className="text-red-600 mb-3">{error}</div>
-                <button className="px-4 py-2 rounded border" onClick={() => navigate(-1)}>
-                    ← Orqaga
-                </button>
-            </div>
-        );
-    if (!data) return <div className="p-6">Ma’lumot topilmadi</div>;
-
-    const skills = Array.isArray(data.skills) ? data.skills : [];
-    const languages = Array.isArray(data.languages) ? data.languages : [];
-    const educations = Array.isArray(data.educations) ? data.educations : [];
-    const portfolio = Array.isArray(data.portfolio_projects) ? data.portfolio_projects : [];
-    const certificates = Array.isArray(data.certificates) ? data.certificates : [];
-    const experiences = Array.isArray(data.experiences) ? data.experiences : [];
-
-    const fmtDate = (d) => (d ? new Date(d).toLocaleDateString() : "—");
-
-    // ==========================
-    // LANG CODE HANDLING
-    // ==========================
-    const langCode = selectedLang?.code === "GB" ? "EN" : selectedLang?.code || "RU";
-
-    // ==========================
-    // TEXTS (MULTILANGUAGE CONTENT)
-    // ==========================
-    const texts = {
-        RU: {
-            community: "Сообщество",
-            vacancies: "Вакансии",
-            chat: "Чат",
-            companies: "Компании",
-            keyword: "Ключевое слово:",
-            position: "Должность",
-            location: "Местоположение:",
-            selectRegion: "Выберите регион",
-            salary: "Зарплата:",
-            selectSalary: "Выберите зарплату",
-            plan: "План:",
-            premium: "Выберите план",
-            applicants: "2000 + соискателей, 200 + компаний, 100 + работодателей",
-            resume: "ОСТАВЬТЕ РЕЗЮМЕ & ПОЛУЧИТЕ ЖЕЛАЕМУЮ РАБОТУ!",
-            login: "Войти",
-            categories: "Выбрать по категории",
-            search: "Поиск...",
-            published: "Опубликовано 2 часа назад",
-            needed: "Нужен графический дизайнер",
-            budget: "Бюджет: 100$-200$",
-            description:
-                "Мы ищем художников, которые помогут нам исправить визуализации упаковки, созданные с помощью ИИ. В частности, мы хотим исправить логотипы на каждом рендере. У нас есть большой набор данных логотипов + изображений, созданных с помощью ИИ.",
-            tags: ["Лого дизайн", "Adobe Illustrator", "Adobe Photoshop"],
-            payment: "Платеж подтвержден",
-            location_vacancy: "Узбекистан",
-            recommendedVacancies: "Рекомендуемые вакансии",
-            publishVacancy: "Опубликовать вакансию",
-            logo: "Logo",
-            links: [
-                "Помощь",
-                "Наши вакансии",
-                "Реклама на сайте",
-                "Требования к ПО",
-                "Инвесторам",
-                "Каталог компаний",
-                "Работа по профессиям",
-            ],
-            copyright: "© 2025 «HeadHunter – Вакансии». Все права защищены. Карта сайта",
-            createSite: "Создание сайтов",
-            viewMore: "Посмотреть все →",
-        },
-        UZ: {
-            community: "Jamiyat",
-            vacancies: "Vakansiyalar",
-            chat: "Chat",
-            companies: "Kompaniyalar",
-            keyword: "Kalit so'z:",
-            position: "Lavozim",
-            location: "Joylashuv:",
-            selectRegion: "Hududni tanlang",
-            salary: "Maosh:",
-            selectSalary: "Maoshni tanlang",
-            plan: "Reja:",
-            premium: "Rejani tanlang",
-            applicants: "2000 + nomzodlar, 200 + kompaniyalar, 100 + ish beruvchilar",
-            resume: "REZYUMENI QOLDIRING & ISTALGAN ISHNI OLING!",
-            login: "Kirish",
-            categories: "Kategoriyani tanlang",
-            search: "Qidiruv...",
-            published: "2 soat oldin e'lon qilindi",
-            needed: "Grafik dizayner kerak",
-            budget: "Byudjet: 100$-200$",
-            description:
-                "Sun'iy intellekt yordamida yaratilgan qadoqlash vizualizatsiyasini tuzatishga yordam beradigan rassomlarni izlayapmiz. Xususan, biz har bir renderdagi logotiplarni to‘g‘rilamoqchimiz. Bizda sun'iy intellekt bilan yaratilgan katta logotiplar + tasvirlar bazasi bor.",
-            tags: ["Logo dizayn", "Adobe Illustrator", "Adobe Photoshop"],
-            payment: "To‘lov tasdiqlangan",
-            location_vacancy: "O‘zbekiston",
-            recommendedVacancies: "Tavsiya etilgan vakansiyalar",
-            publishVacancy: "Vakansiya e’lon qilish",
-            logo: "Logo",
-            links: [
-                "Yordam",
-                "Bizning vakantiyalar",
-                "Saytda reklama",
-                "Dasturiy ta'minot talablari",
-                "Investorlar uchun",
-                "Kompaniyalar katalogi",
-                "Kasblar bo‘yicha ishlar",
-            ],
-            copyright:
-                "© 2025 «HeadHunter – Vakansiyalar». Barcha huquqlar himoyalangan. Sayt xaritasi",
-            createSite: "Sayt yaratish",
-            viewMore: "Hammasini ko‘rish →",
-        },
-        EN: {
-            community: "Community",
-            vacancies: "Vacancies",
-            chat: "Chat",
-            companies: "Companies",
-            keyword: "Keyword:",
-            position: "Position",
-            location: "Location:",
-            selectRegion: "Select region",
-            salary: "Salary:",
-            selectSalary: "Select salary",
-            plan: "Plan:",
-            premium: "Select plan",
-            applicants: "2000+ applicants, 200+ companies, 100+ employers",
-            resume: "LEAVE A RESUME & GET THE JOB YOU WANT!",
-            login: "Login",
-            categories: "Choose by category",
-            search: "Search...",
-            published: "Published 2 hours ago",
-            needed: "Graphic designer needed",
-            budget: "Budget: $100-$200",
-            description:
-                "We are looking for artists to help fix packaging visualizations created with AI. Specifically, we want to fix the logos on each render. We have a large dataset of logos + images created with AI.",
-            tags: ["Logo design", "Adobe Illustrator", "Adobe Photoshop"],
-            payment: "Payment verified",
-            location_vacancy: "Uzbekistan",
-            recommendedVacancies: "Recommended vacancies",
-            publishVacancy: "Publish a vacancy",
-            logo: "Logo",
-            links: [
-                "Help",
-                "Our Vacancies",
-                "Advertising on site",
-                "Software Requirements",
-                "For Investors",
-                "Company Catalog",
-                "Jobs by Profession",
-            ],
-            copyright: "© 2025 «HeadHunter – Vacancies». All rights reserved. Sitemap",
-            createSite: "Website creation",
-            viewMore: "View all →",
-        },
+        try {
+            await api.delete(`/api/companies/${companyId}/`);
+            alert("Kompaniya o'chirildi ✅");
+            fetchCompanies();
+        } catch (err) {
+            console.error("❌ O'chirishda xatolik:", err.response?.data || err.message);
+            alert("Xatolik: " + JSON.stringify(err.response?.data));
+        }
     };
 
     return (
-        <>
-            <div className="hidden md:block lg:hidden ">
-                <ApplicantProfileByApplicationTablet />
-            </div>
-            <div className="block md:hidden">
-                <EmployerApplicationsMobile />
-            </div>
+        <div className="min-h-screen bg-[#F4F6FA]">
+            {/* Navbar */}
+            <nav className="fixed top-0 left-0 w-full z-50 bg-white shadow-sm">
+                <div className="w-full max-w-[1800px] mx-auto flex items-center justify-between px-10 h-[90px]">
+                    <Link to="/">
+                        <img src="/logo.png" alt="Logo" className="w-[109px] h-[72px] object-contain" />
+                    </Link>
 
-            <div className="hidden lg:block font-sans relative">
-                {/* ========================== NAVBAR ========================== */}
-                <nav className="fixed top-0 left-0 w-full z-50 bg-[#F4F6FA] shadow-md">
-                    <div className="w-full max-w-[1800px] mx-auto flex items-center justify-between px-4 sm:px-6 md:px-10 h-[70px] md:h-[80px] lg:h-[90px]">
-                        {/* Logo */}
-                        <a href="/">
-                            <img
-                                src="/logo.png"
-                                alt="Logo"
-                                className="w-[80px] h-[55px] md:w-[100px] md:h-[65px] lg:w-[109px] lg:h-[72px] object-contain"
-                            />
-                        </a>
+                    <div className="flex gap-8 font-semibold text-[16px]">
+                        <Link to="/community" className="text-gray-700 hover:text-[#3066BE] transition-colors">
+                            {t.community}
+                        </Link>
+                        <Link to="/vacancies" className="text-gray-700 hover:text-[#3066BE] transition-colors">
+                            {t.vacancies}
+                        </Link>
+                        <Link to="/chat" className="text-gray-700 hover:text-[#3066BE] transition-colors">
+                            {t.chat}
+                        </Link>
+                        <Link to="/companies" className="text-gray-700 hover:text-[#3066BE] transition-colors">
+                            {t.companies}
+                        </Link>
+                    </div>
 
-                        {/* Center links */}
-                        <div className="hidden md:flex gap-4 md:gap-5 lg:gap-8 font-semibold text-[13px] md:text-[14px] lg:text-[16px] tracking-wide mx-auto text-medium">
-                            <a href="/community" className="text-black  hover:text-[#3066BE] transition">
-                                {texts[langCode].community}
-                            </a>
-                            <a href="/vacancies" className="text-black hover:text-[#3066BE] transition">
-                                {texts[langCode].vacancies}
-                            </a>
-                            <a href="/chat" className="text-black hover:text-[#3066BE] transition">
-                                {texts[langCode].chat}
-                            </a>
-                            <a href="/companies" className="text-black hover:text-[#3066BE] transition">
-                                {texts[langCode].companies}
-                            </a>
+                    <div className="flex items-center gap-4">
+                        <ProfileDropdown />
+                    </div>
+                </div>
+            </nav>
+
+            {/* Main Content */}
+            <div className="pt-[130px] pb-20 px-8 max-w-[1400px] mx-auto">
+                {/* User Header Card */}
+                <div className="bg-white rounded-[24px] border border-gray-200 p-6 mb-6 shadow-sm">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <div className="relative w-[80px] h-[80px]">
+                                <img
+                                    src={user?.avatar || "/user-white.jpg"}
+                                    alt="User"
+                                    className="w-full h-full rounded-full object-cover border-2 border-gray-200"
+                                    onError={(e) => { 
+                                        e.target.src = "/user-white.jpg"; 
+                                    }}
+                                />
+                            </div>
+                            <div>
+                                <h2 className="text-[24px] font-bold text-black mb-1">
+                                    {user?.full_name || "Loading..."}
+                                </h2>
+                                <p className="text-[14px] text-gray-500 flex items-center gap-2">
+                                    <MapPin className="w-4 h-4" />
+                                    {user?.location || "Локация не указана"}
+                                </p>
+                            </div>
                         </div>
 
-                        {/* Right side */}
-                        <div className="hidden md:flex items-center gap-2 sm:gap-3 md:gap-4">
-                            {/* Lang selector */}
-                            <div className="relative flex items-center gap-2 cursor-pointer" onClick={() => setShowLang(!showLang)}>
-                                <img src={selectedLang.flag} alt={selectedLang.code} className="w-6 h-4 sm:w-7 sm:h-4 md:w-8 md:h-5 object-cover" />
-                                <svg className="w-3 h-3 sm:w-4 sm:h-4" viewBox="0 0 20 20" fill="currentColor">
-                                    <path
-                                        fillRule="evenodd"
-                                        clipRule="evenodd"
-                                        d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z"
+                        <button
+                            onClick={() => navigate("/profile/settings")}
+                            className="px-6 py-3 bg-[#3066BE] text-white rounded-xl font-semibold hover:bg-[#2757a4] transition-all"
+                        >
+                            Настройки профиля
+                        </button>
+                    </div>
+                </div>
+
+                {/* Applications Section */}
+                <div className="bg-white rounded-[24px] border border-gray-200 overflow-hidden shadow-sm mb-6">
+                    <div className="p-6 border-b border-gray-200">
+                        <h3 className="text-[24px] font-bold text-black">{t.applicationsTitle}</h3>
+                    </div>
+
+                    <div className="p-6">
+                        {applications.loading ? (
+                            <LoadingSkeleton />
+                        ) : applications.error ? (
+                            <EmptyState text={applications.error} />
+                        ) : applications.items.length === 0 ? (
+                            <EmptyState text="Пока нет откликов на ваши вакансии." />
+                        ) : (
+                            <div className="space-y-4">
+                                {applications.items.map(app => (
+                                    <ApplicationCard
+                                        key={app.id}
+                                        application={app}
+                                        onViewProfile={() => onViewProfile(app.id)}
                                     />
-                                </svg>
-                                {showLang && (
-                                    <div className="absolute top-full left-0 mt-2 bg-white border rounded shadow-lg w-12 z-50">
-                                        <div
-                                            onClick={() => {
-                                                setSelectedLang({ flag: "/ru.png", code: "RU" });
-                                                setShowLang(false);
-                                            }}
-                                            className="hover:bg-gray-100 px-1 py-2 cursor-pointer flex justify-center"
-                                        >
-                                            <img src="/ru.png" alt="RU" className="w-8 h-5" />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                        <div className="flex justify-center items-center gap-2 p-6 border-t border-gray-200">
+                            {[...Array(totalPages)].map((_, i) => (
+                                <button
+                                    key={i + 1}
+                                    onClick={() => onPageChange(i + 1)}
+                                    className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-all ${
+                                        currentPage === i + 1
+                                            ? "bg-[#3066BE] text-white"
+                                            : "bg-white text-[#3066BE] border-2 border-[#3066BE] hover:bg-[#3066BE]/10"
+                                    }`}
+                                >
+                                    {i + 1}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Companies Section */}
+                <div className="bg-white rounded-[24px] border border-[#AEAEAE] overflow-visible shadow-sm">
+                    <div className="flex justify-between items-center px-6 py-4 border-b border-[#AEAEAE] h-[94.5px]">
+                        <h3 className="text-[24px] leading-[36px] font-bold text-[#000000]">
+                            {t.companiesTitle}
+                        </h3>
+
+                        {companies.length === 0 && (
+                            <div
+                                onClick={() => { if (isEditable) setShowCompanyModal(true); }}
+                                className={`w-[23px] h-[23px] rounded-full flex items-center justify-center transition ${
+                                    isEditable
+                                        ? "border-[#3066BE] cursor-pointer bg-white hover:bg-[#F0F7FF]"
+                                        : "border-gray-300 bg-gray-100 cursor-not-allowed opacity-50"
+                                }`}
+                            >
+                                <Plus size={25} stroke={isEditable ? "#3066BE" : "#AFAFAF"} />
+                            </div>
+                        )}
+                    </div>
+
+                    {/* COMPANIES LIST */}
+                    {companies.length > 0 ? (
+                        <div className="w-full px-[45px] mt-[25px] mb-[50px]">
+                            {companies.map((company) => (
+                                <div key={company.id} className="w-full border-b border-[#D9D9D9] py-6 last:border-b-0">
+                                    <div className="flex items-start gap-6">
+                                        {/* LOGO */}
+                                        <div className="flex-shrink-0">
+                                            {company.logo ? (
+                                                <img
+                                                    src={company.logo}
+                                                    alt={company.name}
+                                                    className="w-20 h-20 object-cover rounded-xl border-2 border-gray-200 shadow-sm"
+                                                    onError={(e) => {
+                                                        console.error("❌ Logo yuklanmadi:", company.logo);
+                                                        e.target.style.display = 'none';
+                                                        e.target.nextElementSibling.style.display = 'flex';
+                                                    }}
+                                                />
+                                            ) : null}
+
+                                            {/* Fallback */}
+                                            <div
+                                                className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold text-2xl shadow-sm"
+                                                style={{ display: company.logo ? 'none' : 'flex' }}
+                                            >
+                                                {company.name?.charAt(0)?.toUpperCase() || 'C'}
+                                            </div>
                                         </div>
-                                        <div
-                                            onClick={() => {
-                                                setSelectedLang({ flag: "/uz.png", code: "UZ" });
-                                                setShowLang(false);
-                                            }}
-                                            className="hover:bg-gray-100 px-1 py-2 cursor-pointer flex justify-center"
-                                        >
-                                            <img src="/uz.png" alt="UZ" className="w-8 h-5" />
+
+                                        {/* COMPANY INFO */}
+                                        <div className="flex-1 min-w-0">
+                                            <h4 className="text-2xl font-bold text-black mb-2">
+                                                {company.name}
+                                            </h4>
+
+                                            <div className="space-y-1">
+                                                <p className="text-sm text-gray-600">
+                                                    <span className="font-semibold text-gray-700">Industry:</span>{' '}
+                                                    {company.industry || 'Not specified'}
+                                                </p>
+
+                                                {company.website && (
+                                                    <a href={company.website.startsWith('http') ? company.website : `https://${company.website}`}
+                                                       target="_blank"
+                                                       rel="noopener noreferrer"
+                                                       className="text-sm text-[#3066BE] hover:underline block"
+                                                    >
+                                                        🌐 {company.website}
+                                                    </a>
+                                                )}
+
+                                                <p className="text-sm text-gray-600 flex items-center gap-2">
+                                                    <img src="/location.png" alt="location" className="w-4 h-4" />
+                                                    {company.location || 'Location not specified'}
+                                                </p>
+                                            </div>
                                         </div>
-                                        <div
-                                            onClick={() => {
-                                                setSelectedLang({ flag: "/uk.png", code: "EN" });
-                                                setShowLang(false);
-                                            }}
-                                            className="hover:bg-gray-100 px-1 py-2 cursor-pointer flex justify-center"
-                                        >
-                                            <img src="/uk.png" alt="EN" className="w-8 h-5" />
+
+                                        {/* ACTION BUTTONS */}
+                                        {isEditable && (
+                                            <div className="flex gap-2 flex-shrink-0">
+                                                <div
+                                                    onClick={() => handleEditCompanies(company)}
+                                                    className={`w-[35px] h-[35px] rounded-full flex items-center justify-center transition ${
+                                                        isEditable
+                                                            ? "border-2 border-[#3066BE] cursor-pointer bg-white hover:bg-[#3066BE]/10"
+                                                            : "border-2 border-gray-300 bg-gray-100 cursor-not-allowed opacity-50"
+                                                    }`}
+                                                >
+                                                    <Pencil size={18} stroke={isEditable ? "#3066BE" : "#AFAFAF"} />
+                                                </div>
+
+                                                <div
+                                                    onClick={() => handleDeleteCompanies(company.id)}
+                                                    className={`w-[35px] h-[35px] rounded-full flex items-center justify-center transition ${
+                                                        isEditable
+                                                            ? "border-2 border-[#3066BE] cursor-pointer bg-white hover:bg-[#3066BE]/10"
+                                                            : "border-2 border-gray-300 bg-gray-100 cursor-not-allowed opacity-50"
+                                                    }`}
+                                                >
+                                                    <Trash2 size={18} stroke={isEditable ? "#3066BE" : "#AFAFAF"} />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-center text-gray-400 text-lg py-16">
+                            <p className="font-medium">Компанияlar мавжуд эмас</p>
+                            <p className="text-sm mt-2">
+                                {isEditable
+                                    ? 'Янги компания қўшиш учун "+" тугмасини босинг'
+                                    : 'Компания яратиш учун "Предпросмотр" режимини ёқинг'}
+                            </p>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Applicant Profile Modal */}
+            {selectedApplicant && (
+                <ApplicantProfileModal
+                    applicant={selectedApplicant}
+                    onClose={onCloseProfile}
+                />
+            )}
+
+            {/* Company Modal */}
+            {showCompanyModal && (
+                <CreateCompanyModal
+                    onClose={() => {
+                        setShowCompanyModal(false);
+                        setSelectedCompany(null);
+                    }}
+                    onSuccess={fetchCompanies}
+                    company={selectedCompany}
+                />
+            )}
+
+            {/* Footer */}
+            <Footer />
+        </div>
+    );
+}
+
+// ============================================================
+// TABLET VERSION (768px - 1023px)
+// ============================================================
+function EmployerApplicationsTablet({ applications, onViewProfile, selectedApplicant, onCloseProfile, currentPage, totalPages, onPageChange }) {
+    const t = TEXTS.RU;
+    const [menuOpen, setMenuOpen] = useState(false);
+    const [user, setUser] = useState(null);
+    const [companies, setCompanies] = useState([]);
+    const [selectedCompany, setSelectedCompany] = useState(null);
+    const [showCompanyModal, setShowCompanyModal] = useState(false);
+    const [isEditable, setIsEditable] = useState(false);
+
+    useEffect(() => {
+        api.get("/api/auth/profile/").then(res => {
+            const profileImage = res.data.profile_image;
+            let avatarUrl = "/user-white.jpg";
+            
+            if (profileImage) {
+                const baseURL = api.defaults.baseURL || "http://127.0.0.1:8000";
+                avatarUrl = profileImage.startsWith("http")
+                    ? profileImage
+                    : `${baseURL}${profileImage}`;
+            }
+            
+            setUser({
+                full_name: `${res.data.first_name || ""} ${res.data.last_name || ""}`.trim() || res.data.username,
+                location: res.data.location || "Ташкент, Узбекистан",
+                avatar: avatarUrl
+            });
+        }).catch(console.error);
+    }, []);
+
+    // ==========================
+    // COMPANY HANDLERS
+    // ==========================
+    const fetchCompanies = async () => {
+        try {
+            const response = await api.get("/api/companies/");
+            const data = Array.isArray(response.data) ? response.data : response.data.results;
+            setCompanies(data || []);
+        } catch (err) {
+            console.error("❌ Kompaniyalarni olishda xatolik:", err);
+        }
+    };
+
+    useEffect(() => {
+        fetchCompanies();
+    }, []);
+
+    const handleEditCompanies = (company) => {
+        if (!isEditable) return;
+        setSelectedCompany(company);
+        setShowCompanyModal(true);
+    };
+
+    const handleDeleteCompanies = async (companyId) => {
+        if (!isEditable) return;
+        const confirm = window.confirm("Kompaniyani o'chirmoqchimisiz?");
+        if (!confirm) return;
+
+        try {
+            await api.delete(`/api/companies/${companyId}/`);
+            alert("Kompaniya o'chirildi ✅");
+            fetchCompanies();
+        } catch (err) {
+            console.error("❌ O'chirishda xatolik:", err.response?.data || err.message);
+            alert("Xatolik: " + JSON.stringify(err.response?.data));
+        }
+    };
+
+    return (
+        <div className="min-h-screen bg-[#F4F6FA]">
+            {/* Navbar */}
+            <nav className="fixed top-0 left-0 w-full z-50 bg-white shadow-sm">
+                <div className="flex items-center justify-between px-6 h-[70px]">
+                    <button onClick={() => setMenuOpen(!menuOpen)} className="text-2xl">
+                        ☰
+                    </button>
+
+                    <Link to="/">
+                        <img src="/logo.png" alt="Logo" className="w-[90px] h-[60px] object-contain" />
+                    </Link>
+
+                    <div className="flex items-center gap-4">
+                        <ProfileDropdown />
+                    </div>
+                </div>
+            </nav>
+
+            {/* Mobile Menu */}
+            {menuOpen && (
+                <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setMenuOpen(false)}>
+                    <div className="absolute left-0 top-0 bottom-0 w-[280px] bg-white p-6" onClick={e => e.stopPropagation()}>
+                        <h2 className="text-2xl font-bold mb-6">{t.logo}</h2>
+                        <nav className="space-y-4">
+                            {t.links.map((link, i) => (
+                                <Link key={i} to="#" className="block text-gray-700 hover:text-[#3066BE]">
+                                    {link}
+                                </Link>
+                            ))}
+                        </nav>
+                    </div>
+                </div>
+            )}
+
+            {/* Main Content */}
+            <div className="pt-[100px] pb-16 px-6">
+                {/* User Header */}
+                <div className="bg-white rounded-[20px] border border-gray-200 p-5 mb-6 shadow-sm">
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="relative w-[70px] h-[70px]">
+                            <img
+                                src={user?.avatar || "/user-white.jpg"}
+                                alt="User"
+                                className="w-full h-full rounded-full object-cover"
+                                onError={(e) => { 
+                                    e.target.src = "/user-white.jpg"; 
+                                }}
+                            />
+                        </div>
+                        <div className="flex-1">
+                            <h2 className="text-[20px] font-bold text-black">
+                                {user?.full_name || "Loading..."}
+                            </h2>
+                            <p className="text-[13px] text-gray-500">
+                                {user?.location || "—"}
+                            </p>
+                        </div>
+                    </div>
+
+                    <button className="w-full py-3 bg-[#3066BE] text-white rounded-xl font-semibold">
+                        Настройки профиля
+                    </button>
+                </div>
+
+                {/* Applications */}
+                <div className="bg-white rounded-[20px] border border-gray-200 overflow-hidden shadow-sm mb-6">
+                    <div className="p-5 border-b border-gray-200">
+                        <h3 className="text-[20px] font-bold text-black">{t.applicationsTitle}</h3>
+                    </div>
+
+                    <div className="p-5">
+                        {applications.loading ? (
+                            <LoadingSkeleton compact />
+                        ) : applications.items.length === 0 ? (
+                            <EmptyState text="Пока нет откликов." compact />
+                        ) : (
+                            <div className="space-y-3">
+                                {applications.items.map(app => (
+                                    <ApplicationCard
+                                        key={app.id}
+                                        application={app}
+                                        onViewProfile={() => onViewProfile(app.id)}
+                                        compact
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                        <div className="flex justify-center gap-2 p-5 border-t border-gray-200">
+                            {[...Array(totalPages)].map((_, i) => (
+                                <button
+                                    key={i + 1}
+                                    onClick={() => onPageChange(i + 1)}
+                                    className={`w-9 h-9 rounded-full text-sm font-semibold ${
+                                        currentPage === i + 1
+                                            ? "bg-[#3066BE] text-white"
+                                            : "bg-white text-[#3066BE] border-2 border-[#3066BE]"
+                                    }`}
+                                >
+                                    {i + 1}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Companies */}
+                <div className="bg-white rounded-[20px] border border-[#AEAEAE] overflow-visible shadow-sm">
+                    <div className="flex justify-between items-center px-5 py-4 border-b border-[#AEAEAE]">
+                        <h3 className="text-[20px] font-bold text-[#000000]">
+                            {t.companiesTitle}
+                        </h3>
+
+                        {companies.length === 0 && (
+                            <div
+                                onClick={() => { if (isEditable) setShowCompanyModal(true); }}
+                                className={`w-[23px] h-[23px] rounded-full flex items-center justify-center transition ${
+                                    isEditable
+                                        ? "border-[#3066BE] cursor-pointer bg-white hover:bg-[#F0F7FF]"
+                                        : "border-gray-300 bg-gray-100 cursor-not-allowed opacity-50"
+                                }`}
+                            >
+                                <Plus size={20} stroke={isEditable ? "#3066BE" : "#AFAFAF"} />
+                            </div>
+                        )}
+                    </div>
+
+                    {/* COMPANIES LIST */}
+                    {companies.length > 0 ? (
+                        <div className="w-full px-5 mt-4 mb-5">
+                            {companies.map((company) => (
+                                <div key={company.id} className="w-full border-b border-[#D9D9D9] py-4 last:border-b-0">
+                                    <div className="flex items-start gap-4">
+                                        {/* LOGO */}
+                                        <div className="flex-shrink-0">
+                                            {company.logo ? (
+                                                <img
+                                                    src={company.logo}
+                                                    alt={company.name}
+                                                    className="w-16 h-16 object-cover rounded-xl border-2 border-gray-200 shadow-sm"
+                                                    onError={(e) => {
+                                                        e.target.style.display = 'none';
+                                                        e.target.nextElementSibling.style.display = 'flex';
+                                                    }}
+                                                />
+                                            ) : null}
+
+                                            {/* Fallback */}
+                                            <div
+                                                className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-sm"
+                                                style={{ display: company.logo ? 'none' : 'flex' }}
+                                            >
+                                                {company.name?.charAt(0)?.toUpperCase() || 'C'}
+                                            </div>
                                         </div>
+
+                                        {/* COMPANY INFO */}
+                                        <div className="flex-1 min-w-0">
+                                            <h4 className="text-lg font-bold text-black mb-1">
+                                                {company.name}
+                                            </h4>
+
+                                            <div className="space-y-1">
+                                                <p className="text-xs text-gray-600">
+                                                    <span className="font-semibold text-gray-700">Industry:</span>{' '}
+                                                    {company.industry || 'Not specified'}
+                                                </p>
+
+                                                {company.website && (
+                                                    <a href={company.website.startsWith('http') ? company.website : `https://${company.website}`}
+                                                       target="_blank"
+                                                       rel="noopener noreferrer"
+                                                       className="text-xs text-[#3066BE] hover:underline block"
+                                                    >
+                                                        🌐 {company.website}
+                                                    </a>
+                                                )}
+
+                                                <p className="text-xs text-gray-600 flex items-center gap-1">
+                                                    <img src="/location.png" alt="location" className="w-3 h-3" />
+                                                    {company.location || 'Location not specified'}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* ACTION BUTTONS */}
+                                        {isEditable && (
+                                            <div className="flex gap-2 flex-shrink-0">
+                                                <div
+                                                    onClick={() => handleEditCompanies(company)}
+                                                    className={`w-[30px] h-[30px] rounded-full flex items-center justify-center transition ${
+                                                        isEditable
+                                                            ? "border-2 border-[#3066BE] cursor-pointer bg-white hover:bg-[#3066BE]/10"
+                                                            : "border-2 border-gray-300 bg-gray-100 cursor-not-allowed opacity-50"
+                                                    }`}
+                                                >
+                                                    <Pencil size={16} stroke={isEditable ? "#3066BE" : "#AFAFAF"} />
+                                                </div>
+
+                                                <div
+                                                    onClick={() => handleDeleteCompanies(company.id)}
+                                                    className={`w-[30px] h-[30px] rounded-full flex items-center justify-center transition ${
+                                                        isEditable
+                                                            ? "border-2 border-[#3066BE] cursor-pointer bg-white hover:bg-[#3066BE]/10"
+                                                            : "border-2 border-gray-300 bg-gray-100 cursor-not-allowed opacity-50"
+                                                    }`}
+                                                >
+                                                    <Trash2 size={16} stroke={isEditable ? "#3066BE" : "#AFAFAF"} />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-center text-gray-400 text-sm py-12 px-5">
+                            <p className="font-medium">Компанияlar мавжуд эмас</p>
+                            <p className="text-xs mt-2">
+                                {isEditable
+                                    ? 'Янги компания қўшиш учун "+" тугмасини босинг'
+                                    : 'Компания яратиш учун "Предпросмотр" режимини ёқинг'}
+                            </p>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {selectedApplicant && (
+                <ApplicantProfileModal
+                    applicant={selectedApplicant}
+                    onClose={onCloseProfile}
+                    compact
+                />
+            )}
+
+            {/* Company Modal */}
+            {showCompanyModal && (
+                <CreateCompanyModal
+                    onClose={() => {
+                        setShowCompanyModal(false);
+                        setSelectedCompany(null);
+                    }}
+                    onSuccess={fetchCompanies}
+                    company={selectedCompany}
+                />
+            )}
+
+            <FooterTablet />
+        </div>
+    );
+}
+
+// ============================================================
+// MOBILE VERSION (< 768px)
+// ============================================================
+function EmployerApplicationsMobile({ applications, onViewProfile, selectedApplicant, onCloseProfile, currentPage, totalPages, onPageChange }) {
+    const t = TEXTS.RU;
+    const [menuOpen, setMenuOpen] = useState(false);
+    const [user, setUser] = useState(null);
+    const [companies, setCompanies] = useState([]);
+    const [selectedCompany, setSelectedCompany] = useState(null);
+    const [showCompanyModal, setShowCompanyModal] = useState(false);
+    const [isEditable, setIsEditable] = useState(false);
+
+    useEffect(() => {
+        api.get("/api/auth/profile/").then(res => {
+            const profileImage = res.data.profile_image;
+            let avatarUrl = "/user-white.jpg";
+            
+            if (profileImage) {
+                const baseURL = api.defaults.baseURL || "http://127.0.0.1:8000";
+                avatarUrl = profileImage.startsWith("http")
+                    ? profileImage
+                    : `${baseURL}${profileImage}`;
+            }
+            
+            setUser({
+                full_name: `${res.data.first_name || ""} ${res.data.last_name || ""}`.trim() || res.data.username,
+                location: "Ташкент, Узбекистан",
+                avatar: avatarUrl
+            });
+        }).catch(console.error);
+    }, []);
+
+    // ==========================
+    // COMPANY HANDLERS
+    // ==========================
+    const fetchCompanies = async () => {
+        try {
+            const response = await api.get("/api/companies/");
+            const data = Array.isArray(response.data) ? response.data : response.data.results;
+            setCompanies(data || []);
+        } catch (err) {
+            console.error("❌ Kompaniyalarni olishda xatolik:", err);
+        }
+    };
+
+    useEffect(() => {
+        fetchCompanies();
+    }, []);
+
+    const handleEditCompanies = (company) => {
+        if (!isEditable) return;
+        setSelectedCompany(company);
+        setShowCompanyModal(true);
+    };
+
+    const handleDeleteCompanies = async (companyId) => {
+        if (!isEditable) return;
+        const confirm = window.confirm("Kompaniyani o'chirmoqchimisiz?");
+        if (!confirm) return;
+
+        try {
+            await api.delete(`/api/companies/${companyId}/`);
+            alert("Kompaniya o'chirildi ✅");
+            fetchCompanies();
+        } catch (err) {
+            console.error("❌ O'chirishda xatolik:", err.response?.data || err.message);
+            alert("Xatolik: " + JSON.stringify(err.response?.data));
+        }
+    };
+
+    return (
+        <div className="min-h-screen bg-[#F4F6FA]">
+            {/* Mobile Navbar */}
+            <nav className="fixed top-0 left-0 w-full z-50 bg-white shadow-sm">
+                <div className="flex items-center justify-between px-4 h-[60px]">
+                    <button onClick={() => setMenuOpen(!menuOpen)} className="text-xl">
+                        ☰
+                    </button>
+
+                    <Link to="/">
+                        <img src="/logo.png" alt="Logo" className="h-[50px] object-contain" />
+                    </Link>
+
+                    <ProfileDropdown />
+                </div>
+            </nav>
+
+            {/* Menu */}
+            {menuOpen && (
+                <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setMenuOpen(false)}>
+                    <div className="absolute left-0 top-0 bottom-0 w-[260px] bg-white p-6" onClick={e => e.stopPropagation()}>
+                        <h2 className="text-xl font-bold mb-6">{t.logo}</h2>
+                        <nav className="space-y-3">
+                            {t.links.map((link, i) => (
+                                <Link key={i} to="#" className="block text-gray-700 text-sm">
+                                    {link}
+                                </Link>
+                            ))}
+                        </nav>
+                    </div>
+                </div>
+            )}
+
+            {/* Main Content */}
+            <div className="pt-[80px] pb-12 px-4">
+                {/* User Card */}
+                <div className="bg-white rounded-[16px] border border-gray-200 p-4 mb-4">
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="relative w-[60px] h-[60px]">
+                            <img
+                                src={user?.avatar || "/user-white.jpg"}
+                                alt="User"
+                                className="w-full h-full rounded-full object-cover"
+                                onError={(e) => { 
+                                    e.target.src = "/user-white.jpg"; 
+                                }}
+                            />
+                        </div>
+                        <div>
+                            <h2 className="text-[18px] font-bold">{user?.full_name || "..."}</h2>
+                            <p className="text-[12px] text-gray-500">{user?.location}</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Applications */}
+                <div className="mb-4">
+                    <h3 className="text-[20px] font-bold mb-3">{t.applicationsTitle}</h3>
+
+                    {applications.loading ? (
+                        <LoadingSkeleton compact />
+                    ) : applications.items.length === 0 ? (
+                        <EmptyState text="Пока нет откликов." compact />
+                    ) : (
+                        <div className="space-y-3">
+                            {applications.items.map(app => (
+                                <ApplicationCard
+                                    key={app.id}
+                                    application={app}
+                                    onViewProfile={() => onViewProfile(app.id)}
+                                    compact
+                                />
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                        <div className="flex justify-center gap-2 mt-4">
+                            {[...Array(totalPages)].map((_, i) => (
+                                <button
+                                    key={i + 1}
+                                    onClick={() => onPageChange(i + 1)}
+                                    className={`w-8 h-8 rounded-full text-sm font-semibold ${
+                                        currentPage === i + 1
+                                            ? "bg-[#3066BE] text-white"
+                                            : "bg-white text-[#3066BE] border border-[#3066BE]"
+                                    }`}
+                                >
+                                    {i + 1}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Companies */}
+                <div className="bg-white rounded-[16px] border border-[#AEAEAE] overflow-visible shadow-sm">
+                    <div className="flex justify-between items-center px-4 py-3 border-b border-[#AEAEAE]">
+                        <h3 className="text-[18px] font-bold text-[#000000]">
+                            {t.companiesTitle}
+                        </h3>
+
+                        {companies.length === 0 && (
+                            <div
+                                onClick={() => { if (isEditable) setShowCompanyModal(true); }}
+                                className={`w-[20px] h-[20px] rounded-full flex items-center justify-center transition ${
+                                    isEditable
+                                        ? "border-[#3066BE] cursor-pointer bg-white hover:bg-[#F0F7FF]"
+                                        : "border-gray-300 bg-gray-100 cursor-not-allowed opacity-50"
+                                }`}
+                            >
+                                <Plus size={18} stroke={isEditable ? "#3066BE" : "#AFAFAF"} />
+                            </div>
+                        )}
+                    </div>
+
+                    {/* COMPANIES LIST */}
+                    {companies.length > 0 ? (
+                        <div className="w-full px-4 mt-3 mb-4">
+                            {companies.map((company) => (
+                                <div key={company.id} className="w-full border-b border-[#D9D9D9] py-3 last:border-b-0">
+                                    <div className="flex items-start gap-3">
+                                        {/* LOGO */}
+                                        <div className="flex-shrink-0">
+                                            {company.logo ? (
+                                                <img
+                                                    src={company.logo}
+                                                    alt={company.name}
+                                                    className="w-14 h-14 object-cover rounded-xl border-2 border-gray-200 shadow-sm"
+                                                    onError={(e) => {
+                                                        e.target.style.display = 'none';
+                                                        e.target.nextElementSibling.style.display = 'flex';
+                                                    }}
+                                                />
+                                            ) : null}
+
+                                            {/* Fallback */}
+                                            <div
+                                                className="w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-sm"
+                                                style={{ display: company.logo ? 'none' : 'flex' }}
+                                            >
+                                                {company.name?.charAt(0)?.toUpperCase() || 'C'}
+                                            </div>
+                                        </div>
+
+                                        {/* COMPANY INFO */}
+                                        <div className="flex-1 min-w-0">
+                                            <h4 className="text-base font-bold text-black mb-1">
+                                                {company.name}
+                                            </h4>
+
+                                            <div className="space-y-0.5">
+                                                <p className="text-[11px] text-gray-600">
+                                                    <span className="font-semibold text-gray-700">Industry:</span>{' '}
+                                                    {company.industry || 'Not specified'}
+                                                </p>
+
+                                                {company.website && (
+                                                    <a href={company.website.startsWith('http') ? company.website : `https://${company.website}`}
+                                                       target="_blank"
+                                                       rel="noopener noreferrer"
+                                                       className="text-[11px] text-[#3066BE] hover:underline block"
+                                                    >
+                                                        🌐 {company.website}
+                                                    </a>
+                                                )}
+
+                                                <p className="text-[11px] text-gray-600 flex items-center gap-1">
+                                                    <img src="/location.png" alt="location" className="w-3 h-3" />
+                                                    {company.location || 'Location not specified'}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* ACTION BUTTONS */}
+                                        {isEditable && (
+                                            <div className="flex gap-1.5 flex-shrink-0">
+                                                <div
+                                                    onClick={() => handleEditCompanies(company)}
+                                                    className={`w-[28px] h-[28px] rounded-full flex items-center justify-center transition ${
+                                                        isEditable
+                                                            ? "border-2 border-[#3066BE] cursor-pointer bg-white hover:bg-[#3066BE]/10"
+                                                            : "border-2 border-gray-300 bg-gray-100 cursor-not-allowed opacity-50"
+                                                    }`}
+                                                >
+                                                    <Pencil size={14} stroke={isEditable ? "#3066BE" : "#AFAFAF"} />
+                                                </div>
+
+                                                <div
+                                                    onClick={() => handleDeleteCompanies(company.id)}
+                                                    className={`w-[28px] h-[28px] rounded-full flex items-center justify-center transition ${
+                                                        isEditable
+                                                            ? "border-2 border-[#3066BE] cursor-pointer bg-white hover:bg-[#3066BE]/10"
+                                                            : "border-2 border-gray-300 bg-gray-100 cursor-not-allowed opacity-50"
+                                                    }`}
+                                                >
+                                                    <Trash2 size={14} stroke={isEditable ? "#3066BE" : "#AFAFAF"} />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-center text-gray-400 text-xs py-10 px-4">
+                            <p className="font-medium">Компанияlar мавжуд эмас</p>
+                            <p className="text-[10px] mt-1">
+                                {isEditable
+                                    ? 'Янги компания қўшиш учун "+" тугмасини босинг'
+                                    : 'Компания яратиш учун "Предпросмотр" режимини ёқинг'}
+                            </p>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {selectedApplicant && (
+                <ApplicantProfileModal
+                    applicant={selectedApplicant}
+                    onClose={onCloseProfile}
+                    mobile
+                />
+            )}
+
+            {/* Company Modal */}
+            {showCompanyModal && (
+                <CreateCompanyModal
+                    onClose={() => {
+                        setShowCompanyModal(false);
+                        setSelectedCompany(null);
+                    }}
+                    onSuccess={fetchCompanies}
+                    company={selectedCompany}
+                />
+            )}
+
+            <FooterMobile />
+        </div>
+    );
+}
+
+// ============================================================
+// APPLICATION CARD COMPONENT
+// ============================================================
+function ApplicationCard({ application, onViewProfile, compact = false }) {
+    const navigate = useNavigate();
+    const applicant = application.applicant || {};
+    const job = application.job || {};
+
+    // Chat funksiyasi
+    const handleWrite = async (e) => {
+        e.stopPropagation();
+        try {
+            console.log("📝 handleWrite called with applicationId:", application.id);
+            console.log("📋 Application data:", application);
+            
+            // Application'dan userId ni topish
+            const userId = application.userId || 
+                          application.user?.id || 
+                          applicant?.id || 
+                          applicant?.user?.id;
+            
+            console.log("👤 Extracted userId:", userId);
+            
+            let room;
+            
+            // Agar userId bor bo'lsa, to'g'ridan-to'g'ri chat yaratamiz
+            if (userId) {
+                console.log("✅ Using userId directly:", userId);
+                const chatRes = await api.post("/api/chats/get_or_create/", { user_id: userId });
+                console.log("💬 Chat response:", chatRes.data);
+                room = {
+                    id: chatRes.data.id,
+                    peer: chatRes.data.other_user || applicant,
+                };
+            } else {
+                // Aks holda, getOrCreateByApplication funksiyasini ishlatamiz
+                console.log("🔄 Using getOrCreateByApplication function");
+                room = await chatApi.getOrCreateByApplication(application.id);
+            }
+            
+            console.log("✅ Room data:", room);
+            console.log("🚀 Navigating to chat page with roomId:", room.id);
+            
+            // Chat sahifasiga o'tamiz
+            navigate(`/chat?room=${room.id}`, { 
+                state: { 
+                    peer: room.peer, 
+                    ts: Date.now() 
+                } 
+            });
+        } catch (err) {
+            console.error("❌ handleWrite failed", err);
+            console.error("Error details:", err.response?.data || err.message);
+            toast.error("Chat xonasini ochishda xatolik: " + (err.message || "Noma'lum xatolik"));
+        }
+    };
+
+    return (
+        <div className={`bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md hover:border-[#3066BE]/30 transition-all ${compact ? 'p-3' : 'p-5'}`}>
+            <div className="flex items-start gap-4">
+                <img
+                    src={applicant.avatar || "/user1.png"}
+                    alt={applicant.full_name || "User"}
+                    className={`rounded-full object-cover ${compact ? 'w-[50px] h-[50px]' : 'w-[60px] h-[60px]'}`}
+                    onError={(e) => { e.target.src = "/user1.png"; }}
+                />
+
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                        <h3 className={`font-bold text-black ${compact ? 'text-[16px]' : 'text-[18px]'}`}>
+                            {applicant.full_name || "Applicant"} {applicant.average_stars > 0 && (
+                            <span className="inline-flex items-center gap-1 ml-2">
+                                    <Star size={compact ? 14 : 16} className="fill-yellow-400 text-yellow-400" />
+                                    <span className={`text-yellow-600 ${compact ? 'text-[13px]' : 'text-[15px]'}`}>
+                                        {applicant.average_stars.toFixed(1)}
+                                    </span>
+                                </span>
+                        )}
+                        </h3>
+                    </div>
+
+                    <p className={`text-gray-600 mb-2 ${compact ? 'text-[13px]' : 'text-[14px]'}`}>
+                        {applicant.position || "Должность не указана"} • {applicant.bio ? applicant.bio.substring(0, 50) + "..." : "веб дизайнер"}
+                    </p>
+
+                    {/* Bio Preview */}
+                    {applicant.bio && (
+                        <p className={`text-gray-500 line-clamp-2 mb-3 ${compact ? 'text-[12px]' : 'text-[13px]'}`}>
+                            {applicant.bio}
+                        </p>
+                    )}
+
+                    {/* Skills */}
+                    {applicant.skills && applicant.skills.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-3">
+                            {applicant.skills.slice(0, 3).map((skill, i) => (
+                                <span
+                                    key={i}
+                                    className={`bg-gray-100 text-gray-700 rounded-full font-medium ${compact ? 'px-2.5 py-1 text-[11px]' : 'px-3 py-1 text-[12px]'}`}
+                                >
+                                    {skill}
+                                </span>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={handleWrite}
+                            className={`flex-1 border-2 border-[#3066BE] text-[#3066BE] rounded-lg font-semibold hover:bg-[#3066BE]/10 transition-all ${compact ? 'py-2 text-[13px]' : 'py-2.5 text-[14px]'}`}
+                        >
+                            Написать
+                        </button>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onViewProfile();
+                            }}
+                            className={`flex-1 bg-[#3066BE] text-white rounded-lg font-semibold hover:bg-[#2757a4] transition-all ${compact ? 'py-2 text-[13px]' : 'py-2.5 text-[14px]'}`}
+                        >
+                            Посмотреть профиль
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ============================================================
+// APPLICANT PROFILE MODAL
+// ============================================================
+function ApplicantProfileModal({ applicant, onClose, compact = false, mobile = false }) {
+    useEffect(() => {
+        document.body.style.overflow = "hidden";
+        return () => { document.body.style.overflow = ""; };
+    }, []);
+
+    if (mobile) {
+        return (
+            <div className="fixed inset-0 z-[100] bg-white overflow-y-auto">
+                {/* Mobile Header */}
+                <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3 z-10">
+                    <button onClick={onClose} className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
+                        <X size={20} />
+                    </button>
+                    <h2 className="text-[18px] font-bold flex-1">Профиль кандидата</h2>
+                </div>
+
+                {/* Content */}
+                <div className="p-4">
+                    <FullProfileContent applicant={applicant} compact mobile />
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-auto">
+            <div className={`bg-white rounded-[24px] shadow-2xl ${compact ? 'w-full max-w-[600px]' : 'w-full max-w-[900px]'} max-h-[90vh] overflow-hidden flex flex-col`}>
+                {/* Header */}
+                <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                    <h2 className={`font-bold ${compact ? 'text-[20px]' : 'text-[24px]'}`}>Профиль кандидата</h2>
+                    <button onClick={onClose} className="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-all">
+                        <X size={20} />
+                    </button>
+                </div>
+
+                {/* Scrollable Content */}
+                <div className="flex-1 overflow-y-auto p-6">
+                    <FullProfileContent applicant={applicant} compact={compact} />
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ============================================================
+// FULL PROFILE CONTENT
+// ============================================================
+function FullProfileContent({ applicant, compact = false, mobile = false }) {
+    const size = mobile ? 'mobile' : compact ? 'compact' : 'desktop';
+
+    return (
+        <div className="space-y-6">
+            {/* Avatar & Basic Info */}
+            <div className="flex items-start gap-4">
+                <img
+                    src={applicant.avatar || "/user1.png"}
+                    alt={applicant.full_name}
+                    className={`rounded-full object-cover ${mobile ? 'w-[70px] h-[70px]' : compact ? 'w-[80px] h-[80px]' : 'w-[100px] h-[100px]'}`}
+                    onError={(e) => { e.target.src = "/user1.png"; }}
+                />
+
+                <div className="flex-1">
+                    <h3 className={`font-bold text-black ${mobile ? 'text-[20px]' : compact ? 'text-[22px]' : 'text-[26px]'}`}>
+                        {applicant.full_name || "Applicant"}
+                    </h3>
+                    <p className={`text-gray-600 ${mobile ? 'text-[13px]' : 'text-[15px]'}`}>
+                        {applicant.position || "Должность не указана"}
+                    </p>
+
+                    {applicant.average_stars > 0 && (
+                        <div className="flex items-center gap-1 mt-2">
+                            {[...Array(5)].map((_, i) => (
+                                <Star
+                                    key={i}
+                                    size={mobile ? 14 : 16}
+                                    className={`${i < applicant.average_stars ? 'fill-yellow-400 text-yellow-400' : 'fill-gray-300 text-gray-300'}`}
+                                />
+                            ))}
+                            <span className={`ml-1 text-gray-600 ${mobile ? 'text-[12px]' : 'text-[14px]'}`}>
+                                {applicant.average_stars.toFixed(1)}
+                            </span>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Bio */}
+            {applicant.bio && (
+                <div>
+                    <h4 className={`font-bold text-black mb-2 ${mobile ? 'text-[16px]' : 'text-[18px]'}`}>О себе</h4>
+                    <p className={`text-gray-700 leading-relaxed ${mobile ? 'text-[13px]' : 'text-[15px]'}`}>
+                        {applicant.bio}
+                    </p>
+                </div>
+            )}
+
+            {/* Skills */}
+            {applicant.skills && applicant.skills.length > 0 && (
+                <div>
+                    <h4 className={`font-bold text-black mb-3 ${mobile ? 'text-[16px]' : 'text-[18px]'}`}>Навыки</h4>
+                    <div className="flex flex-wrap gap-2">
+                        {applicant.skills.map((skill, i) => (
+                            <span
+                                key={i}
+                                className={`bg-[#F0F4FF] text-[#3066BE] rounded-full font-medium border border-[#3066BE]/20 ${mobile ? 'px-3 py-1 text-[12px]' : 'px-4 py-1.5 text-[13px]'}`}
+                            >
+                                {skill}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Work Experience */}
+            {applicant.experiences && applicant.experiences.length > 0 && (
+                <div>
+                    <h4 className={`font-bold text-black mb-3 ${mobile ? 'text-[16px]' : 'text-[18px]'}`}>Опыт работы</h4>
+                    <div className="space-y-4">
+                        {applicant.experiences.map((exp, i) => (
+                            <div key={i} className="border-l-2 border-[#3066BE] pl-4">
+                                <h5 className={`font-semibold text-black ${mobile ? 'text-[14px]' : 'text-[16px]'}`}>
+                                    {exp.position}
+                                </h5>
+                                <p className={`text-gray-600 ${mobile ? 'text-[12px]' : 'text-[14px]'}`}>
+                                    {exp.company_name} • {exp.city}, {exp.country}
+                                </p>
+                                <p className={`text-gray-500 ${mobile ? 'text-[11px]' : 'text-[13px]'}`}>
+                                    {exp.start_date} - {exp.end_date || "Настоящее время"}
+                                </p>
+                                {exp.description && (
+                                    <p className={`text-gray-700 mt-2 ${mobile ? 'text-[12px]' : 'text-[14px]'}`}>
+                                        {exp.description}
+                                    </p>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Education */}
+            {applicant.educations && applicant.educations.length > 0 && (
+                <div>
+                    <h4 className={`font-bold text-black mb-3 ${mobile ? 'text-[16px]' : 'text-[18px]'}`}>Образование</h4>
+                    <div className="space-y-3">
+                        {applicant.educations.map((edu, i) => (
+                            <div key={i} className="border-l-2 border-[#3066BE] pl-4">
+                                <h5 className={`font-semibold ${mobile ? 'text-[14px]' : 'text-[16px]'}`}>
+                                    {edu.academy_name}
+                                </h5>
+                                <p className={`text-gray-600 ${mobile ? 'text-[12px]' : 'text-[14px]'}`}>
+                                    {edu.degree}
+                                </p>
+                                <p className={`text-gray-500 ${mobile ? 'text-[11px]' : 'text-[13px]'}`}>
+                                    {edu.start_year} - {edu.end_year}
+                                </p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Languages */}
+            {applicant.languages && applicant.languages.length > 0 && (
+                <div>
+                    <h4 className={`font-bold text-black mb-3 ${mobile ? 'text-[16px]' : 'text-[18px]'}`}>Языки</h4>
+                    <div className="flex flex-wrap gap-2">
+                        {applicant.languages.map((lang, i) => (
+                            <span
+                                key={i}
+                                className={`bg-gray-100 text-gray-700 rounded-lg font-medium ${mobile ? 'px-3 py-1 text-[12px]' : 'px-4 py-2 text-[14px]'}`}
+                            >
+                                {lang.language} - {lang.level}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Portfolio */}
+            {applicant.portfolio_projects && applicant.portfolio_projects.length > 0 && (
+                <div>
+                    <h4 className={`font-bold text-black mb-3 ${mobile ? 'text-[16px]' : 'text-[18px]'}`}>Портфолио</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {applicant.portfolio_projects.map((project, i) => (
+                            <div key={i} className="border border-gray-200 rounded-xl p-4">
+                                <h5 className={`font-semibold mb-2 ${mobile ? 'text-[14px]' : 'text-[16px]'}`}>
+                                    {project.title}
+                                </h5>
+                                <p className={`text-gray-600 mb-2 ${mobile ? 'text-[12px]' : 'text-[14px]'}`}>
+                                    {project.description}
+                                </p>
+                                {project.skills_list && project.skills_list.length > 0 && (
+                                    <div className="flex flex-wrap gap-1">
+                                        {project.skills_list.map((skill, j) => (
+                                            <span
+                                                key={j}
+                                                className={`bg-blue-50 text-blue-600 rounded px-2 py-0.5 ${mobile ? 'text-[10px]' : 'text-[11px]'}`}
+                                            >
+                                                {skill}
+                                            </span>
+                                        ))}
                                     </div>
                                 )}
                             </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
 
-                            {/* Login/Avatar */}
-                            <ProfileDropdown />
-                        </div>
-
-                        {/* mobile flag + avatar */}
-                        <div className="md:hidden flex items-center gap-3 pr-4 sm:pr-6 pt-2">
-                            <div className="relative flex items-center gap-1 cursor-pointer" onClick={() => setShowLang(!showLang)}>
-                                <img src={selectedLang.flag} alt={selectedLang.code} className="w-6 h-4 object-cover" />
-                                <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
-                                    <path
-                                        fillRule="evenodd"
-                                        clipRule="evenodd"
-                                        d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z"
-                                    />
-                                </svg>
-                            </div>
-                            <div className="w-[56px] h-[56px] rounded-full overflow-hidden">
-                                <img src="/review-user.png" alt="User" className="w-full h-full object-cover" />
-                            </div>
+// ============================================================
+// LOADING SKELETON
+// ============================================================
+function LoadingSkeleton({ compact = false }) {
+    return (
+        <div className="space-y-4">
+            {[1, 2, 3].map(i => (
+                <div key={i} className={`border border-gray-200 rounded-xl animate-pulse ${compact ? 'p-3' : 'p-5'}`}>
+                    <div className="flex gap-4">
+                        <div className={`rounded-full bg-gray-200 ${compact ? 'w-12 h-12' : 'w-16 h-16'}`}></div>
+                        <div className="flex-1 space-y-3">
+                            <div className="h-5 bg-gray-200 rounded w-2/3"></div>
+                            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                            <div className="h-4 bg-gray-200 rounded w-3/4"></div>
                         </div>
                     </div>
+                </div>
+            ))}
+        </div>
+    );
+}
 
-                    {/* mobile dropdown menu */}
-                    {showMobileMenu && (
-                        <div className="absolute top-[70px] left-0 w-full bg-white shadow-md flex flex-col items-center gap-2 py-4 z-50">
-                            <a href="" className="w-full px-4 py-3 text-center text-[#3066BE] hover:bg-gray-100 hover:text-[#3066BE] transition">
-                                {texts[langCode].community}
-                            </a>
-                            <a href="/vacancies" className="w-full px-4 py-3 text-center text-black hover:bg-gray-100 hover:text-[#3066BE] transition">
-                                {texts[langCode].vacancies}
-                            </a>
-                            <a href="/chat" className="w-full px-4 py-3 text-center text-black hover:bg-gray-100 hover:text-[#3066BE] transition">
-                                {texts[langCode].chat}
-                            </a>
-                            <a href="/companies" className="w-full px-4 py-3 text-center text-black hover:bg-gray-100 hover:text-[#3066BE] transition">
-                                {texts[langCode].companies}
-                            </a>
-                            <button className="mt-3 bg-[#3066BE] text-white px-6 py-2 rounded-md hover:bg-[#274f94] transition text-[15px]">
-                                {texts[langCode].login}
-                            </button>
+// ============================================================
+// EMPTY STATE
+// ============================================================
+function EmptyState({ text, compact = false }) {
+    return (
+        <div className={`text-center ${compact ? 'py-12' : 'py-20'}`}>
+            <div className={`${compact ? 'text-4xl' : 'text-6xl'} mb-4 opacity-50`}>📋</div>
+            <p className={`text-gray-400 ${compact ? 'text-base' : 'text-lg'}`}>{text}</p>
+        </div>
+    );
+}
+
+// ============================================================
+// FOOTER COMPONENTS
+// ============================================================
+function Footer() {
+    const t = TEXTS.RU;
+    return (
+        <footer className="w-full h-[393px] relative overflow-hidden">
+            <img src="/footer-bg.png" alt="Footer" className="absolute inset-0 w-full h-full object-cover z-0" />
+            <div className="absolute inset-0 bg-[#3066BE]/50 z-10"></div>
+
+            <div className="relative z-20">
+                <div className="max-w-[1440px] mx-auto px-6 py-10 flex gap-[190px] text-white">
+                    <div>
+                        <h2 className="text-[48px] font-black">{t.logo}</h2>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-[184px]">
+                        <div className="flex flex-col gap-[20px]">
+                            {t.links.slice(0, 4).map((link, idx) => (
+                                <a key={idx} href="#" className="flex items-center text-white gap-2 hover:text-[#F2F4FD] transition">
+                                    <span>&gt;</span> {link}
+                                </a>
+                            ))}
                         </div>
-                    )}
-                </nav>
-
-                {/* ========================== NOTIFICATION ========================== */}
-                <div className="bg-white py-4 mt-[90px] mb-[67px]">
-                    <div className="max-w-7xl mx-auto w-full px-4 flex items-center justify-between">
-                        <div className="flex items-center gap-6 ml-6 absolute top-[32px] right-[40px] z-20">
-                            <div className="cursor-pointer">
-                                <span className="text-2xl text-black">?</span>
-                            </div>
-
-                            <div className="relative cursor-pointer">
-                                <svg className="w-6 h-6 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14V9a6 6 0 10-12 0v5c0 .386-.146.735-.405 1.005L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                                </svg>
-                                <span className="absolute -top-1 -right-1 bg-red-600 text-white rounded-full w-4 h-4 text-[10px] flex items-center justify-center">1</span>
-                            </div>
+                        <div className="flex flex-col gap-[20px]">
+                            {t.links.slice(4).map((link, idx) => (
+                                <a key={idx} href="#" className="flex items-center text-white gap-2 hover:text-[#F2F4FD] transition">
+                                    <span>&gt;</span> {link}
+                                </a>
+                            ))}
                         </div>
                     </div>
                 </div>
 
-                {/* ========================== BODY ========================== */}
-                <div className="max-w-7xl w-[1176px] mx-auto px-4 py-8 mt-[-70px]">
-                    {/* USER CARD */}
-                    <div className="w-full bg-white border border-[#AEAEAE] mt-[67px] min-h-[1006px] rounded-[25px] overflow-visible">
-                        {/* === TOP PANEL === */}
-                        <div className="w-full h-[136px] px-6 py-4 flex items-center justify-between border-b border-[#AEAEAE]">
-                            {/* LEFT - Avatar + Name */}
-                            <div className="flex items-center gap-4">
-                                <div className="relative w-[70px] h-[70px]">
-                                    <img
-                                        src={data.avatar || "/user-white.jpg"}
-                                        alt={data.full_name || "avatar"}
-                                        onError={(e) => (e.currentTarget.src = "/user-white.jpg")}
-                                        className="w-full h-full object-cover rounded-full border"
-                                    />
-                                </div>
-
-                                <div>
-                                    <h2 className="text-[24px] font-bold text-black mt-2">{normalizeName(data.full_name)}</h2>
-                                    <p className="text-[15px] text-[#AEAEAE] font-medium flex items-center gap-1">{data.position || "—"}</p>
-                                </div>
-                            </div>
-
-                            {/* RIGHT - Back */}
-                            <div className="flex gap-3">
-                                <button
-                                    className="w-[222px] h-[59px] bg-[#3066BE] text-white font-semibold rounded-[10px] hover:bg-[#2452a6] transition"
-                                    onClick={() => navigate(-1)}
-                                >
-                                    Orqaga
-                                </button>
-                            </div>
+                <div className="bg-[#3066BE]/70 h-[103px] rounded-[12px] mx-[38px]">
+                    <div className="max-w-[1440px] mx-auto px-6 h-full flex justify-between items-center">
+                        <p className="text-white">{t.copyright}</p>
+                        <div className="flex gap-[20px] text-[24px] text-white">
+                            <a href="#" className="text-white"><i className="fab fa-whatsapp"></i></a>
+                            <a href="#" className="text-white"><i className="fab fa-instagram"></i></a>
+                            <a href="#" className="text-white"><i className="fab fa-facebook"></i></a>
+                            <a href="#" className="text-white"><i className="fab fa-twitter"></i></a>
                         </div>
-
-                        {/* === MAIN WRAPPER === */}
-                        <div className="w-full min-h-full overflow-visible bg-white">
-                            <div className="flex max-w-[1176px] mx-auto w-full h-auto">
-                                {/* LEFT PANEL */}
-                                <div className="w-[60%] px-6 py-6 border-r border-[#AEAEAE]">
-                                    {/* Часов в неделю */}
-                                    <div className="pb-4 px-4 py-3 mb-[30px]">
-                                        <div className="flex justify-between items-center">
-                                            <h3 className="text-[24px] leading-[36px] font-bold text-black">Часов в неделю</h3>
-                                        </div>
-
-                                        <p className="text-[15px] leading-[22px] text-black mt-1 font-medium">
-                                            {data.work_hours_per_week || "—"}
-                                        </p>
-                                        <p className="text-[15px] leading-[22px] text-[#AEAEAE] mt-1 font-medium">
-                                            Открыт для заключения контракта на найм
-                                        </p>
-                                    </div>
-
-                                    {/* Языки */}
-                                    <div className="pb-4 px-4 py-3 mb-[30px]">
-                                        <div className="flex justify-between items-center">
-                                            <h3 className="text-[24px] leading-[36px] font-bold text-black">Языки</h3>
-                                        </div>
-                                        <div className="flex flex-wrap gap-2 mt-2">
-                                            {languages.length === 0 ? (
-                                                <span className="text-[#AEAEAE]">—</span>
-                                            ) : (
-                                                languages.map((l, i) => (
-                                                    <span key={i} className="px-3 text-black py-1 rounded-full border bg-[#D9D9D9] text-sm">
-                            {l.language} — {l.level}
-                          </span>
-                                                ))
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* Образование */}
-                                    <div className="pb-4 px-4 py-3">
-                                        <div className="flex justify-between items-center">
-                                            <h3 className="text-[24px] leading-[36px] font-bold text-black">Образование</h3>
-                                        </div>
-                                        <div className="mt-3 flex flex-col gap-3">
-                                            {educations.length === 0 ? (
-                                                <span className="text-[#AEAEAE]">—</span>
-                                            ) : (
-                                                educations.map((e, i) => (
-                                                    <div key={i} className="text-[15px] leading-[22px] text-black">
-                                                        <div className="font-semibold">{e.academy_name}</div>
-                                                        <div className="text-[#4b5563]">{e.degree}</div>
-                                                        <div className="text-[#9ca3af]">
-                                                            {e.start_year} — {e.end_year}
-                                                        </div>
-                                                    </div>
-                                                ))
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* RIGHT PANEL */}
-                                <div className="flex justify-center px-6 py-6 w-full">
-                                    <div className="w-[762px]">
-                                        {/* О себе */}
-                                        <div className="w-full bg-white border-none rounded-xl p-6">
-                                            <h3 className="text-[24px] leading-[36px] font-bold text-[#000000] mb-[10px]">О себе</h3>
-                                            <p className="text-[#000] text-[16px] leading-relaxed whitespace-pre-line">{data.bio || "—"}</p>
-                                        </div>
-
-                                        {/* Divider */}
-                                        <div className="w-full h-[1px] bg-[#AEAEAE] my-[36px]"></div>
-
-                                        {/* Портфолио */}
-                                        <div className="w-full bg-white border-none rounded-xl p-6">
-                                            <div className="flex justify-between items-center">
-                                                <h3 className="text-[24px] leading-[36px] font-bold text-[#000000] mb-[10px]">Портфолио</h3>
-                                            </div>
-                                            {portfolio.length === 0 ? (
-                                                <div className="text-[#AEAEAE]">—</div>
-                                            ) : (
-                                                <div className="flex flex-col gap-4">
-                                                    {portfolio.map((p) => (
-                                                        <div key={p.id} className="border rounded-[12px] p-4">
-                                                            <div className="font-semibold text-black">{p.title}</div>
-                                                            {p.description && (
-                                                                <div className="text-[14px] text-[#AEAEAE] mt-1 whitespace-pre-line">{p.description}</div>
-                                                            )}
-                                                            {p.skills_list?.length > 0 && (
-                                                                <div className="flex flex-wrap gap-2 mt-2">
-                                                                    {p.skills_list.map((s, idx) => (
-                                                                        <span key={idx} className="px-3 py-1 border text-black bg-[#D9D9D9] rounded-full text-sm">
-                                      {s}
-                                    </span>
-                                                                    ))}
-                                                                </div>
-                                                            )}
-                                                            {p.media?.length > 0 && (
-                                                                <div className="flex flex-wrap gap-3 mt-3">
-                                                                    {p.media.map((m, idx) => (
-                                                                        <a key={idx} href={m.file_url} target="_blank" rel="noreferrer" className="block" title={m.file_type}>
-                                                                            {m.file_type === "image" ? (
-                                                                                <img
-                                                                                    src={m.file_url}
-                                                                                    alt="media"
-                                                                                    className="w-[120px] h-[80px] object-cover rounded border"
-                                                                                    onError={(e) => {
-                                                                                        e.currentTarget.style.display = "none";
-                                                                                    }}
-                                                                                />
-                                                                            ) : (
-                                                                                <span className="text-sm underline text-[#3066BE]">{(m.file_type || "file").toUpperCase()}</span>
-                                                                            )}
-                                                                        </a>
-                                                                    ))}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Divider */}
-                                        <div className="w-full h-[1px] bg-[#AEAEAE] my-[36px]"></div>
-
-                                        {/* Навыки */}
-                                        <div className="w-full bg-white border-none rounded-xl p-4 mt-6">
-                                            <div className="flex justify-between items-center mb-4">
-                                                <h3 className="text-[24px] leading-[36px] font-bold text-[#000000]">Навыки</h3>
-                                            </div>
-
-                                            <div className="flex flex-wrap gap-2 justify-start mt-[21px]">
-                                                {skills.length === 0 ? (
-                                                    <span className="bg-[#D9D9D9] text-sm text-[#AEAEAE] px-4 py-1 rounded-full">—</span>
-                                                ) : (
-                                                    skills.slice(0, 20).map((skill, idx) => (
-                                                        <span key={`sk-${idx}`} className="bg-[#D9D9D9] text-[15px] text-black px-4 py-1 rounded-full border border-gray-300">
-                              {typeof skill === "string" ? skill : skill?.name || "Skill"}
-                            </span>
-                                                    ))
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* ========================== SERTIFIKAT ========================== */}
-                    <div className="w-full bg-white border border-[#AEAEAE] mt-[67px] rounded-[25px] overflow-hidden">
-                        <div className="flex justify-between items-center px-6 py-4 border-b border-[#AEAEAE] h-[94.5px]">
-                            <h3 className="text-[24px] leading-[36px] font-bold text-[#000000]">Сертификаты</h3>
-                        </div>
-
-                        {certificates.length === 0 ? (
-                            <div className="flex items-center justify-center text-center px-4 py-10">
-                                <p className="text-[#AEAEAE] text-[20px] leading-[30px] max-w-[604px] font-[400]">—</p>
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-2 gap-6 p-6">
-                                {certificates.map((c) => (
-                                    <div key={c.id} className="cursor-pointer border border-[#D9D9D9] rounded-[15px] overflow-hidden shadow-sm">
-                                        {/\. (png|jpg|jpeg|webp)$/i.test(c.file_url) ? (
-                                            <img src={c.file_url} alt={c.name} className="w-full h-max object-cover" />
-                                        ) : (
-                                            <div className="flex items-center justify-center h-[200px] bg-gray-100 text-gray-500">Fayl</div>
-                                        )}
-                                        <div className="p-4">
-                                            <h4 className="text-lg font-semibold">{c.name}</h4>
-                                            <p className="text-sm text-gray-500">{c.organization}</p>
-                                            <p className="text-sm text-gray-400">{fmtDate(c.issue_date)}</p>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* ========================== Experience ========================== */}
-                    <div className="w-full bg-white border border-[#AEAEAE] mt-[30px] rounded-[25px] p-6">
-                        <h3 className="text-[24px] leading-[36px] font-bold text-[#000000] mb-2">Опыт работы</h3>
-                        {experiences.length === 0 ? (
-                            <div className="text-[#AEAEAE]">—</div>
-                        ) : (
-                            <div className="flex flex-col gap-4">
-                                {experiences.map((ex) => (
-                                    <div key={ex.id} className="border rounded-[12px] p-4">
-                                        <div className="font-semibold text-black">
-                                            {ex.position} @ {ex.company_name}
-                                        </div>
-                                        <div className="text-sm text-[#6b7280]">
-                                            {fmtDate(ex.start_date)} — {ex.end_date ? fmtDate(ex.end_date) : "Hozir"}
-                                            {(ex.city || ex.country) && ` • ${[ex.city, ex.country].filter(Boolean).join(", ")}`}
-                                        </div>
-                                        {ex.description && <div className="text-[14px] text-[#4b5563] mt-1 whitespace-pre-line">{ex.description}</div>}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
                     </div>
                 </div>
-
-                {/* ========================== FOOTER ========================== */}
-                <footer className="w-full h-[393px] relative overflow-hidden">
-                    <img src="/footer-bg.png" alt="Footer background" className="absolute inset-0 w-full h-full object-cover z-0" />
-                    <div className="absolute inset-0 bg-[#3066BE]/50 z-10"></div>
-
-                    <div className="relative z-20">
-                        <div className="max-w-[1440px] mx-auto px-6 py-10 flex flex-col md:flex-row md:justify-between gap-8 text-white">
-                            <div className="flex gap-[190px]">
-                                <div>
-                                    <h2 className="text-[48px] leading-[150%] font-black text-white font-gilroy">{texts[langCode].logo}</h2>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-[184px]">
-                                    <div className="flex flex-col gap-[20px]">
-                                        {texts[langCode].links.slice(0, 4).map((link, idx) => (
-                                            <a
-                                                key={idx}
-                                                href="#"
-                                                className="flex items-center gap-2 text-white hover:text-[#3066BE] text-[18px] leading-[120%] font-normal font-gilroy transition-colors duration-300"
-                                            >
-                                                <span>&gt;</span> {link}
-                                            </a>
-                                        ))}
-                                    </div>
-                                    <div className="flex flex-col gap-[20px]">
-                                        {texts[langCode].links.slice(4).map((link, idx) => (
-                                            <a
-                                                key={idx}
-                                                href="#"
-                                                className="flex items-center gap-2 text-white hover:text-[#3066BE] text-[18px] leading-[120%] font-normal font-gilroy transition-colors duration-300"
-                                            >
-                                                <span>&gt;</span> {link}
-                                            </a>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="relative z-20 bg-[#3066BE]/70 h-[103px] rounded-[12px] ml-[38px] mr-[38px]">
-                            <div className="max-w-[1440px] mx-auto px-6 h-full flex justify-between items-center text-white text-[18px] leading-[120%] font-gilroy">
-                                <p>{texts[langCode].copyright}</p>
-
-                                <div className="flex gap-[20px] text-[24px] mr-[38px]">
-                                    <a href="#" className="text-white">
-                                        <i className="fab fa-whatsapp hover:text-[#F2F4FD]"></i>
-                                    </a>
-                                    <a href="#" className="text-white">
-                                        <i className="fab fa-instagram hover:text-[#F2F4FD]"></i>
-                                    </a>
-                                    <a href="#" className="text-white">
-                                        <i className="fab fa-facebook hover:text-[#F2F4FD]"></i>
-                                    </a>
-                                    <a href="#" className="text-white">
-                                        <i className="fab fa-twitter hover:text-[#F2F4FD]"></i>
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </footer>
             </div>
-        </>
+        </footer>
+    );
+}
+
+function FooterTablet() {
+    const t = TEXTS.RU;
+    return (
+        <footer className="relative overflow-hidden mt-[50px]">
+            <img src="/footer-bg.png" alt="Footer" className="absolute inset-0 w-full h-full object-cover z-0" />
+            <div className="absolute inset-0 bg-[#3066BE]/55 z-10" />
+
+            <div className="relative z-20 px-6 py-8 text-white">
+                <h2 className="text-[36px] font-black mb-6">{t.logo}</h2>
+
+                <div className="grid grid-cols-2 gap-x-10 gap-y-3 mb-6">
+                    {t.links.map((link, i) => (
+                        <a key={i} href="#" className="flex text-white items-center gap-2 text-[15px] hover:text-[#E7ECFF]">
+                            <span>›</span> {link}
+                        </a>
+                    ))}
+                </div>
+
+                <div className="bg-[#3066BE]/70 rounded-[10px] px-4 py-4">
+                    <div className="flex justify-between items-center gap-4">
+                        <p className="text-[13px] text-white">{t.copyright}</p>
+                        <div className="flex gap-4 text-[20px] text-white">
+                            <a href="#" className="text-white"><i className="fab fa-whatsapp" /></a>
+                            <a href="#" className="text-white"><i className="fab fa-instagram" /></a>
+                            <a href="#" className="text-white"><i className="fab fa-facebook" /></a>
+                            <a href="#" className="text-white"><i className="fab fa-twitter" /></a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    );
+}
+
+function FooterMobile() {
+    const t = TEXTS.RU;
+    return (
+        <MobileFooter />
     );
 }

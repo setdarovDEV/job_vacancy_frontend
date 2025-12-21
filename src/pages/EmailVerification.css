@@ -1,0 +1,240 @@
+/* EmailVerification.css */
+
+.email-verification-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    padding: 20px;
+}
+
+.email-verification-card {
+    background: #F8F9FB;
+    border-radius: 24px;
+    padding: 60px 80px;
+    max-width: 600px;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+}
+
+.verification-title {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 32px;
+    font-weight: 600;
+    color: #1A1A1A;
+    margin-bottom: 40px;
+    line-height: 1.2;
+}
+
+.otp-input-container {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-bottom: 16px;
+}
+
+.otp-input {
+    width: 56px;
+    height: 64px;
+    border: 2px solid #E0E0E0;
+    border-radius: 12px;
+    font-size: 24px;
+    font-weight: 600;
+    text-align: center;
+    color: #1A1A1A;
+    background: white;
+    transition: all 0.3s ease;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.otp-input:focus {
+    outline: none;
+    border-color: #3B82F6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.otp-input:not(:placeholder-shown) {
+    border-color: #3B82F6;
+}
+
+.otp-input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.otp-input-error {
+    border-color: #EF4444 !important;
+    animation: shake 0.5s;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+}
+
+.error-message {
+    color: #EF4444;
+    font-size: 14px;
+    margin-bottom: 16px;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.timer {
+    font-size: 16px;
+    font-weight: 500;
+    color: #3B82F6;
+    margin-bottom: 32px;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.submit-button {
+    width: 100%;
+    height: 56px;
+    background: #3B82F6;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+    margin-bottom: 20px;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.submit-button:hover:not(:disabled) {
+    background: #2563EB;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3);
+}
+
+.submit-button:disabled {
+    background: #CBD5E1;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.resend-button {
+    background: none;
+    border: none;
+    color: #64748B;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: not-allowed;
+    transition: all 0.3s ease;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.resend-button.active {
+    color: #3B82F6;
+    cursor: pointer;
+}
+
+.resend-button.active:hover {
+    color: #2563EB;
+    text-decoration: underline;
+}
+
+.resend-button:disabled {
+    opacity: 0.6;
+}
+
+/* Tablet styles (iPad Pro 11") */
+@media (max-width: 1024px) and (min-width: 768px) {
+    .email-verification-card {
+        padding: 50px 60px;
+        max-width: 550px;
+    }
+
+    .verification-title {
+        font-size: 28px;
+        margin-bottom: 35px;
+    }
+
+    .otp-input {
+        width: 50px;
+        height: 58px;
+        font-size: 22px;
+    }
+
+    .otp-input-container {
+        gap: 10px;
+    }
+
+    .submit-button {
+        height: 52px;
+        font-size: 15px;
+    }
+}
+
+/* Mobile styles (iPhone) */
+@media (max-width: 767px) {
+    .email-verification-container {
+        padding: 16px;
+    }
+
+    .email-verification-card {
+        padding: 40px 24px;
+        border-radius: 20px;
+        max-width: 100%;
+    }
+
+    .verification-title {
+        font-size: 24px;
+        margin-bottom: 30px;
+    }
+
+    .otp-input-container {
+        gap: 8px;
+    }
+
+    .otp-input {
+        width: 44px;
+        height: 52px;
+        font-size: 20px;
+        border-radius: 10px;
+    }
+
+    .timer {
+        font-size: 14px;
+        margin-bottom: 24px;
+    }
+
+    .submit-button {
+        height: 48px;
+        font-size: 15px;
+        border-radius: 10px;
+    }
+
+    .resend-button {
+        font-size: 13px;
+    }
+
+    .error-message {
+        font-size: 13px;
+    }
+}
+
+/* Extra small mobile */
+@media (max-width: 375px) {
+    .email-verification-card {
+        padding: 32px 16px;
+    }
+
+    .otp-input {
+        width: 40px;
+        height: 48px;
+        font-size: 18px;
+    }
+
+    .otp-input-container {
+        gap: 6px;
+    }
+}

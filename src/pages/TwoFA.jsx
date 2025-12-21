@@ -12,20 +12,14 @@ export default function EmailStep() {
     const [isLoading, setIsLoading] = useState(false);
     const [successMessage, setSuccessMessage] = useState("");
 
-    // ✅ URL'dan yoki localStorage'dan user_id olish
     const userId = searchParams.get("uid") || localStorage.getItem("user_id");
 
-    console.log("📍 Step 2 - User ID:", userId);
-
-    // Redirect if no userId
     useEffect(() => {
         if (!userId) {
-            setError("Foydalanuvchi aniqlanmadi. Qaytadan ro'yxatdan o'ting.");
+            setError("Фойдаланувчи аникланмади. Қайтадан рўйхатдан ўтинг.");
             setTimeout(() => navigate("/register"), 2000);
         }
     }, [userId, navigate]);
-
-    // EmailStep.jsx
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -38,21 +32,16 @@ export default function EmailStep() {
                 email: email.trim()
             });
 
-            console.log('✅ Response:', response.data);
-
             setSuccessMessage("Код отправлен на ваш E-mail! ✅");
 
-            // ✅ 2 sekunddan keyin Step 3 ga o'tish
             setTimeout(() => {
                 navigate(`/register/step3?uid=${userId}`);
             }, 2000);
 
         } catch (err) {
-            console.error('❌ Error:', err.response?.data || err.message);
-
             const data = err?.response?.data || {};
             const emailError = Array.isArray(data.email) ? data.email[0] : data.email;
-            const generalError = data.error || data.detail || "Xatolik yuz berdi";
+            const generalError = data.error || data.detail || "Хатолик юз берди";
 
             setError(emailError || generalError);
         } finally {
@@ -69,14 +58,14 @@ export default function EmailStep() {
     return (
         <React.Fragment>
             {/* Desktop (lg+) */}
-            <div className="hidden lg:flex min-h-screen items-center justify-center bg-white text-black px-4">
-                <div className="bg-[#F6F8FC] p-10 rounded-[24px] shadow-md w-full max-w-md text-center">
-                    <h2 className="text-[24px] font-bold text-black mb-6">
+            <div className="hidden lg:flex min-h-screen items-center justify-center bg-[#F8F9FB]">
+                <div className="bg-white w-full max-w-[480px] rounded-[32px] px-16 py-12 shadow-sm">
+                    <h1 className="text-center text-[26px] font-bold text-black mb-10">
                         Ваш E-mail
-                    </h2>
+                    </h1>
 
-                    <form onSubmit={handleSubmit}>
-                        <div className="mb-6 text-left">
+                    <form onSubmit={handleSubmit} className="space-y-8">
+                        <div>
                             <input
                                 type="email"
                                 inputMode="email"
@@ -86,8 +75,8 @@ export default function EmailStep() {
                                 required
                                 disabled={isLoading}
                                 className={`w-full border-0 border-b ${
-                                    error ? 'border-red-500' : successMessage ? 'border-green-500' : 'border-black'
-                                } bg-[#F6F8FC] placeholder-gray-600 text-base focus:outline-none focus:border-blue-600 py-2 transition-colors ${
+                                    error ? 'border-red-500' : successMessage ? 'border-green-500' : 'border-gray-300'
+                                } bg-white placeholder-gray-500 text-[15px] focus:outline-none focus:border-[#3066BE] py-3 transition-colors ${
                                     isLoading ? 'opacity-50 cursor-not-allowed' : ''
                                 }`}
                             />
@@ -103,43 +92,37 @@ export default function EmailStep() {
                             )}
                         </div>
 
-                        <button
-                            type="submit"
-                            disabled={isLoading}
-                            className="w-[177px] h-[57px] mx-auto bg-[#3066BE] text-white text-base font-semibold rounded-lg px-6 py-4 hover:bg-[#2a58a6] transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {isLoading ? (
-                                <span>Отправка...</span>
-                            ) : successMessage ? (
-                                <span>Переход...</span>
-                            ) : (
-                                <React.Fragment>
-                                    Следующий
-                                    <img src="/next.png" alt="next icon" className="w-4 h-4" />
-                                </React.Fragment>
-                            )}
-                        </button>
-
-                        {/* Loading message */}
                         {isLoading && (
-                            <p className="text-blue-600 text-sm mt-4">
+                            <p className="text-blue-600 text-sm text-center">
                                 Отправляем код на ваш E-mail...
                             </p>
                         )}
-                    </form>
 
-                    {/* Back button */}
-                    <button
-                        onClick={() => navigate("/register")}
-                        disabled={isLoading}
-                        className="bg-[#F4F6FA] text-[#3066BE] border-0 rounded-lg px-4 py-2 text-sm font-medium hover:bg-[#e8ecf4] transition mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        ← Назад к регистрации
-                    </button>
+                        <div className="flex justify-center">
+                            <button
+                                type="submit"
+                                disabled={isLoading}
+                                className="w-[200px] h-[54px] bg-[#3066BE] text-white text-[15px] font-semibold rounded-[12px] hover:bg-[#2856a8] transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                            >
+                                {isLoading ? (
+                                    <span>Отправка...</span>
+                                ) : successMessage ? (
+                                    <span>Переход...</span>
+                                ) : (
+                                    <>
+                                        Следующий
+                                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="rotate-180">
+                                            <path d="M10 4L6 8L10 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                        </svg>
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
 
-            {/* Tablet only (md) */}
+            {/* Tablet (md) */}
             <div className="hidden md:block lg:hidden">
                 <EmailVerifyTablet
                     email={email}
@@ -151,7 +134,7 @@ export default function EmailStep() {
                 />
             </div>
 
-            {/* Mobile (sm va past) */}
+            {/* Mobile (sm) */}
             <div className="block md:hidden">
                 <EmailVerifyMobile
                     email={email}

@@ -7,18 +7,22 @@ import {
     fetchSavedVacancies,
     removeSavedVacancy,
     fetchApplications,
+    formatApplication,
+    formatSavedVacancy,
 } from "../../utils/activity";
-import HeaderNotifications from "./HeaderNotifications.jsx";
 
 export default function ActivityMobile() {
     const [tab, setTab] = useState("saved"); // 'saved' | 'applied'
     const [saved, setSaved] = useState({ items: [], loading: false, error: "" });
     const [applied, setApplied] = useState({ items: [], loading: false, error: "" });
 
-    // initial load
+    // Load data when tab changes
     useEffect(() => {
-        if (tab === "saved" && saved.items.length === 0) loadSaved();
-        if (tab === "applied" && applied.items.length === 0) loadApplied();
+        if (tab === "saved" && !saved.loading) {
+            loadSaved();
+        } else if (tab === "applied" && !applied.loading) {
+            loadApplied();
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tab]);
 
@@ -26,8 +30,11 @@ export default function ActivityMobile() {
         setSaved((s) => ({ ...s, loading: true, error: "" }));
         try {
             const data = await fetchSavedVacancies();
-            setSaved({ items: data.results || [], loading: false, error: "" });
-        } catch {
+            // Format each vacancy using formatSavedVacancy
+            const formattedItems = (data.results || []).map(formatSavedVacancy).filter(Boolean);
+            setSaved({ items: formattedItems, loading: false, error: "" });
+        } catch (e) {
+            console.error("Error loading saved vacancies:", e);
             setSaved((s) => ({ ...s, loading: false, error: "Не удалось загрузить сохранённые вакансии" }));
         }
     }, []);
@@ -36,8 +43,11 @@ export default function ActivityMobile() {
         setApplied((s) => ({ ...s, loading: true, error: "" }));
         try {
             const data = await fetchApplications();
-            setApplied({ items: data.results || [], loading: false, error: "" });
-        } catch {
+            // Format each application using formatApplication
+            const formattedItems = (data.results || []).map(formatApplication).filter(Boolean);
+            setApplied({ items: formattedItems, loading: false, error: "" });
+        } catch (e) {
+            console.error("Error loading applications:", e);
             setApplied((s) => ({ ...s, loading: false, error: "Не удалось загрузить отклики" }));
         }
     }, []);
@@ -58,8 +68,6 @@ export default function ActivityMobile() {
         <div className="min-h-[100dvh] bg-white flex flex-col">
             {/* NAVBAR */}
             <MobileNavbar />
-
-            <HeaderNotifications />
 
             {/* Header title */}
             <div className="w-full max-w-[393px] mx-auto px-4 pt-4 pb-2">
@@ -177,8 +185,9 @@ function AppliedList({ items }) {
     return (
         <ul className="flex flex-col gap-3">
             {items.map((a) => {
-                const vacancy = a.job_post || a.vacancy || a.post || {};
-                const status = a.status || "отправлено";
+                // formatApplication returns { vacancy: {...}, status, created_at, etc. }
+                const vacancy = a.vacancy || a.job || a.job_post || a.post || {};
+                const status = a.status || "APPLIED";
                 const created = a.created_at || a.created || a.date;
                 return (
                     <li key={a.id} className="border border-[#E5EAF2] rounded-xl p-3">

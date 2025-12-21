@@ -5,19 +5,6 @@ import ProfileDropdown from "../ProfileDropdown.jsx";
 
 export default function NavbarTabletLogin() {
     const [open, setOpen] = useState(false);
-    const [langOpen, setLangOpen] = useState(false);
-    const [selectedLang, setSelectedLang] = useState({ code: "RU", flag: "/ru.png" });
-
-    const handleLanguageChange = (lang) => {
-        setSelectedLang(lang);
-        setLangOpen(false);
-    };
-
-    const languages = [
-        { code: "RU", flag: "/ru.png" },
-        { code: "UZ", flag: "/uz.png" },
-        { code: "EN", flag: "/uk.png" },
-    ];
 
     return (
         <div className="fixed top-0 left-0 right-0 w-full bg-white h-[70px] flex items-center justify-center shadow-sm border-b border-[#E3E6EA] z-50">

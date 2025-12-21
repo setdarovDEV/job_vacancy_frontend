@@ -375,12 +375,45 @@ export default function HomeEmployer() {
 
     async function onClickWrite(appId) {
         try {
-            const room = await chatApi.getOrCreateByApplication(appId);
-            // chatga o'tamiz va o‘ng panelni ochish uchun roomId + peer’ni state orqali ham beramiz
+            console.log("📝 onClickWrite called with appId:", appId);
+            console.log("📋 All items:", items);
+            
+            // Application list'dan userId ni topishga harakat qilamiz
+            const application = items.find(a => String(a.id) === String(appId));
+            console.log("📋 Found application in list:", application);
+            console.log("👤 Application userId:", application?.userId);
+            
+            let room;
+            
+            // Agar application list'dan userId bor bo'lsa, uni to'g'ridan-to'g'ri ishlatamiz
+            if (application?.userId) {
+                console.log("✅ Using userId from application list:", application.userId);
+                const chatRes = await api.post("/api/chats/get_or_create/", { user_id: application.userId });
+                console.log("💬 Chat response:", chatRes.data);
+                room = {
+                    id: chatRes.data.id,
+                    peer: chatRes.data.other_user || {
+                        id: application.userId,
+                        full_name: application.name,
+                        avatar_url: application.avatar,
+                    },
+                };
+            } else {
+                // Aks holda, getOrCreateByApplication funksiyasini ishlatamiz
+                console.log("🔄 Using getOrCreateByApplication function");
+                room = await chatApi.getOrCreateByApplication(appId);
+            }
+            
+            console.log("✅ Room data:", room);
+            console.log("🚀 Navigating to chat page with roomId:", room.id);
+            
+            // chatga o'tamiz va o'ng panelni ochish uchun roomId + peer'ni state orqali ham beramiz
             navigate(`/chat?room=${room.id}`, { state: { peer: room.peer, ts: Date.now() } });
         } catch (e) {
-            console.error("getOrCreateByApplication failed", e);
-            alert("Chat xonasini ochishda xatolik.");
+            console.error("❌ onClickWrite failed", e);
+            console.error("Error details:", e.response?.data || e.message);
+            console.error("Full error:", e);
+            alert("Chat xonasini ochishda xatolik: " + (e.message || "Noma'lum xatolik"));
         }
     }
 

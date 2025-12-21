@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
-import { UserRound, Sun, Settings, LogOut } from "lucide-react";
+import { UserRound, Sun, Settings, LogOut, LineChart } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import ChangeProfileImageModal from "./AvatarUploadModal";
 import { toast } from "react-toastify";
 import api from "../utils/api";
 import ProfileDropdownJobSeekerTablet from "./tablet/ProfileDropdownJObSeekerTablet.jsx";
+import ProfileDropdownJobSeekerMobile from "./mobile/ProfileDropdownJobSeekerMobile.jsx";
 
 const DEFAULT_AVATAR = "/user1.png";
 
@@ -129,54 +130,86 @@ export default function ProfileDropdownJobSeeker() {
 
     return (
         <>
-            <div className="block lg:hidden">
+            {/* Mobile version (< 640px) */}
+            <div className="block sm:hidden">
+                <ProfileDropdownJobSeekerMobile />
+            </div>
+
+            {/* Tablet version (640px - 1024px) */}
+            <div className="hidden sm:block lg:hidden">
                 <ProfileDropdownJobSeekerTablet />
             </div>
 
+            {/* Desktop version (>= 1024px) - TUZATILGAN AVATAR */}
             <div className="hidden lg:block relative text-left" ref={dropdownRef}>
                 <button
                     onClick={() => setIsOpen(!isOpen)}
-                    className="relative w-[56px] h-[56px] rounded-full bg-gray-200 overflow-hidden"
+                    className="relative w-[56px] h-[56px] rounded-full overflow-hidden border-2 border-gray-300 hover:border-[#3066BE] transition-all duration-200 bg-transparent p-0"
                 >
-                    <SafeImg src={profileImage} className="w-full h-full object-cover rounded-full" />
+                    <SafeImg
+                        src={profileImage}
+                        className="w-full h-full object-cover"
+                    />
                 </button>
 
                 {isOpen && (
-                    <div className="absolute right-0 top-full mt-2 w-[300px] h-[240px] text-black bg-[#F4F6FA] rounded-xl shadow-[-4px_-2px_20px_0px_rgba(0,0,0,0.15)] z-40">
-                        <div className="px-4 h-[79px] flex items-center gap-3 border-b border-black">
-                            <SafeImg
-                                src={profileImage}
-                                className="w-[60px] h-[60px] rounded-full object-cover cursor-pointer"
+                    <div className="absolute right-0 top-full mt-2 w-[280px] bg-white rounded-xl shadow-lg border border-gray-200 z-50">
+                        {/* Header */}
+                        <div className="px-4 py-4 flex items-center gap-3 border-b border-gray-200">
+                            <div
+                                className="relative w-[54px] h-[54px] rounded-full overflow-hidden border-2 border-gray-200 cursor-pointer hover:border-[#3066BE] transition-all duration-200 bg-transparent"
                                 onClick={() => setIsAvatarModalOpen(true)}
-                            />
-                            <div>
-                                <p className="text-[16px] font-semibold underline text-black">
+                            >
+                                <SafeImg
+                                    src={profileImage}
+                                    className="w-full h-full object-cover"
+                                />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-[15px] font-semibold text-black truncate">
                                     {user?.full_name ? formatName(user.full_name) : "Guest"}
                                 </p>
-                                <p className="text-[14px] text-black mt-[4px]">
+                                <p className="text-[13px] text-gray-600 mt-0.5 truncate">
                                     {user?.title || "Профессия не указана"}
                                 </p>
                             </div>
                         </div>
 
-                        <div className="px-4 py-2 space-y-3">
-                            <a href="/profile" className="flex items-center gap-2 text-sm text-black hover:text-blue-600">
-                                <UserRound size={18} /> Ваш профиль
+                        {/* Menu items */}
+                        <div className="px-3 py-2 space-y-1">
+                            <a
+                                href="/profile"
+                                className="flex items-center gap-2.5 px-3 py-2.5 text-[14px] text-gray-700 hover:bg-gray-100 rounded-lg transition"
+                            >
+                                <UserRound size={18} className="text-gray-600" />
+                                Ваш профиль
                             </a>
-                            <a href="/" className="flex items-center gap-2 text-sm text-black hover:text-blue-600">
-                                <Sun size={18} /> Тема: light
+
+                            <a
+                                href="/activity"
+                                className="flex items-center gap-2.5 px-3 py-2.5 text-[14px] text-gray-700 hover:bg-gray-100 rounded-lg transition"
+                            >
+                                <LineChart size={18} className="text-gray-600" />
+                                Активность
                             </a>
-                            <a href="/" className="flex items-center gap-2 text-sm text-black hover:text-blue-600">
-                                <Settings size={18} /> Настройки
+
+                            <a
+                                href="/settings"
+                                className="flex items-center gap-2.5 px-3 py-2.5 text-[14px] text-gray-700 hover:bg-gray-100 rounded-lg transition"
+                            >
+                                <Settings size={18} className="text-gray-600" />
+                                Настройки
                             </a>
                         </div>
 
-                        <div className="border-t border-black mt-2 pt-2 px-4">
+                        {/* Logout */}
+                        <div className="border-t border-gray-200 px-3 py-2">
                             <button
                                 onClick={handleLogout}
-                                className="flex items-center gap-2 text-sm ml-[-15px] bg-transparent border-none text-black hover:text-red-600"
+                                className="flex items-center gap-2.5 px-3 py-2.5 text-[14px] text-red-600 hover:bg-red-50 rounded-lg transition w-full text-left"
                             >
-                                <LogOut size={18} /> Выйти
+                                <LogOut size={18} />
+                                Выйти
                             </button>
                         </div>
                     </div>

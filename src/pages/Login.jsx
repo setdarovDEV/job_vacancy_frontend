@@ -163,7 +163,7 @@ export default function Login() {
                         {/* Forgot Password Link */}
                         <div className="text-left">
 
-                            <a href="/password-reset"
+                            <a href="/forgot-password"
                             className="text-xs text-black font-semibold hover:text-[#3066BE] hover:underline transition"
                             >
                             Забыли пароль?

@@ -1,17 +1,23 @@
-// src/pages/LandingPage.jsx
-import React, { useState } from "react";
+// src/pages/Dashboard.jsx
+import React, { useState, useEffect } from "react";
 import Select from "react-select";
+import { useNavigate } from "react-router-dom";
 import {
     FaCalculator, FaGraduationCap, FaCogs, FaBriefcase,
     FaHeartbeat, FaLaptopCode, FaIndustry, FaGavel
 } from "react-icons/fa";
+import { toast } from "react-toastify";
+import api from "../utils/api";
 import ProfileDropdown from "../components/ProfileDropdown.jsx";
 import DashboardTablet from "../components/tablet/DashboardTablet.jsx";
+import LandingMobile from "../components/mobile/LandingMobile.jsx";
 
 // ==========================
 // COMPONENT START
 // ==========================
-export default function LandingPage() {
+export default function Dashboard() {
+    const navigate = useNavigate();
+
     // ==========================
     // STATE
     // ==========================
@@ -19,6 +25,22 @@ export default function LandingPage() {
     const [showLang, setShowLang] = useState(false);
     const [showMobileMenu, setShowMobileMenu] = useState(false);
     const [showSearch, setShowSearch] = useState(false);
+
+    // ==========================
+    // SEARCH FORM STATE
+    // ==========================
+    const [searchKeyword, setSearchKeyword] = useState("");
+    const [selectedRegion, setSelectedRegion] = useState(null);
+    const [selectedSalary, setSelectedSalary] = useState(null);
+    const [selectedPlan, setSelectedPlan] = useState(null);
+
+    // ==========================
+    // VACANCIES STATE
+    // ==========================
+    const [vacancies, setVacancies] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [loadingVacancies, setLoadingVacancies] = useState(true);
+    const [totalVacanciesCount, setTotalVacanciesCount] = useState(0);
 
     // ==========================
     // LANG CODE HANDLING
@@ -48,7 +70,12 @@ export default function LandingPage() {
             links:["Помощь","Наши вакансии","Реклама на сайте","Требования к ПО","Инвесторам","Каталог компаний","Работа по профессиям"],
             copyright:"© 2025 «HeadHunter – Вакансии». Все права защищены. Карта сайта",
             createSite:"Создание сайтов",
-            viewMore:"Посмотреть все →"
+            viewMore:"Посмотреть все →",
+            noVacancies:"Вакансии не найдены",
+            loadingError:"Ошибка загрузки вакансий",
+            ctaTitle:"Найдите работу своей мечты сегодня.",
+            fillResume:"Заполнить резюме",
+            register:"Зарегистрироваться"
         },
         UZ: { community:"Jamiyat", vacancies:"Vakansiyalar", chat:"Chat", companies:"Kompaniyalar",
             keyword:"Kalit so'z:", position:"Lavozim", location:"Joylashuv:",
@@ -59,17 +86,22 @@ export default function LandingPage() {
             published:"2 soat oldin e'lon qilindi",
             needed:"Grafik dizayner kerak",
             budget:"Byudjet: 100$-200$",
-            description:"Sun'iy intellekt yordamida yaratilgan qadoqlash vizualizatsiyasini tuzatishga yordam beradigan rassomlarni izlayapmiz. Xususan, biz har bir renderdagi logotiplarni to‘g‘rilamoqchimiz. Bizda sun'iy intellekt bilan yaratilgan katta logotiplar + tasvirlar bazasi bor.",
+            description:"Sun'iy intellekt yordamida yaratilgan qadoqlash vizualizatsiyasini tuzatishga yordam beradigan rassomlarni izlayapmiz. Xususan, biz har bir renderdagi logotiplarni to'g'rilamoqchimiz. Bizda sun'iy intellekt bilan yaratilgan katta logotiplar + tasvirlar bazasi bor.",
             tags:["Logo dizayn","Adobe Illustrator","Adobe Photoshop"],
-            payment:"To‘lov tasdiqlangan",
-            location_vacancy:"O‘zbekiston",
+            payment:"To'lov tasdiqlangan",
+            location_vacancy:"O'zbekiston",
             recommendedVacancies:"Tavsiya etilgan vakansiyalar",
-            publishVacancy:"Vakansiya e’lon qilish",
+            publishVacancy:"Vakansiya e'lon qilish",
             logo:"Logo",
-            links:["Yordam","Bizning vakantiyalar","Saytda reklama","Dasturiy ta'minot talablari","Investorlar uchun","Kompaniyalar katalogi","Kasblar bo‘yicha ishlar"],
+            links:["Yordam","Bizning vakantiyalar","Saytda reklama","Dasturiy ta'minot talablari","Investorlar uchun","Kompaniyalar katalogi","Kasblar bo'yicha ishlar"],
             copyright:"© 2025 «HeadHunter – Vakansiyalar». Barcha huquqlar himoyalangan. Sayt xaritasi",
             createSite:"Sayt yaratish",
-            viewMore:"Hammasini ko‘rish →"
+            viewMore:"Hammasini ko'rish →",
+            noVacancies:"Vakansiyalar topilmadi",
+            loadingError:"Vakansiyalarni yuklashda xatolik",
+            ctaTitle:"Bugun orzuingizdagi ishni toping.",
+            fillResume:"Rezyume to'ldirish",
+            register:"Ro'yxatdan o'tish"
         },
         EN: { community:"Community", vacancies:"Vacancies", chat:"Chat", companies:"Companies",
             keyword:"Keyword:", position:"Position", location:"Location:",
@@ -90,7 +122,12 @@ export default function LandingPage() {
             links:["Help","Our Vacancies","Advertising on site","Software Requirements","For Investors","Company Catalog","Jobs by Profession"],
             copyright:"© 2025 «HeadHunter – Vacancies». All rights reserved. Sitemap",
             createSite:"Website creation",
-            viewMore:"View all →"
+            viewMore:"View all →",
+            noVacancies:"No vacancies found",
+            loadingError:"Error loading vacancies",
+            ctaTitle:"Find your dream job today.",
+            fillResume:"Fill resume",
+            register:"Register"
         }
     };
 
@@ -98,39 +135,58 @@ export default function LandingPage() {
     const t = texts[langCode];
 
     // ==========================
-    // CATEGORIES TEXTS
+    // CATEGORIES TEXTS (Realistic static counts)
     // ==========================
-    const categoriesTexts = {
-        RU: [
-            { icon: FaCalculator, title: "Бухгалтерия", vacancies: "331 открытых вакансий" },
-            { icon: FaGraduationCap, title: "Образование", vacancies: "331 открытых вакансий" },
-            { icon: FaCogs, title: "Машиностроение", vacancies: "331 открытых вакансий" },
-            { icon: FaBriefcase, title: "Юридический", vacancies: "331 открытых вакансий" },
-            { icon: FaHeartbeat, title: "Здравоохранение", vacancies: "331 открытых вакансий" },
-            { icon: FaLaptopCode, title: "IT & Агентство", vacancies: "331 открытых вакансий" },
-            { icon: FaIndustry, title: "Инжиниринг", vacancies: "331 открытых вакансий" },
-            { icon: FaGavel, title: "Юридический", vacancies: "331 открытых вакансий" }
-        ],
-        UZ: [
-            { icon: FaCalculator, title: "Buxgalteriya", vacancies: "331 ta ochiq ish o‘rni" },
-            { icon: FaGraduationCap, title: "Ta'lim", vacancies: "331 ta ochiq ish o‘rni" },
-            { icon: FaCogs, title: "Mashinasozlik", vacancies: "331 ta ochiq ish o‘rni" },
-            { icon: FaBriefcase, title: "Yuridik", vacancies: "331 ta ochiq ish o‘rni" },
-            { icon: FaHeartbeat, title: "Sog‘liqni saqlash", vacancies: "331 ta ochiq ish o‘rni" },
-            { icon: FaLaptopCode, title: "IT & Agentlik", vacancies: "331 ta ochiq ish o‘rni" },
-            { icon: FaIndustry, title: "Muhandislik", vacancies: "331 ta ochiq ish o‘rni" },
-            { icon: FaGavel, title: "Yuridik", vacancies: "331 ta ochiq ish o‘rni" }
-        ],
-        EN: [
-            { icon: FaCalculator, title: "Accounting", vacancies: "331 open vacancies" },
-            { icon: FaGraduationCap, title: "Education", vacancies: "331 open vacancies" },
-            { icon: FaCogs, title: "Mechanical Eng.", vacancies: "331 open vacancies" },
-            { icon: FaBriefcase, title: "Legal", vacancies: "331 open vacancies" },
-            { icon: FaHeartbeat, title: "Healthcare", vacancies: "331 open vacancies" },
-            { icon: FaLaptopCode, title: "IT & Agency", vacancies: "331 open vacancies" },
-            { icon: FaIndustry, title: "Engineering", vacancies: "331 open vacancies" },
-            { icon: FaGavel, title: "Legal", vacancies: "331 open vacancies" }
-        ]
+    const getCategoriesTexts = () => {
+        const categoryCounts = {
+            accounting: 45,
+            education: 89,
+            mechanical: 34,
+            legal: 67,
+            healthcare: 52,
+            it: 156,
+            engineering: 78,
+            legal2: 41
+        };
+
+        const formatCount = (count, lang) => {
+            if (lang === "RU") return `${count} открытых вакансий`;
+            if (lang === "UZ") return `${count} ta ochiq ish o'rni`;
+            return `${count} open vacancies`;
+        };
+
+        return {
+            RU: [
+                { icon: FaCalculator, title: "Бухгалтерия", vacancies: formatCount(categoryCounts.accounting, "RU") },
+                { icon: FaGraduationCap, title: "Образование", vacancies: formatCount(categoryCounts.education, "RU") },
+                { icon: FaCogs, title: "Машиностроение", vacancies: formatCount(categoryCounts.mechanical, "RU") },
+                { icon: FaBriefcase, title: "Юридический", vacancies: formatCount(categoryCounts.legal, "RU") },
+                { icon: FaHeartbeat, title: "Здравоохранение", vacancies: formatCount(categoryCounts.healthcare, "RU") },
+                { icon: FaLaptopCode, title: "IT & Агентство", vacancies: formatCount(categoryCounts.it, "RU") },
+                { icon: FaIndustry, title: "Инжиниринг", vacancies: formatCount(categoryCounts.engineering, "RU") },
+                { icon: FaGavel, title: "Юридический", vacancies: formatCount(categoryCounts.legal2, "RU") }
+            ],
+            UZ: [
+                { icon: FaCalculator, title: "Buxgalteriya", vacancies: formatCount(categoryCounts.accounting, "UZ") },
+                { icon: FaGraduationCap, title: "Ta'lim", vacancies: formatCount(categoryCounts.education, "UZ") },
+                { icon: FaCogs, title: "Mashinasozlik", vacancies: formatCount(categoryCounts.mechanical, "UZ") },
+                { icon: FaBriefcase, title: "Yuridik", vacancies: formatCount(categoryCounts.legal, "UZ") },
+                { icon: FaHeartbeat, title: "Sog'liqni saqlash", vacancies: formatCount(categoryCounts.healthcare, "UZ") },
+                { icon: FaLaptopCode, title: "IT & Agentlik", vacancies: formatCount(categoryCounts.it, "UZ") },
+                { icon: FaIndustry, title: "Muhandislik", vacancies: formatCount(categoryCounts.engineering, "UZ") },
+                { icon: FaGavel, title: "Yuridik", vacancies: formatCount(categoryCounts.legal2, "UZ") }
+            ],
+            EN: [
+                { icon: FaCalculator, title: "Accounting", vacancies: formatCount(categoryCounts.accounting, "EN") },
+                { icon: FaGraduationCap, title: "Education", vacancies: formatCount(categoryCounts.education, "EN") },
+                { icon: FaCogs, title: "Mechanical Eng.", vacancies: formatCount(categoryCounts.mechanical, "EN") },
+                { icon: FaBriefcase, title: "Legal", vacancies: formatCount(categoryCounts.legal, "EN") },
+                { icon: FaHeartbeat, title: "Healthcare", vacancies: formatCount(categoryCounts.healthcare, "EN") },
+                { icon: FaLaptopCode, title: "IT & Agency", vacancies: formatCount(categoryCounts.it, "EN") },
+                { icon: FaIndustry, title: "Engineering", vacancies: formatCount(categoryCounts.engineering, "EN") },
+                { icon: FaGavel, title: "Legal", vacancies: formatCount(categoryCounts.legal2, "EN") }
+            ]
+        };
     };
 
     // ==========================
@@ -147,24 +203,108 @@ export default function LandingPage() {
         { value: "2000", label: "до 2000$" }
     ];
     const optionsPlan = [
-        { value: "premium", label: "Premium" },
-        { value: "basic", label: "Basic" }
+        { value: "Premium", label: "Premium" },
+        { value: "Pro", label: "Pro" },
+        { value: "Basic", label: "Basic" }
     ];
+
+    // ==========================
+    // FETCH VACANCIES FROM BACKEND
+    // ==========================
+    useEffect(() => {
+        const fetchVacancies = async () => {
+            try {
+                setLoadingVacancies(true);
+
+                const recentResponse = await api.get("/api/vacancies/jobposts/recent/");
+                console.log("✅ Recent vacancies response:", recentResponse.data);
+
+                const vacanciesData = Array.isArray(recentResponse.data)
+                    ? recentResponse.data
+                    : recentResponse.data?.results || [];
+
+                setVacancies(vacanciesData);
+
+                try {
+                    const countResponse = await api.get("/api/vacancies/jobposts/", {
+                        params: { page: 1, page_size: 1 }
+                    });
+                    console.log("✅ Count response:", countResponse.data);
+
+                    const count = countResponse.data?.count || vacanciesData.length || 331;
+                    setTotalVacanciesCount(count);
+                    console.log("📊 Total vacancies count:", count);
+                } catch (countErr) {
+                    console.error("❌ Count fetch error:", countErr);
+                    setTotalVacanciesCount(vacanciesData.length || 331);
+                }
+            } catch (err) {
+                console.error("❌ Fetch vacancies error:", err);
+                toast.error(t.loadingError);
+                setVacancies([]);
+                setTotalVacanciesCount(331);
+            } finally {
+                setLoadingVacancies(false);
+            }
+        };
+        fetchVacancies();
+    }, []);
+
+    // ==========================
+    // HANDLE SEARCH
+    // ==========================
+    const handleSearch = async () => {
+        try {
+            setLoading(true);
+            const params = new URLSearchParams();
+
+            if (searchKeyword.trim()) {
+                params.append("search", searchKeyword.trim());
+            }
+            if (selectedRegion?.value) {
+                params.append("location", selectedRegion.value);
+            }
+            if (selectedSalary?.value) {
+                params.append("salary_max", selectedSalary.value);
+            }
+            if (selectedPlan?.value) {
+                params.append("plan", selectedPlan.value);
+            }
+
+            const queryString = params.toString();
+            navigate(`/vacancies${queryString ? `?${queryString}` : ''}`);
+        } catch (err) {
+            console.error("❌ Search error:", err);
+            toast.error("Qidiruvda xatolik yuz berdi");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // ==========================
+    // HANDLE VIEW MORE
+    // ==========================
+    const handleViewMore = () => {
+        navigate("/vacancies");
+    };
+
+    // ==========================
+    // HANDLE VACANCY CLICK
+    // ==========================
+    const handleVacancyClick = (vacancyId) => {
+        navigate(`/vacancies`);
+    };
 
     return (
         <>
             <div className="hidden lg:block font-sans relative">
-                {/* ==========================
-                NAVBAR
-        ========================== */}
+                {/* NAVBAR */}
                 <nav className="fixed top-0 left-0 w-full z-50 bg-[#F4F6FA] shadow-md" aria-label="Primary">
                     <div className="w-full max-w-[1800px] mx-auto flex items-center justify-between px-4 sm:px-6 md:px-10 h-[70px] md:h-[80px] lg:h-[90px]">
-                        {/* Logo */}
                         <a href="/" aria-label="Home">
                             <img src="/logo.png" alt="Logo" className="w-[80px] h-[55px] md:w-[100px] md:h-[65px] lg:w-[109px] lg:h-[72px] object-contain" />
                         </a>
 
-                        {/* Center links */}
                         <div className="hidden md:flex gap-4 md:gap-5 lg:gap-8 font-semibold text-[13px] md:text-[14px] lg:text-[16px] tracking-wide mx-auto">
                             <a href="/community" className="text-black hover:text-[#3066BE] transition">{t.community}</a>
                             <a href="/vacancies" className="text-black hover:text-[#3066BE] transition">{t.vacancies}</a>
@@ -172,39 +312,10 @@ export default function LandingPage() {
                             <a href="/companies" className="text-black hover:text-[#3066BE] transition">{t.companies}</a>
                         </div>
 
-                        {/* Right side */}
                         <div className="hidden md:flex items-center gap-2 sm:gap-3 md:gap-4">
-                            {/* Lang selector */}
-                            <div className="relative flex items-center gap-2 cursor-pointer" onClick={() => setShowLang(!showLang)} aria-haspopup="listbox" aria-expanded={showLang}>
-                                <img src={selectedLang.flag} alt={`${selectedLang.code} flag`} className="w-6 h-4 sm:w-7 sm:h-4 md:w-8 md:h-5 object-cover" />
-                                <svg className="w-3 h-3 sm:w-4 sm:h-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                    <path fillRule="evenodd" clipRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z"/>
-                                </svg>
-                                {showLang && (
-                                    <div className="absolute top-full left-0 mt-2 bg-white border rounded shadow-lg w-12 z-50" role="listbox">
-                                        {[
-                                            {flag:"/ru.png", code:"RU", alt:"RU"},
-                                            {flag:"/uz.png", code:"UZ", alt:"UZ"},
-                                            {flag:"/uk.png", code:"EN", alt:"EN"}
-                                        ].map(opt => (
-                                            <div
-                                                key={opt.code}
-                                                onClick={() => { setSelectedLang({flag: opt.flag, code: opt.code}); setShowLang(false); }}
-                                                className="hover:bg-gray-100 px-1 py-2 cursor-pointer flex justify-center"
-                                                role="option"
-                                                aria-selected={langCode === opt.code}
-                                            >
-                                                <img src={opt.flag} alt={`${opt.alt} flag`} className="w-8 h-5" />
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-
                             <ProfileDropdown />
                         </div>
 
-                        {/* mobile flag + burger */}
                         <div className="md:hidden flex items-center gap-3 pr-4 sm:pr-6 pt-2">
                             <div className="relative flex items-center gap-1 cursor-pointer" onClick={() => setShowLang(!showLang)}>
                                 <img src={selectedLang.flag} alt={`${selectedLang.code} flag`} className="w-6 h-4 object-cover" />
@@ -236,7 +347,6 @@ export default function LandingPage() {
                         </div>
                     </div>
 
-                    {/* mobile dropdown menu */}
                     {showMobileMenu && (
                         <div className="absolute top-[70px] left-0 w-full bg-white shadow-md flex flex-col items-center gap-2 py-4 z-50">
                             <a href="/community" className="w-full px-4 py-3 text-center text-black hover:bg-gray-100 hover:text-[#3066BE] transition">{t.community}</a>
@@ -250,10 +360,7 @@ export default function LandingPage() {
                     )}
                 </nav>
 
-                {/* ==========================
-           SEARCH INPUT HERO USTIDA
-        ========================== */}
-                {/* DESKTOP */}
+                {/* SEARCH INPUT */}
                 <div className="hidden md:block absolute top-[132px] left-[70px] z-50 w-[250px]">
                     <div className="relative">
                         <input
@@ -268,7 +375,6 @@ export default function LandingPage() {
                     </div>
                 </div>
 
-                {/* MOBILE / TABLET */}
                 <div className="md:hidden absolute top-[80px] left-1/2 -translate-x-1/2 z-50 w-[85%] max-w-[344px]">
                     {!showSearch ? (
                         <button
@@ -304,9 +410,7 @@ export default function LandingPage() {
                     )}
                 </div>
 
-                {/* ==========================
-                HERO SECTION
-        ========================== */}
+                {/* HERO SECTION */}
                 <section
                     className="relative bg-cover bg-center min-h-[100vh] flex flex-col justify-center items-center text-center"
                     style={{ backgroundImage: `url('/hero.png')`, clipPath: "ellipse(80% 100% at 50% 0)" }}
@@ -323,26 +427,79 @@ export default function LandingPage() {
                         </h1>
 
                         <div className="mt-8 sm:mt-10 w-full bg-white/30 backdrop-blur-md shadow-2xl rounded-xl p-4 sm:p-6 flex flex-wrap gap-4 sm:gap-6 items-end justify-center">
-                            <LabeledInput label={t.keyword} placeholder={t.position} />
-                            <LabeledSelect label={t.location} placeholder={t.selectRegion} options={optionsRegion} />
-                            <LabeledSelect label={t.salary} placeholder={t.selectSalary} options={optionsSalary} />
-                            <LabeledSelect label={t.plan} placeholder={t.premium} options={optionsPlan} />
-                            <button className="bg-[#3066BE] text-white w-full sm:w-20 h-12 rounded-xl hover:bg-[#254f99] transition flex items-center justify-center shadow-sm" type="button" aria-label="Search">
-                                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z" />
-                                </svg>
+                            <div className="flex flex-col w-full sm:w-52">
+                                <span className="text-[14px] sm:text-[16px] mb-1 text-[#000]">
+                                    {t.keyword}
+                                </span>
+                                <input
+                                    type="text"
+                                    value={searchKeyword}
+                                    onChange={(e) => setSearchKeyword(e.target.value)}
+                                    onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                                    placeholder={t.position}
+                                    className="border-none rounded-xl px-5 h-12 w-full bg-white/80 shadow-sm text-[16px] text-left text-[#000] placeholder:text-[#AEAEAE] focus:outline-none"
+                                />
+                            </div>
+                            <div className="flex flex-col w-full sm:w-52">
+                                <span className="text-[14px] sm:text-[16px] mb-1 text-[#000]">
+                                    {t.location}
+                                </span>
+                                <Select
+                                    placeholder={t.selectRegion}
+                                    options={optionsRegion}
+                                    value={selectedRegion}
+                                    onChange={setSelectedRegion}
+                                    styles={selectStyles()}
+                                />
+                            </div>
+                            <div className="flex flex-col w-full sm:w-52">
+                                <span className="text-[14px] sm:text-[16px] mb-1 text-[#000]">
+                                    {t.salary}
+                                </span>
+                                <Select
+                                    placeholder={t.selectSalary}
+                                    options={optionsSalary}
+                                    value={selectedSalary}
+                                    onChange={setSelectedSalary}
+                                    styles={selectStyles()}
+                                />
+                            </div>
+                            <div className="flex flex-col w-full sm:w-52">
+                                <span className="text-[14px] sm:text-[16px] mb-1 text-[#000]">
+                                    {t.plan}
+                                </span>
+                                <Select
+                                    placeholder={t.premium}
+                                    options={optionsPlan}
+                                    value={selectedPlan}
+                                    onChange={setSelectedPlan}
+                                    styles={selectStyles()}
+                                />
+                            </div>
+                            <button
+                                onClick={handleSearch}
+                                disabled={loading}
+                                className="bg-[#3066BE] text-white w-full sm:w-20 h-12 rounded-xl hover:bg-[#254f99] transition flex items-center justify-center shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                type="button"
+                                aria-label="Search"
+                            >
+                                {loading ? (
+                                    <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                ) : (
+                                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z" />
+                                    </svg>
+                                )}
                             </button>
                         </div>
                     </div>
                 </section>
 
-                {/* ==========================
-                CATEGORIES SECTION
-        ========================== */}
+                {/* CATEGORIES SECTION */}
                 <div className="py-16 px-6 max-w-6xl mx-auto">
                     <h2 className="text-center text-3xl font-bold text-[#000000] mb-12">{t.categories}</h2>
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
-                        {categoriesTexts[langCode].map((cat, idx) => (
+                        {getCategoriesTexts()[langCode].map((cat, idx) => (
                             <div
                                 key={idx}
                                 className="flex flex-col items-center p-6 rounded-[10px] transition text-[#000000]"
@@ -356,223 +513,246 @@ export default function LandingPage() {
                     </div>
                 </div>
 
-                {/* ==========================
-                VACANCY SECTION
-        ========================== */}
+                {/* VACANCY SECTION */}
                 <div className="max-w-5xl mx-auto px-6 py-12">
                     <h1 className="text-center font-extrabold text-[35px] leading-[150%] text-black mb-10">
                         {t.recommendedVacancies}
                     </h1>
 
                     <SectionHeader title={t.publishVacancy} />
-                    <VacancyCard t={t} />
-                    <hr className="border-t border-[#D9D9D9] mb-6" />
 
-                    <VacancyCard t={t} />
-                    <hr className="border-t border-[#D9D9D9] mb-6" />
+                    {loadingVacancies && (
+                        <div className="flex justify-center items-center py-12">
+                            <div className="w-12 h-12 border-4 border-[#3066BE] border-t-transparent rounded-full animate-spin"></div>
+                        </div>
+                    )}
 
-                    <VacancyCard t={t} />
-                    <hr className="border-t border-[#D9D9D9] mb-6" />
+                    {/* 🔥 FIRST 3 VACANCIES */}
+                    {!loadingVacancies && vacancies.length > 0 && vacancies.slice(0, 3).map((vacancy, index) => (
+                        <div key={vacancy.id} className="max-w-5xl mx-auto px-6 py-6">
+                            <div
+                                className="rounded-xl shadow p-6 mb-6 hover:shadow-lg transition cursor-pointer"
+                                onClick={() => handleVacancyClick(vacancy.id)}
+                            >
+                                <div className="flex items-center text-gray-400 text-sm mb-2">
+                                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    {vacancy.published_ago || vacancy.timeAgo || t.published}
+                                </div>
+
+                                <h2 className="text-2xl font-bold text-black mb-1">
+                                    {vacancy.title || t.needed}
+                                </h2>
+
+                                <p className="text-gray-400 mb-4">
+                                    {vacancy.budget || t.budget}
+                                </p>
+
+                                <p className="text-gray-500 mb-4 line-clamp-2">
+                                    {vacancy.description || t.description}
+                                </p>
+
+                                <div className="flex flex-wrap gap-2 mb-4">
+                                    {vacancy.skills && Array.isArray(vacancy.skills) && vacancy.skills.length > 0 ? (
+                                        vacancy.skills.slice(0, 3).map((skill, idx) => (
+                                            <span key={idx} className="bg-gray-100 text-black px-3 py-1 rounded-full text-sm">
+                                                {skill}
+                                            </span>
+                                        ))
+                                    ) : (
+                                        t.tags.map((tag, tagIndex) => (
+                                            <span key={tagIndex} className="bg-gray-100 text-black px-3 py-1 rounded-full text-sm">
+                                                {tag}
+                                            </span>
+                                        ))
+                                    )}
+                                </div>
+
+                                <div className="flex items-center justify-between text-gray-400">
+                                    <div className="flex items-center gap-2">
+                                        {vacancy.payment_verified && (
+                                            <>
+                                                <div className="relative w-6 h-6">
+                                                    <img src="/badge-background.svg" alt="bg" className="w-6 h-6" />
+                                                    <img src="/check.svg" alt="check" className="absolute inset-0 w-3 h-3 m-auto" />
+                                                </div>
+                                                <span>{t.payment}</span>
+                                            </>
+                                        )}
+                                    </div>
+
+                                    <div className="flex items-center gap-1">
+                                        {[...Array(Math.min(vacancy.rating || 4, 5))].map((_, i) => (
+                                            <svg key={i} className="w-5 h-5 fill-yellow-400" viewBox="0 0 20 20">
+                                                <path d="M10 15l-5.878 3.09L5.82 12.5 1 8.91l6.09-.9L10 2.5l2.91 5.51 6.09.9-4.82 3.59 1.698 5.59z"/>
+                                            </svg>
+                                        ))}
+                                        {[...Array(Math.max(0, 5 - (vacancy.rating || 4)))].map((_, i) => (
+                                            <svg key={i} className="w-5 h-5 fill-gray-300" viewBox="0 0 20 20">
+                                                <path d="M10 15l-5.878 3.09L5.82 12.5 1 8.91l6.09-.9L10 2.5l2.91 5.51 6.09.9-4.82 3.59 1.698 5.59z"/>
+                                            </svg>
+                                        ))}
+                                    </div>
+
+                                    <div className="flex items-center gap-2">
+                                        <div className="relative w-5 h-5">
+                                            <img src="/location.png" alt="location" className="w-9 h-5" />
+                                        </div>
+                                        {vacancy.location || t.location_vacancy}
+                                    </div>
+                                </div>
+                            </div>
+                            {index < 2 && (
+                                <hr className="border-t border-[#D9D9D9] mb-6" />
+                            )}
+                        </div>
+                    ))}
+
+                    {!loadingVacancies && vacancies.length === 0 && (
+                        <div className="text-center py-12">
+                            <p className="text-gray-500 text-lg">{t.noVacancies}</p>
+                        </div>
+                    )}
                 </div>
+
                 {/* ==========================
-                        CTA SECTION
+                    🔥 CTA SECTION - DESKTOP DIZAYNI (QIZ RASMI BILAN)
                 ========================== */}
-                <section className="w-full bg-[#3066BE] py-12 relative overflow-visible">
-                    {/* Orqa fon dumaloqlar */}
+                <section className="w-full bg-[#3066BE] relative overflow-visible flex items-center">
+                    {/* Chap tomondagi dumaloqlar */}
                     <img
                         src="/dots-bg.png"
                         alt="dots"
-                        className="absolute top-0 left-0 w-[300px] h-auto opacity-60"
+                        className="absolute top-0 left-0 w-[200px] h-auto opacity-60"
                     />
 
-                    {/* Kontent */}
-                    <div className="max-w-7xl mx-auto flex items-center justify-between px-6 relative z-10 overflow-visible">
-                        {/* Qiz */}
-                        <div className="relative overflow-visible">
+                    {/* Kontent Container */}
+                    <div className="max-w-6xl mx-auto flex items-center justify-between px-6 w-full">
+                        {/* Chap: Qiz rasmi */}
+                        <div className="relative flex-shrink-0">
                             <img
                                 src="/call-center.png"
                                 alt="girl"
-                                className="w-[350px] object-contain relative z-20"
-                                style={{ transform: "scale(1.8) translateX(-30px) translateY(-20px)" }}
+                                className="w-[420px] object-contain relative z-20"
                             />
                         </div>
-                        {/* Matn va tugmalar */}
-                        <div className="text-white max-w-md ml-6">
-                            <h2 className="text-4xl font-bold mb-6">
-                                Найдите работу своей мечты сегодня.
+
+                        {/* O'ng: Matn va tugmalar */}
+                        <div className="text-white max-w-lg ml-6">
+                            <h2 className="text-3xl font-bold mb-6 leading-snug">
+                                {t.ctaTitle}
                             </h2>
-                            <div className="flex gap-4">
-                                <button className="px-6 py-3 border-2 border-white bg-[#3066BE] text-white rounded-md hover:bg-white hover:text-[#3066BE] transition font-semibold">
-                                    Заполнить резюме
-                                </button>
-                                <button className=" text-black px-6 py-3 bg-white rounded-md hover:bg-[#f0f0f0] transition font-semibold">
-                                    Зарегистрироваться
+                            <div className="flex gap-4 flex-wrap">
+                                <button
+                                    onClick={() => navigate("/vacancies")}
+                                    className="px-6 py-3 border-2 border-white bg-[#3066BE] text-white rounded-md hover:bg-white hover:text-[#3066BE] transition font-semibold"
+                                >
+                                    {t.fillResume}
                                 </button>
                             </div>
                         </div>
                     </div>
                 </section>
 
-                {/* ==========================
-                        VACANCY SECTION
-                ========================== */}
-                <div className="max-w-5xl mx-auto px-6 py-12">
-                    <div className="max-w-5xl mx-auto px-6 py-6">
-                        <div className="rounded-xl shadow p-6 mb-6 hover:shadow-lg transition">
+                {/* 🔥 NEXT 2 VACANCIES AFTER CTA */}
+                {!loadingVacancies && vacancies.length > 3 && (
+                    <div className="max-w-5xl mx-auto px-6 py-12">
+                        {vacancies.slice(3, 5).map((vacancy, index) => (
+                            <div key={vacancy.id}>
+                                <div className="max-w-5xl mx-auto px-6 py-6">
+                                    <div
+                                        className="rounded-xl shadow p-6 mb-6 hover:shadow-lg transition cursor-pointer"
+                                        onClick={() => handleVacancyClick(vacancy.id)}
+                                    >
+                                        <div className="flex items-center text-gray-400 text-sm mb-2">
+                                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            {vacancy.published_ago || vacancy.timeAgo || t.published}
+                                        </div>
 
-                            {/* Yuqori vaqt */}
-                            <div className="flex items-center text-gray-400 text-sm mb-2">
-                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                {texts[selectedLang.code].published}
-                            </div>
+                                        <h2 className="text-2xl font-bold text-black mb-1">
+                                            {vacancy.title || t.needed}
+                                        </h2>
 
-                            {/* Nom */}
-                            <h2 className="text-2xl font-bold text-black mb-1">
-                                {texts[selectedLang.code].needed}
-                            </h2>
+                                        <p className="text-gray-400 mb-4">
+                                            {vacancy.budget || t.budget}
+                                        </p>
 
-                            {/* Byudjet */}
-                            <p className="text-gray-400 mb-4">
-                                {texts[selectedLang.code].budget}
-                            </p>
+                                        <p className="text-gray-500 mb-4 line-clamp-2">
+                                            {vacancy.description || t.description}
+                                        </p>
 
-                            {/* Description */}
-                            <p className="text-gray-500 mb-4">
-                                {texts[selectedLang.code].description}
-                            </p>
+                                        <div className="flex flex-wrap gap-2 mb-4">
+                                            {vacancy.skills && Array.isArray(vacancy.skills) && vacancy.skills.length > 0 ? (
+                                                vacancy.skills.slice(0, 3).map((skill, idx) => (
+                                                    <span key={idx} className="bg-gray-100 text-black px-3 py-1 rounded-full text-sm">
+                                                        {skill}
+                                                    </span>
+                                                ))
+                                            ) : (
+                                                t.tags.map((tag, tagIndex) => (
+                                                    <span key={tagIndex} className="bg-gray-100 text-black px-3 py-1 rounded-full text-sm">
+                                                        {tag}
+                                                    </span>
+                                                ))
+                                            )}
+                                        </div>
 
-                            {/* Taglar */}
-                            <div className="flex flex-wrap gap-2 mb-4">
-                                {texts[selectedLang.code].tags.map((tag, index) => (
-                                    <span key={index} className="bg-gray-100 text-black px-3 py-1 rounded-full text-sm">
-                                        {tag}
-                                    </span>
-                                ))}
-                            </div>
+                                        <div className="flex items-center justify-between text-gray-400">
+                                            <div className="flex items-center gap-2">
+                                                {vacancy.payment_verified && (
+                                                    <>
+                                                        <div className="relative w-6 h-6">
+                                                            <img src="/badge-background.svg" alt="bg" className="w-6 h-6" />
+                                                            <img src="/check.svg" alt="check" className="absolute inset-0 w-3 h-3 m-auto" />
+                                                        </div>
+                                                        <span>{t.payment}</span>
+                                                    </>
+                                                )}
+                                            </div>
 
-                            {/* Pastki qator */}
-                            <div className="flex items-center justify-between text-gray-400">
-                                <div className="flex items-center gap-2">
-                                    <div className="relative w-6 h-6">
-                                        <img src="/badge-background.svg" alt="bg" className="w-6 h-6" />
-                                        <img src="/check.svg" alt="check" className="absolute inset-0 w-3 h-3 m-auto" />
+                                            <div className="flex items-center gap-1">
+                                                {[...Array(Math.min(vacancy.rating || 4, 5))].map((_, i) => (
+                                                    <svg key={i} className="w-5 h-5 fill-yellow-400" viewBox="0 0 20 20">
+                                                        <path d="M10 15l-5.878 3.09L5.82 12.5 1 8.91l6.09-.9L10 2.5l2.91 5.51 6.09.9-4.82 3.59 1.698 5.59z"/>
+                                                    </svg>
+                                                ))}
+                                                {[...Array(Math.max(0, 5 - (vacancy.rating || 4)))].map((_, i) => (
+                                                    <svg key={i} className="w-5 h-5 fill-gray-300" viewBox="0 0 20 20">
+                                                        <path d="M10 15l-5.878 3.09L5.82 12.5 1 8.91l6.09-.9L10 2.5l2.91 5.51 6.09.9-4.82 3.59 1.698 5.59z"/>
+                                                    </svg>
+                                                ))}
+                                            </div>
+
+                                            <div className="flex items-center gap-2">
+                                                <div className="relative w-5 h-5">
+                                                    <img src="/location.png" alt="location" className="w-9 h-5" />
+                                                </div>
+                                                {vacancy.location || t.location_vacancy}
+                                            </div>
+                                        </div>
                                     </div>
-                                    {texts[selectedLang.code].payment}
                                 </div>
-
-                                <div className="flex items-center gap-1">
-                                    {[...Array(4)].map((_, i) => (
-                                        <svg key={i} className="w-5 h-5 fill-yellow-400" viewBox="0 0 20 20">
-                                            <path d="M10 15l-5.878 3.09L5.82 12.5
-                                    1 8.91l6.09-.9L10 2.5l2.91
-                                    5.51 6.09.9-4.82 3.59
-                                    1.698 5.59z"/>
-                                        </svg>
-                                    ))}
-                                    <svg className="w-5 h-5 fill-gray-300" viewBox="0 0 20 20">
-                                        <path d="M10 15l-5.878 3.09L5.82 12.5
-                                    1 8.91l6.09-.9L10 2.5l2.91
-                                    5.51 6.09.9-4.82 3.59
-                                    1.698 5.59z"/>
-                                    </svg>
-                                </div>
-
-                                <div className="flex items-center gap-2">
-                                    <div className="relative w-5 h-5">
-                                        <img src="/location.png" alt="location" className="w-9 h-5" />
-                                    </div>
-                                    {texts[selectedLang.code].location_vacancy}
-                                </div>
+                                {index < 1 && (
+                                    <hr className="border-t border-[#D9D9D9] mb-6" />
+                                )}
                             </div>
-                        </div>
+                        ))}
                     </div>
-                    <hr className="border-t border-[#D9D9D9] mb-6" />
-
-                    <div className="max-w-5xl mx-auto px-6 py-6">
-                        <div className="rounded-xl shadow p-6 mb-6 hover:shadow-lg transition">
-
-                            {/* Yuqori vaqt */}
-                            <div className="flex items-center text-gray-400 text-sm mb-2">
-                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                {texts[selectedLang.code].published}
-                            </div>
-
-                            {/* Nom */}
-                            <h2 className="text-2xl font-bold text-black mb-1">
-                                {texts[selectedLang.code].needed}
-                            </h2>
-
-                            {/* Byudjet */}
-                            <p className="text-gray-400 mb-4">
-                                {texts[selectedLang.code].budget}
-                            </p>
-
-                            {/* Description */}
-                            <p className="text-gray-500 mb-4">
-                                {texts[selectedLang.code].description}
-                            </p>
-
-                            {/* Taglar */}
-                            <div className="flex flex-wrap gap-2 mb-4">
-                                {texts[selectedLang.code].tags.map((tag, index) => (
-                                    <span key={index} className="bg-gray-100 text-black px-3 py-1 rounded-full text-sm">
-                                        {tag}
-                                    </span>
-                                ))}
-                            </div>
-
-                            {/* Pastki qator */}
-                            <div className="flex items-center justify-between text-gray-400">
-                                <div className="flex items-center gap-2">
-                                    <div className="relative w-6 h-6">
-                                        <img src="/badge-background.svg" alt="bg" className="w-6 h-6" />
-                                        <img src="/check.svg" alt="check" className="absolute inset-0 w-3 h-3 m-auto" />
-                                    </div>
-                                    {texts[selectedLang.code].payment}
-                                </div>
-
-                                <div className="flex items-center gap-1">
-                                    {[...Array(4)].map((_, i) => (
-                                        <svg key={i} className="w-5 h-5 fill-yellow-400" viewBox="0 0 20 20">
-                                            <path d="M10 15l-5.878 3.09L5.82 12.5
-                                    1 8.91l6.09-.9L10 2.5l2.91
-                                    5.51 6.09.9-4.82 3.59
-                                    1.698 5.59z"/>
-                                        </svg>
-                                    ))}
-                                    <svg className="w-5 h-5 fill-gray-300" viewBox="0 0 20 20">
-                                        <path d="M10 15l-5.878 3.09L5.82 12.5
-                                    1 8.91l6.09-.9L10 2.5l2.91
-                                    5.51 6.09.9-4.82 3.59
-                                    1.698 5.59z"/>
-                                    </svg>
-                                </div>
-
-                                <div className="flex items-center gap-2">
-                                    <div className="relative w-5 h-5">
-                                        <img src="/location.png" alt="location" className="w-9 h-5" />
-                                    </div>
-                                    {texts[selectedLang.code].location_vacancy}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <hr className="border-t border-[#D9D9D9] mb-6" />
-                </div>
+                )}
 
                 <div className="flex justify-end pr-[75px] mt-10 mb-[74px]">
-                    <button className="bg-[#3066BE] text-white px-6 py-3 rounded-lg hover:bg-[#254f99] transition-colors duration-300">
-                        {texts[langCode].viewMore}
+                    <button
+                        onClick={handleViewMore}
+                        className="bg-[#3066BE] text-white px-6 py-3 rounded-lg hover:bg-[#254f99] transition-colors duration-300"
+                    >
+                        {t.viewMore}
                     </button>
                 </div>
 
-                {/* ==========================
-                FOOTER SECTION
-                ========================== */}
+                {/* FOOTER SECTION */}
                 <footer className="w-full h-[393px] relative overflow-hidden">
                     <img src="/footer-bg.png" alt="" className="absolute inset-0 w-full h-full object-cover z-0" />
                     <div className="absolute inset-0 bg-[#3066BE]/50 z-10" />
@@ -616,9 +796,14 @@ export default function LandingPage() {
                 </footer>
             </div>
 
-            {/* Tablet / Mobile */}
-            <div className="block lg:hidden">
+            {/* Tablet (md - lg) */}
+            <div className="hidden md:block lg:hidden">
                 <DashboardTablet />
+            </div>
+
+            {/* Mobile (sm va undan kichik) */}
+            <div className="block md:hidden">
+                <LandingMobile />
             </div>
         </>
     );
@@ -628,95 +813,12 @@ export default function LandingPage() {
    SMALL SUBCOMPONENTS
 ========================== */
 
-function LabeledInput({ label, placeholder }) {
-    return (
-        <div className="flex flex-col w-full sm:w-52">
-            <span className="text-[14px] sm:text-[16px] mb-1 text-[#000]">{label}</span>
-            <input
-                type="text"
-                placeholder={placeholder}
-                className="border-none rounded-xl px-5 h-12 w-full bg-white/80 shadow-sm text-[16px] text-left text-[#000] placeholder:text-[#AEAEAE] focus:outline-none"
-            />
-        </div>
-    );
-}
-
-function LabeledSelect({ label, placeholder, options }) {
-    return (
-        <div className="flex flex-col w-full sm:w-52">
-            <span className="text-[14px] sm:text-[16px] mb-1 text-[#000]">{label}</span>
-            <Select placeholder={placeholder} options={options} styles={selectStyles()} />
-        </div>
-    );
-}
-
 function SectionHeader({ title }) {
     return (
         <div className="max-w-5xl mx-auto px-6 mt-6">
             <h2 className="text-[18px] leading-[150%] font-bold text-black mb-2">{title}</h2>
             <div className="w-[52px] h-[4px] bg-[#D9D9D9] rounded mb-6"></div>
             <hr className="border-t border-[#D9D9D9] mb-6" />
-        </div>
-    );
-}
-
-function VacancyCard({ t }) {
-    return (
-        <div className="max-w-5xl mx-auto px-6 py-6">
-            <div className="rounded-xl shadow p-6 mb-6 hover:shadow-lg transition">
-                {/* Top time */}
-                <div className="flex items-center text-gray-400 text-sm mb-2">
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                    {t.published}
-                </div>
-
-                {/* Title */}
-                <h2 className="text-2xl font-bold text-black mb-1">{t.needed}</h2>
-
-                {/* Budget */}
-                <p className="text-gray-400 mb-4">{t.budget}</p>
-
-                {/* Description */}
-                <p className="text-gray-500 mb-4">{t.description}</p>
-
-                {/* Tags */}
-                <div className="flex flex-wrap gap-2 mb-4">
-                    {t.tags.map((tag, i) => (
-                        <span key={i} className="bg-gray-100 text-black px-3 py-1 rounded-full text-sm">{tag}</span>
-                    ))}
-                </div>
-
-                {/* Bottom row */}
-                <div className="flex items-center justify-between text-gray-400">
-                    <div className="flex items-center gap-2">
-                        <div className="relative w-6 h-6" aria-hidden="true">
-                            <img src="/badge-background.svg" alt="" className="w-6 h-6" />
-                            <img src="/check.svg" alt="" className="absolute inset-0 w-3 h-3 m-auto" />
-                        </div>
-                        {t.payment}
-                    </div>
-
-                    <div className="flex items-center gap-1" aria-label="Rating">
-                        {[...Array(4)].map((_, i) => (
-                            <svg key={i} className="w-5 h-5 fill-yellow-400" viewBox="0 0 20 20" aria-hidden="true">
-                                <path d="M10 15l-5.878 3.09L5.82 12.5 1 8.91l6.09-.9L10 2.5l2.91 5.51 6.09.9-4.82 3.59 1.698 5.59z"/>
-                            </svg>
-                        ))}
-                        <svg className="w-5 h-5 fill-gray-300" viewBox="0 0 20 20" aria-hidden="true">
-                            <path d="M10 15l-5.878 3.09L5.82 12.5 1 8.91l6.09-.9L10 2.5l2.91 5.51 6.09.9-4.82 3.59 1.698 5.59z"/>
-                        </svg>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        <div className="relative w-5 h-5" aria-hidden="true">
-                            <img src="/location.png" alt="" className="w-9 h-5" />
-                        </div>
-                        {t.location_vacancy}
-                    </div>
-                </div>
-            </div>
         </div>
     );
 }

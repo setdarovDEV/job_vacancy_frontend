@@ -18,8 +18,6 @@ import ExperienceSection from "../components/ExperienceSection";
 import api from "../utils/api";
 
 export default function ProfilePageDesktop({ viewOnly = false, targetUserId = null }) {
-    const [selectedLang, setSelectedLang] = useState({ flag: "/ru.png", code: "RU" });
-    const [showLang, setShowLang] = useState(false);
     const [showMobileMenu] = useState(false);
     const [isPortfolioOpen, setIsPortfolioOpen] = useState(false);
     const [isExperienceOpen, setIsExperienceOpen] = useState(false);
@@ -49,15 +47,234 @@ export default function ProfilePageDesktop({ viewOnly = false, targetUserId = nu
 
     const canEdit = !viewOnly;
 
-    // ✅ Avatar yuklash
+    // ✅ YANGI: targetUserId o'zgarganda profil ma'lumotlarini qayta yuklash
+    useEffect(() => {
+        console.log("🔄 ProfilePageDesktop useEffect triggered");
+        console.log("📍 viewOnly:", viewOnly);
+        console.log("👤 targetUserId:", targetUserId);
+
+        if (viewOnly && targetUserId) {
+            console.log("🔄 Loading profile for user:", targetUserId);
+
+            // State'larni reset qilish
+            setUser(null);
+            setProfileImage("/user.jpg");
+            setSkills([]);
+            setCertificates([]);
+            setPortfolioItems([]);
+            setExperiences([]);
+            setWorkHours("");
+            setLocation("Joylashuv aniqlanmoqda...");
+            setLoading(true);
+
+            // Yangi user ma'lumotlarini yuklash
+            const loadUserProfile = async () => {
+                try {
+                    console.log(`📡 Fetching /api/auth/profile/${targetUserId}/`);
+                    const res = await api.get(`/api/auth/profile/${targetUserId}/`);
+
+                    console.log("✅ Profile data:", res.data);
+                    // #region agent log
+                    fetch('http://127.0.0.1:7242/ingest/56b1ed58-a790-463d-8e9d-601f087de809',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ProfilePageDesktop.jsx:76',message:'Profile data received',data:{targetUserId,hasSkills:!!res.data.skills,skillsCount:res.data.skills?.length||0,hasPortfolio:!!res.data.portfolio,portfolioCount:res.data.portfolio?.length||0,hasEducation:!!res.data.education,educationCount:res.data.education?.length||0,allKeys:Object.keys(res.data)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+                    // #endregion
+
+                    setUser(res.data);
+                    setWorkHours(res.data.work_hours_per_week || "Не указано");
+
+                    // Avatar
+                    if (res.data.avatar) {
+                        const fullUrl = res.data.avatar.startsWith("http")
+                            ? res.data.avatar
+                            : `${api.defaults.baseURL}${res.data.avatar}`;
+                        setProfileImage(fullUrl);
+                    }
+
+                    // Skills - string array yoki object array bo'lishi mumkin
+                    const skillsRaw = res.data.skills || res.data.skill || [];
+                    const skillsData = Array.isArray(skillsRaw) && skillsRaw.length > 0 && typeof skillsRaw[0] === 'string'
+                        ? skillsRaw.map((name, idx) => ({ id: idx + 1, name }))
+                        : skillsRaw;
+                    // #region agent log
+                    fetch('http://127.0.0.1:7242/ingest/56b1ed58-a790-463d-8e9d-601f087de809',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ProfilePageDesktop.jsx:90',message:'Setting skills',data:{skillsData,count:skillsData.length,firstSkill:skillsData[0]},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+                    // #endregion
+                    setSkills(skillsData);
+
+                    // Certificates
+                    const certs = res.data.certificates || res.data.certificate || [];
+                    setCertificates(certs.map(cert => ({
+                        ...cert,
+                        file: cert.file?.startsWith("http")
+                            ? cert.file
+                            : `${api.defaults.baseURL}${cert.file}`
+                    })));
+
+                    // Portfolio - media_files array ichida file'lar bor
+                    const portfolio = res.data.portfolio || res.data.portfolios || [];
+                    // #region agent log
+                    fetch('http://127.0.0.1:7242/ingest/56b1ed58-a790-463d-8e9d-601f087de809',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ProfilePageDesktop.jsx:102',message:'Setting portfolio',data:{portfolio,count:portfolio.length,firstItem:portfolio[0]},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+                    // #endregion
+                    setPortfolioItems(portfolio.map(item => {
+                        // media_files array ichidan birinchi file'ni olamiz
+                        const mediaFile = item.media_files && item.media_files.length > 0 
+                            ? item.media_files[0] 
+                            : null;
+                        const fileUrl = mediaFile?.file_url || mediaFile?.file || item.file;
+                        const fullFileUrl = fileUrl?.startsWith("http")
+                            ? fileUrl
+                            : fileUrl ? `${api.defaults.baseURL}${fileUrl}` : null;
+                        
+                        return {
+                            ...item,
+                            file: fullFileUrl,
+                            title: item.title || 'Portfolio Item'
+                        };
+                    }));
+
+                    // Experiences
+                    setExperiences(res.data.experiences || []);
+
+                    console.log("✅ Profile loaded successfully");
+
+                } catch (err) {
+                    console.error("❌ Profile yuklashda xatolik:", err);
+                    setErr(err.response?.data?.detail || "Profile topilmadi");
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            loadUserProfile();
+        }
+    }, [targetUserId]); // ✅ MUHIM: faqat targetUserId o'zgarganda
+
+    useEffect(() => {
+        const saveToLocalStorage = () => {
+            if (!viewOnly) {
+                const profileData = {
+                    user,
+                    workHours,
+                    skills,
+                    certificates,
+                    portfolioItems,
+                    experiences,
+                    profileImage,
+                    location,
+                };
+
+                localStorage.setItem("profile_data", JSON.stringify(profileData));
+                localStorage.setItem("profile_timestamp", Date.now().toString());
+            }
+        };
+
+        const interval = setInterval(saveToLocalStorage, 5000);
+        return () => clearInterval(interval);
+    }, [user, workHours, skills, certificates, portfolioItems, experiences, profileImage, location, viewOnly]);
+
+    useEffect(() => {
+        const loadFromLocalStorage = () => {
+            try {
+                const savedData = localStorage.getItem("profile_data");
+                const timestamp = localStorage.getItem("profile_timestamp");
+
+                if (timestamp && (Date.now() - parseInt(timestamp)) > 7 * 24 * 60 * 60 * 1000) {
+                    localStorage.removeItem("profile_data");
+                    localStorage.removeItem("profile_timestamp");
+                    return;
+                }
+
+                if (savedData) {
+                    const data = JSON.parse(savedData);
+
+                    if (!user) setUser(data.user);
+                    if (!workHours) setWorkHours(data.workHours);
+                    if (skills.length === 0) setSkills(data.skills || []);
+                    if (certificates.length === 0) setCertificates(data.certificates || []);
+                    if (portfolioItems.length === 0) setPortfolioItems(data.portfolioItems || []);
+                    if (experiences.length === 0) setExperiences(data.experiences || []);
+                    if (profileImage === "/user.jpg") setProfileImage(data.profileImage);
+                    if (!location) setLocation(data.location);
+                }
+            } catch (err) {
+                console.error("LocalStorage'dan yuklashda xatolik:", err);
+            }
+        };
+
+        if (!viewOnly) {
+            loadFromLocalStorage();
+        }
+    }, [viewOnly]);
+
+    useEffect(() => {
+        const loadAllProfileData = async () => {
+            try {
+                setLoading(true);
+
+                const userRes = await api.get("/api/auth/me/");
+                setUser(userRes.data);
+                setWorkHours(userRes.data.work_hours_per_week || "Не указано");
+
+                if (userRes.data.profile_image) {
+                    const fullUrl = userRes.data.profile_image.startsWith("http")
+                        ? userRes.data.profile_image
+                        : `${api.defaults.baseURL}${userRes.data.profile_image}`;
+                    setProfileImage(fullUrl);
+                    localStorage.setItem("profile_image", fullUrl);
+                }
+
+                const skillsRes = await api.get("/api/skills/");
+                setSkills(skillsRes.data.results || skillsRes.data || []);
+
+                const certsRes = await api.get("/api/certificates/");
+                const certs = certsRes.data.results || certsRes.data || [];
+                setCertificates(certs.map(c => ({
+                    ...c,
+                    file: c.file?.startsWith("http") ? c.file : `${api.defaults.baseURL}${c.file}`
+                })));
+
+                const projectsRes = await api.get("/api/projects/");
+                const projects = projectsRes.data.results || projectsRes.data || [];
+
+                if (projects.length > 0) {
+                    const mediaRes = await Promise.all(
+                        projects.map(p => api.get(`/api/portfolio-media/?project=${p.id}`))
+                    );
+
+                    const allMedia = mediaRes.flatMap(r => {
+                        const items = r.data.results || r.data || [];
+                        return items.map(item => ({
+                            ...item,
+                            file: item.file?.startsWith("http")
+                                ? item.file
+                                : `${api.defaults.baseURL}${item.file}`
+                        }));
+                    });
+
+                    setPortfolioItems(allMedia);
+                }
+
+                const expRes = await api.get("/api/experiences/");
+                setExperiences(expRes.data.results || expRes.data || []);
+
+            } catch (err) {
+                console.error("Profile ma'lumotlarini yuklashda xatolik:", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        if (!viewOnly) {
+            loadAllProfileData();
+        }
+    }, [viewOnly]);
+
     useEffect(() => {
         const getProfile = async () => {
-            try {
-                const endpoint = viewOnly && targetUserId
-                    ? `/api/auth/profile/${targetUserId}/`
-                    : "/api/auth/me/";
+            if (viewOnly && targetUserId) {
+                return;
+            }
 
-                const res = await api.get(endpoint);
+            try {
+                const res = await api.get("/api/auth/me/");
                 const data = res.data;
 
                 setUser(data);
@@ -71,9 +288,7 @@ export default function ProfilePageDesktop({ viewOnly = false, targetUserId = nu
                         fullImageUrl = `${baseURL}${data.profile_image}`;
                     }
                     setProfileImage(fullImageUrl);
-                    if (!viewOnly) {
-                        localStorage.setItem("profile_image", fullImageUrl);
-                    }
+                    localStorage.setItem("profile_image", fullImageUrl);
                 } else {
                     setProfileImage("/user.jpg");
                 }
@@ -82,7 +297,10 @@ export default function ProfilePageDesktop({ viewOnly = false, targetUserId = nu
                 setProfileImage("/user.jpg");
             }
         };
-        getProfile();
+
+        if (!viewOnly) {
+            getProfile();
+        }
     }, [viewOnly, targetUserId]);
 
     const capitalizeName = (fullName) => {
@@ -124,21 +342,6 @@ export default function ProfilePageDesktop({ viewOnly = false, targetUserId = nu
         );
     }, [viewOnly]);
 
-    useEffect(() => {
-        const fetchWorkHours = async () => {
-            try {
-                const endpoint = viewOnly && targetUserId
-                    ? `/api/auth/profile/${targetUserId}/`
-                    : "/api/auth/me/";
-                const res = await api.get(endpoint);
-                setWorkHours(res.data.work_hours_per_week || "Не указано");
-            } catch (err) {
-                console.error("Error getting work hours:", err);
-            }
-        };
-        fetchWorkHours();
-    }, [viewOnly, targetUserId]);
-
     const handleSave = async () => {
         if (viewOnly) return;
         try {
@@ -150,100 +353,9 @@ export default function ProfilePageDesktop({ viewOnly = false, targetUserId = nu
         }
     };
 
-    // ✅ Portfolio
-    useEffect(() => {
-        const fetchAllMedia = async () => {
-            try {
-                setLoading(true);
-                const endpoint = viewOnly && targetUserId
-                    ? `/api/auth/profile/${targetUserId}/`
-                    : "/api/projects/";
-
-                let projects = [];
-                if (viewOnly && targetUserId) {
-                    const res = await api.get(endpoint);
-                    projects = res.data.portfolio || [];
-                } else {
-                    const projectRes = await api.get(endpoint);
-                    projects = projectRes.data.results || projectRes.data;
-                }
-
-                if (projects.length === 0) {
-                    setPortfolioItems([]);
-                    setLoading(false);
-                    return;
-                }
-
-                const mediaResponses = await Promise.all(
-                    projects.map((project) =>
-                        api.get(`/api/portfolio-media/?project=${project.id}`)
-                    )
-                );
-                const allMedia = mediaResponses.flatMap((res) => res.data.results || res.data);
-                setPortfolioItems(allMedia);
-            } catch (err) {
-                console.error("Portfolio yuklashda xatolik:", err);
-                setPortfolioItems([]);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchAllMedia();
-    }, [viewOnly, targetUserId]);
-
-    // ✅ Skills
-    const fetchSkills = async () => {
-        try {
-            const endpoint = viewOnly && targetUserId
-                ? `/api/auth/profile/${targetUserId}/`
-                : "/api/skills/";
-
-            const res = await api.get(endpoint);
-
-            if (viewOnly && targetUserId) {
-                setSkills(res.data.skills || []);
-            } else if (Array.isArray(res.data)) {
-                setSkills(res.data);
-            } else if (res.data.results && Array.isArray(res.data.results)) {
-                setSkills(res.data.results);
-            } else {
-                setSkills([]);
-            }
-        } catch (err) {
-            console.error("Skill olishda xatolik:", err);
-            setSkills([]);
-        }
-    };
-
-    useEffect(() => { fetchSkills(); }, [viewOnly, targetUserId]);
-
     const handleSaveSkills = () => {
         if (viewOnly) return;
-        fetchSkills();
     };
-
-    // ✅ Certificates
-    useEffect(() => {
-        const fetchCertificates = async () => {
-            try {
-                const endpoint = viewOnly && targetUserId
-                    ? `/api/auth/profile/${targetUserId}/`
-                    : "/api/certificates/";
-
-                const res = await api.get(endpoint);
-
-                if (viewOnly && targetUserId) {
-                    setCertificates(res.data.certificates || []);
-                } else {
-                    setCertificates(res.data.results || res.data);
-                }
-            } catch (err) {
-                console.error("Xatolik:", err);
-                setCertificates([]);
-            }
-        };
-        fetchCertificates();
-    }, [viewOnly, targetUserId]);
 
     const handleSaveCertificate = async (formData) => {
         if (viewOnly) return;
@@ -285,24 +397,7 @@ export default function ProfilePageDesktop({ viewOnly = false, targetUserId = nu
         }
     };
 
-    useEffect(() => { fetchExperiences(); }, [viewOnly, targetUserId]);
-
     const fetchExperiences = async () => {
-        try {
-            const endpoint = viewOnly && targetUserId
-                ? `/api/auth/profile/${targetUserId}/`
-                : "/api/experiences/";
-
-            const res = await api.get(endpoint);
-
-            if (viewOnly && targetUserId) {
-                setExperiences(res.data.experiences || []);
-            } else {
-                setExperiences(res.data);
-            }
-        } catch (err) {
-            console.error("Tajriba olishda xatolik:", err);
-        }
     };
 
     const handleSaveChanges = () => {
@@ -310,39 +405,38 @@ export default function ProfilePageDesktop({ viewOnly = false, targetUserId = nu
         setIsEditable(false);
     };
 
-    const langCode = selectedLang?.code === "GB" ? "EN" : selectedLang?.code || "RU";
-
     const texts = {
-        RU: {
-            community: "Сообщество", vacancies: "Вакансии", chat: "Чат", companies: "Компании",
-            login: "Войти", logo: "Logo",
-            links: ["Помощь", "Наши вакансии", "Реклама на сайте", "Требования к ПО", "Инвесторам", "Каталог компаний", "Работа по профессиям"],
-            copyright: "© 2025 «HeadHunter – Вакансии». Все права защищены. Карта сайта",
-        },
-        UZ: {
-            community: "Jamiyat", vacancies: "Vakansiyalar", chat: "Chat", companies: "Kompaniyalar",
-            login: "Kirish", logo: "Logo",
-            links: ["Yordam", "Bizning vakantiyalar", "Saytda reklama", "Dasturiy ta'minot talablari", "Investorlar uchun", "Kompaniyalar katalogi", "Kasblar bo'yicha ishlar"],
-            copyright: "© 2025 «HeadHunter – Vakansiyalar». Barcha huquqlar himoyalangan. Sayt xaritasi",
-        },
-        EN: {
-            community: "Community", vacancies: "Vacancies", chat: "Chat", companies: "Companies",
-            login: "Login", logo: "Logo",
-            links: ["Help", "Our Vacancies", "Advertising on site", "Software Requirements", "For Investors", "Company Catalog", "Jobs by Profession"],
-            copyright: "© 2025 «HeadHunter – Vacancies». All rights reserved. Sitemap",
-        },
+        community: "Сообщество", 
+        vacancies: "Вакансии", 
+        chat: "Чат", 
+        companies: "Компании",
+        login: "Войти", 
+        logo: "Logo",
+        links: ["Помощь", "Наши вакансии", "Реклама на сайте", "Требования к ПО", "Инвесторам", "Каталог компаний", "Работа по профессиям"],
+        copyright: "© 2025 «HeadHunter – Вакансии». Все права защищены. Карта сайта",
     };
 
+    if (loading && viewOnly) {
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-[#3066BE] mx-auto"></div>
+                    <p className="mt-4 text-gray-600">Profil yuklanmoqda...</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
-        <div className="font-sans relative">
+        <div className="font-sans relative" key={targetUserId || 'my-profile'}>
             <nav className="fixed top-0 left-0 w-full z-50 bg-[#F4F6FA] shadow-md">
                 <div className="w-full max-w-[1800px] mx-auto flex items-center justify-between px-4 sm:px-6 md:px-10 h-[70px] md:h-[80px] lg:h-[90px]">
                     <a href="/"><img src="/logo.png" alt="Logo" className="w-[80px] h-[55px] md:w-[100px] md:h-[65px] lg:w-[109px] lg:h-[72px] object-contain" /></a>
                     <div className="hidden md:flex gap-4 md:gap-5 lg:gap-8 font-semibold text-[13px] md:text-[14px] lg:text-[16px] tracking-wide mx-auto">
-                        <a href="/community" className="text-black hover:text-[#3066BE] transition">{texts[langCode].community}</a>
-                        <a href="/vacancies" className="text-black hover:text-[#3066BE] transition">{texts[langCode].vacancies}</a>
-                        <a href="/chat" className="text-black hover:text-[#3066BE] transition">{texts[langCode].chat}</a>
-                        <a href="/companies" className="text-black hover:text-[#3066BE] transition">{texts[langCode].companies}</a>
+                        <a href="/community" className="text-black hover:text-[#3066BE] transition">{texts.community}</a>
+                        <a href="/vacancies" className="text-black hover:text-[#3066BE] transition">{texts.vacancies}</a>
+                        <a href="/chat" className="text-black hover:text-[#3066BE] transition">{texts.chat}</a>
+                        <a href="/companies" className="text-black hover:text-[#3066BE] transition">{texts.companies}</a>
                     </div>
                     <div className="hidden md:flex items-center gap-2 sm:gap-3 md:gap-4">
                         <ProfileDropdown />
@@ -426,14 +520,12 @@ export default function ProfilePageDesktop({ viewOnly = false, targetUserId = nu
                                     )}
                                 </div>
 
-                                {/* ✅ LANGUAGES SECTION with viewOnly props */}
                                 <LanguageSection
                                     isEditable={canEdit && isEditable}
                                     viewOnly={viewOnly}
                                     targetUserId={targetUserId}
                                 />
 
-                                {/* ✅ EDUCATION SECTION with viewOnly props */}
                                 <EducationSection
                                     isEditable={canEdit && isEditable}
                                     viewOnly={viewOnly}
@@ -443,7 +535,6 @@ export default function ProfilePageDesktop({ viewOnly = false, targetUserId = nu
 
                             <div className="flex justify-center px-6 py-6 w-full">
                                 <div className="w-[762px]">
-                                    {/* ✅ DETAIL BLOCK with viewOnly props */}
                                     <DetailBlock
                                         isEditable={canEdit && isEditable}
                                         viewOnly={viewOnly}
@@ -522,21 +613,53 @@ export default function ProfilePageDesktop({ viewOnly = false, targetUserId = nu
                     {certificates.length === 0 ? (
                         <div className="flex items-center justify-center text-center px-4 py-10">
                             <p className="text-[#AEAEAE] text-[20px] leading-[30px] max-w-[604px] font-[400]">
-                                Перечисление ваших сертификатов может помочь подтвердить <br />ваши особые знания или способности. (+10%)
+                                Перечисление ваших сертификатов может помочь подтвердить <br />
+                                ваши особые знания или способности. (+10%)
                             </p>
                         </div>
                     ) : (
                         <div className="grid grid-cols-2 gap-6 p-6">
                             {certificates.map((cert) => (
-                                <div key={cert.id} className="cursor-pointer border border-[#D9D9D9] rounded-[15px] overflow-hidden shadow-sm hover:shadow-md transition" onClick={() => setSelectedCertificate(cert)}>
-                                    {cert.file.endsWith(".pdf") ? (
-                                        <div className="flex items-center justify-center h-[200px] bg-gray-100 text-gray-500">PDF fayl</div>
+                                <div
+                                    key={cert.id}
+                                    className="cursor-pointer border border-[#D9D9D9] rounded-[15px] overflow-hidden shadow-sm hover:shadow-md transition"
+                                    onClick={() => setSelectedCertificate(cert)}
+                                >
+                                    {cert.file?.endsWith(".pdf") ? (
+                                        <div className="flex flex-col items-center justify-center h-[200px] bg-gradient-to-br from-blue-50 to-blue-100">
+                                            <svg className="w-16 h-16 text-blue-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                            </svg>
+                                            <p className="text-blue-600 font-medium">PDF Certificate</p>
+                                        </div>
                                     ) : (
-                                        <img src={cert.file.startsWith("http") ? cert.file : `https://jobvacancy-api.duckdns.org${cert.file}`} alt={cert.name} className="w-full h-max object-cover" />
+                                        <div className="relative h-[200px] bg-gray-100">
+                                            <img
+                                                src={cert.file}
+                                                alt={cert.name}
+                                                className="w-full h-full object-cover"
+                                                onError={(e) => {
+                                                    console.error("❌ Certificate rasm yuklanmadi:", cert.file);
+                                                    e.target.style.display = 'none';
+                                                    e.target.nextSibling.style.display = 'flex';
+                                                }}
+                                            />
+                                            <div className="hidden absolute inset-0 flex-col items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
+                                                <svg className="w-16 h-16 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                </svg>
+                                                <p className="text-gray-500 font-medium">Сертификат</p>
+                                                <p className="text-gray-400 text-xs mt-1">Изображение недоступно</p>
+                                            </div>
+                                        </div>
                                     )}
+
                                     <div className="p-4">
-                                        <h4 className="text-lg font-semibold">{cert.name}</h4>
-                                        <p className="text-sm text-gray-500">{cert.organization}</p>
+                                        <h4 className="text-lg font-semibold truncate">{cert.name}</h4>
+                                        <p className="text-sm text-gray-500 truncate">{cert.organization}</p>
+                                        {cert.issue_date && (
+                                            <p className="text-xs text-gray-400 mt-1">{cert.issue_date}</p>
+                                        )}
                                     </div>
                                 </div>
                             ))}
@@ -568,7 +691,6 @@ export default function ProfilePageDesktop({ viewOnly = false, targetUserId = nu
                     </div>
                 )}
 
-                {/* ✅ EXPERIENCE SECTION with viewOnly props */}
                 <ExperienceSection
                     isEditable={canEdit && isEditable}
                     viewOnly={viewOnly}
@@ -589,17 +711,17 @@ export default function ProfilePageDesktop({ viewOnly = false, targetUserId = nu
                 <div className="relative z-20">
                     <div className="max-w-[1440px] mx-auto px-6 py-10 flex flex-col md:flex-row md:justify-between gap-8 text-white">
                         <div className="flex gap-[190px]">
-                            <div><h2 className="text-[48px] leading-[150%] font-black text-white font-gilroy">{texts[langCode].logo}</h2></div>
+                            <div><h2 className="text-[48px] leading-[150%] font-black text-white font-gilroy">{texts.logo}</h2></div>
                             <div className="grid grid-cols-2 gap-[184px]">
                                 <div className="flex flex-col gap-[20px]">
-                                    {texts[langCode].links.slice(0, 4).map((link, idx) => (
+                                    {texts.links.slice(0, 4).map((link, idx) => (
                                         <a key={idx} href="#" className="flex items-center gap-2 text-white hover:text-[#3066BE] text-[18px] leading-[120%] font-normal font-gilroy transition-colors duration-300">
                                             <span>&gt;</span> {link}
                                         </a>
                                     ))}
                                 </div>
                                 <div className="flex flex-col gap-[20px]">
-                                    {texts[langCode].links.slice(4).map((link, idx) => (
+                                    {texts.links.slice(4).map((link, idx) => (
                                         <a key={idx} href="#" className="flex items-center gap-2 text-white hover:text-[#3066BE] text-[18px] leading-[120%] font-normal font-gilroy transition-colors duration-300">
                                             <span>&gt;</span> {link}
                                         </a>
@@ -610,7 +732,7 @@ export default function ProfilePageDesktop({ viewOnly = false, targetUserId = nu
                     </div>
                     <div className="relative z-20 bg-[#3066BE]/70 h-[103px] rounded-[12px] ml-[38px] mr-[38px]">
                         <div className="max-w-[1440px] mx-auto px-6 h-full flex justify-between items-center text-white text-[18px] leading-[120%] font-gilroy">
-                            <p>{texts[langCode].copyright}</p>
+                            <p>{texts.copyright}</p>
                             <div className="flex gap-[20px] text-[24px] mr-[38px]">
                                 <a href="#" className="text-white"><i className="fab fa-whatsapp hover:text-[#F2F4FD]"></i></a>
                                 <a href="#" className="text-white"><i className="fab fa-instagram hover:text-[#F2F4FD]"></i></a>

@@ -1,7 +1,8 @@
+// src/components/VacancyModal.jsx - DESKTOP MODAL (Improved Design)
 import React, { useEffect, useState } from "react";
+import { X, Clock, MapPin, DollarSign, Calendar, Briefcase, Star } from "lucide-react";
 import api from "../utils/api";
 import { toast } from "react-toastify";
-import axios from "axios";
 
 export default function VacancyModal({ onClose, vacancy }) {
     const [loading, setLoading] = useState(true);
@@ -9,7 +10,6 @@ export default function VacancyModal({ onClose, vacancy }) {
     const [isSaved, setIsSaved] = useState(false);
     const [isApplied, setIsApplied] = useState(false);
 
-    // ✅ Vakansiya ma’lumotini olish
     useEffect(() => {
         const fetchVacancyDetail = async () => {
             if (!vacancy?.id) return;
@@ -17,8 +17,8 @@ export default function VacancyModal({ onClose, vacancy }) {
                 setLoading(true);
                 const res = await api.get(`/api/vacancies/jobposts/${vacancy.id}/`);
                 setData(res.data);
-                setIsSaved(res.data.is_saved); // 🔹 Saqlangan holatni o‘rnatamiz
-                setIsApplied(res.data.is_applied); // 🔹 Apply holatni ham o‘rnatamiz
+                setIsSaved(res.data.is_saved);
+                setIsApplied(res.data.is_applied);
             } catch (err) {
                 console.error("Vakansiya detailni olishda xatolik:", err);
                 toast.error("Vakansiyani yuklashda xatolik yuz berdi");
@@ -27,11 +27,13 @@ export default function VacancyModal({ onClose, vacancy }) {
             }
         };
         fetchVacancyDetail();
+
+        document.body.style.overflow = "hidden";
+        return () => { document.body.style.overflow = ""; };
     }, [vacancy?.id]);
 
-    // ✅ Apply funksiyasi
     const handleApply = async () => {
-        if (isApplied) return; // oldin bosilgan bo‘lsa qaytadi
+        if (isApplied) return;
         try {
             await api.post("/api/applications/apply/", {
                 job_post: data.id,
@@ -46,182 +48,243 @@ export default function VacancyModal({ onClose, vacancy }) {
             } else {
                 toast.error("Xatolik yuz berdi");
             }
-            console.error("Xatolik:", err);
         }
     };
 
-    // ✅ Saqlash / unsave qilish funksiyasi
     const toggleSaveVacancy = async () => {
         try {
-            const token = localStorage.getItem("access_token");
-            if (!token) {
-                toast.error("Сначала войдите в систему!");
-                return;
-            }
-
             const method = isSaved ? "delete" : "post";
-            await axios({
-                method,
-                url: `http://localhost:8000/api/vacancies/jobposts/${data.id}/save/`,
-                headers: { Authorization: `Bearer ${token}` },
-            });
-
+            await api({ method, url: `/api/vacancies/jobposts/${data.id}/save/` });
             setIsSaved(!isSaved);
             toast.success(isSaved ? "Удалено из сохранённых ❌" : "Вакансия сохранена ✅");
         } catch (err) {
             console.error("❌ Toggle save error:", err);
-            toast.error("Ошибка при сохранении или удалении вакансии");
+            toast.error("Ошибка при сохранении");
         }
     };
 
-    if (loading)
+    if (loading) {
         return (
             <div className="fixed inset-0 flex items-center justify-center bg-black/40 z-50">
-                <div className="bg-white rounded-xl shadow-lg p-6 text-center">
+                <div className="bg-white rounded-2xl shadow-2xl p-8 text-center">
+                    <div className="w-16 h-16 mx-auto mb-4 border-4 border-[#3066BE] border-t-transparent rounded-full animate-spin"></div>
                     <p className="text-lg text-[#3066BE] font-semibold">Загрузка вакансии...</p>
                 </div>
             </div>
         );
+    }
 
     return (
-        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex justify-end items-start p-4 overflow-auto">
-            <div
-                className="fixed top-0 right-0 z-50 bg-white shadow-lg flex flex-col lg:flex-row rounded-none"
-                style={{ width: "1051px", height: "900px" }}
-            >
-                {/* LEFT */}
-                <div className="w-full lg:w-3/4 p-8 overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-auto">
+            <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-[1100px] max-h-[90vh] flex flex-col overflow-hidden animate-slideIn">
+
+                {/* ✅ HEADER - Modern Design */}
+                <div className="relative bg-gradient-to-r from-[#3066BE] to-[#4A90E2] px-8 py-6 text-white">
                     <button
                         onClick={onClose}
-                        className="absolute top-6 left-6 z-50 bg-white border-none ml-[-8px]"
+                        className="absolute top-6 right-6 w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm flex items-center justify-center transition-all duration-200 group"
                     >
-                        <img
-                            src="/back.png"
-                            alt="Back"
-                            className="w-[34px] h-[18px] object-contain bg-white"
-                        />
+                        <X className="w-5 h-5 text-white group-hover:scale-110 transition-transform" />
                     </button>
 
-                    <h2 className="w-[433px] text-[30px] leading-[150%] text-black font-semibold mt-12 mb-2">
+                    <h2 className="text-[28px] font-bold leading-[1.3] pr-16 mb-3">
                         {data?.title}
                     </h2>
 
-                    {/* 🕓 vaqt & 📍 location */}
-                    <div className="flex items-center gap-3 mb-4 ml-[2px]">
-                        <div className="flex items-center gap-[6px] text-[#AEAEAE] text-[12px] font-medium">
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="12"
-                                height="12"
-                                fill="none"
-                                stroke="#AEAEAE"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                            >
-                                <circle cx="12" cy="12" r="10" />
-                                <polyline points="12 6 12 12 16 14" />
-                            </svg>
-                            <span>{data?.timeAgo || "—"}</span>
+                    <div className="flex flex-wrap items-center gap-4 text-white/90 text-[13px]">
+                        <div className="flex items-center gap-2">
+                            <Clock className="w-4 h-4" />
+                            <span>Опубликовано {new Date(data?.created_at).toLocaleDateString()}</span>
                         </div>
-
-                        <div className="flex items-center gap-[6px] text-[#AEAEAE] text-[12px] font-medium">
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="13"
-                                height="13"
-                                fill="none"
-                                stroke="#AEAEAE"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                            >
-                                <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 1 1 18 0z" />
-                                <circle cx="12" cy="10" r="3" />
-                            </svg>
+                        <div className="flex items-center gap-2">
+                            <MapPin className="w-4 h-4" />
                             <span>{data?.location || "Не указано"}</span>
                         </div>
-                    </div>
-
-                    <div className="w-[800px] h-[1px] bg-[#AEAEAE] my-6"></div>
-
-                    <h3 className="text-[18px] text-black font-semibold mb-2">Описание</h3>
-                    <p className="text-[15px] text-black font-medium mb-6">
-                        {data?.description || "Описание отсутствует."}
-                    </p>
-
-                    <div className="flex items-center gap-6 mb-6">
-                        <div className="flex items-center gap-[6px] text-[20px] font-medium">
-                            💰 <span className="text-[#3066BE]">{data?.budget}</span>
+                        <div className="flex items-center gap-2">
+                            <Briefcase className="w-4 h-4" />
+                            <span>{data?.is_fixed_price ? "Fixed Price" : "Hourly Rate"}</span>
                         </div>
-                        <div className="text-[18px] font-semibold">
-                            Крайний срок:{" "}
-                            {data?.duration
-                                ? new Date(data.duration).toLocaleDateString()
-                                : "Не указано"}
-                        </div>
-                    </div>
-
-                    <div className="w-[800px] h-[1px] bg-[#AEAEAE] my-6"></div>
-
-                    <p className="text-[18px] text-black font-semibold mb-3">Навыки и опыт</p>
-                    <div className="flex flex-wrap gap-3">
-                        {data?.skills?.length ? (
-                            data.skills.map((s, i) => (
-                                <span
-                                    key={i}
-                                    className="bg-gray-200 text-black text-[14px] px-4 py-1.5 rounded-full font-medium"
-                                >
-                  {s}
-                </span>
-                            ))
-                        ) : (
-                            <span className="text-[#AEAEAE]">Навыки не указаны</span>
-                        )}
                     </div>
                 </div>
 
-                {/* Divider */}
-                <div className="w-px h-[calc(100%-150px)] bg-[#AEAEAE] my-[75px] mx-4"></div>
+                {/* ✅ BODY - Two Column Layout */}
+                <div className="flex-1 overflow-y-auto">
+                    <div className="flex flex-col lg:flex-row min-h-full">
 
-                {/* RIGHT */}
-                <div className="w-1/4 mt-[90px] bg-white p-8 flex flex-col items-center gap-4">
+                        {/* LEFT COLUMN - Content */}
+                        <div className="flex-1 p-8 space-y-6">
 
-                    {/* 🔹 Apply button (dynamic) */}
-                    <button
-                        onClick={handleApply}
-                        disabled={isApplied}
-                        className={`w-[168px] h-[59px] rounded-[10px] text-[16px] font-medium transition-all duration-200 flex items-center justify-center
-              ${
-                            isApplied
-                                ? "bg-gray-300 text-gray-700 cursor-not-allowed"
-                                : "bg-[#3066BE] text-white hover:bg-[#2b58a8]"
-                        }`}
-                    >
-                        {isApplied ? "Отклик отправлен ✅" : "Откликнуться"}
-                    </button>
+                            {/* Budget Card */}
+                            <div className="bg-gradient-to-br from-[#F0F7FF] to-[#E6F0FF] border border-[#3066BE]/20 rounded-2xl p-5">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <div className="w-12 h-12 rounded-full bg-[#3066BE]/10 flex items-center justify-center">
+                                        <DollarSign className="w-6 h-6 text-[#3066BE]" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[13px] text-[#6B7280] font-medium">Бюджет проекта</p>
+                                        <p className="text-[24px] font-bold text-[#3066BE]">{data?.budget || "Не указано"}</p>
+                                    </div>
+                                </div>
+                            </div>
 
-                    {/* 🔹 Save / Saved */}
-                    <button
-                        onClick={toggleSaveVacancy}
-                        className={`flex items-center justify-center gap-[10px] text-[16px] font-medium rounded-[10px] w-[168px] h-[59px] border transition-all duration-200
-              ${
-                            isSaved
-                                ? "bg-[#3066BE] text-white border-[#3066BE] hover:bg-[#2b58a8]"
-                                : "bg-white text-[#3066BE] border-[#3066BE] hover:bg-[#f2f7ff]"
-                        }`}
-                    >
-                        <img
-                            src="/save.png"
-                            alt="save"
-                            className={`w-4 h-4 transition-all duration-200 ${
-                                isSaved ? "filter brightness-200" : ""
-                            }`}
-                        />
-                        {isSaved ? "Сохранено" : "Сохранить"}
-                    </button>
+                            {/* Description */}
+                            <div>
+                                <h3 className="text-[18px] font-bold text-black mb-3 flex items-center gap-2">
+                                    <div className="w-1 h-6 bg-[#3066BE] rounded-full"></div>
+                                    Описание вакансии
+                                </h3>
+                                <p className="text-[15px] text-[#4B5563] leading-relaxed">
+                                    {data?.description || "Описание отсутствует."}
+                                </p>
+                            </div>
+
+                            {/* Skills */}
+                            <div>
+                                <h3 className="text-[18px] font-bold text-black mb-3 flex items-center gap-2">
+                                    <div className="w-1 h-6 bg-[#3066BE] rounded-full"></div>
+                                    Навыки и опыт
+                                </h3>
+                                <div className="flex flex-wrap gap-2">
+                                    {data?.skills?.length ? (
+                                        data.skills.map((s, i) => (
+                                            <span
+                                                key={i}
+                                                className="bg-white border-2 border-[#3066BE]/20 text-[#3066BE] px-4 py-2 rounded-full text-[14px] font-medium hover:bg-[#3066BE] hover:text-white transition-all duration-200 cursor-default"
+                                            >
+                                                {s}
+                                            </span>
+                                        ))
+                                    ) : (
+                                        <span className="text-[#AEAEAE] text-[14px]">Навыки не указаны</span>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Additional Info */}
+                            {data?.duration && (
+                                <div className="flex items-center gap-3 p-4 bg-[#F9FAFB] rounded-xl border border-gray-200">
+                                    <Calendar className="w-5 h-5 text-[#6B7280]" />
+                                    <div>
+                                        <p className="text-[13px] text-[#6B7280] font-medium">Крайний срок</p>
+                                        <p className="text-[15px] font-semibold text-black">
+                                            {new Date(data.duration).toLocaleDateString()}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Rating */}
+                            {data?.average_stars > 0 && (
+                                <div className="flex items-center gap-2 p-4 bg-[#FFFBEB] rounded-xl border border-yellow-200">
+                                    <div className="flex items-center gap-1">
+                                        {[...Array(5)].map((_, i) => (
+                                            <Star
+                                                key={i}
+                                                size={18}
+                                                className={`${i < data.average_stars ? "fill-yellow-400 text-yellow-400" : "fill-gray-200 text-gray-200"}`}
+                                            />
+                                        ))}
+                                    </div>
+                                    <span className="text-[14px] font-medium text-[#92400E]">
+                                        {data.average_stars.toFixed(1)} из 5
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* RIGHT COLUMN - Actions */}
+                        <div className="lg:w-[320px] bg-[#F9FAFB] border-l border-gray-200 p-6 flex flex-col gap-4">
+
+                            {/* Apply Button */}
+                            <button
+                                onClick={handleApply}
+                                disabled={isApplied}
+                                className={`w-full h-[56px] rounded-xl text-[16px] font-semibold transition-all duration-200 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl ${
+                                    isApplied
+                                        ? "bg-gray-300 text-gray-600 cursor-not-allowed"
+                                        : "bg-[#3066BE] text-white hover:bg-[#2b58a8] active:scale-95"
+                                }`}
+                            >
+                                {isApplied ? (
+                                    <>
+                                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                        Отклик отправлен
+                                    </>
+                                ) : (
+                                    "Откликнуться"
+                                )}
+                            </button>
+
+                            {/* Save Button */}
+                            <button
+                                onClick={toggleSaveVacancy}
+                                className={`w-full h-[56px] rounded-xl text-[16px] font-semibold transition-all duration-200 flex items-center justify-center gap-2 border-2 ${
+                                    isSaved
+                                        ? "bg-[#3066BE] text-white border-[#3066BE] hover:bg-[#2b58a8]"
+                                        : "bg-white text-[#3066BE] border-[#3066BE] hover:bg-[#F0F7FF]"
+                                } active:scale-95`}
+                            >
+                                <svg
+                                    className="w-5 h-5"
+                                    viewBox="0 0 24 24"
+                                    fill={isSaved ? "currentColor" : "none"}
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                >
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                                </svg>
+                                {isSaved ? "Сохранено" : "Сохранить"}
+                            </button>
+
+                            <div className="h-px bg-gray-300 my-2"></div>
+
+                            {/* Info Cards */}
+                            <div className="space-y-3">
+                                <div className="bg-white rounded-xl p-4 border border-gray-200">
+                                    <p className="text-[12px] text-[#6B7280] mb-1">Тип оплаты</p>
+                                    <p className="text-[14px] font-semibold text-black">
+                                        {data?.is_fixed_price ? "Фиксированная" : "Почасовая"}
+                                    </p>
+                                </div>
+
+                                <div className="bg-white rounded-xl p-4 border border-gray-200">
+                                    <p className="text-[12px] text-[#6B7280] mb-1">Местоположение</p>
+                                    <p className="text-[14px] font-semibold text-black">
+                                        {data?.location || "Удалённо"}
+                                    </p>
+                                </div>
+
+                                {data?.company_name && (
+                                    <div className="bg-white rounded-xl p-4 border border-gray-200">
+                                        <p className="text-[12px] text-[#6B7280] mb-1">Компания</p>
+                                        <p className="text-[14px] font-semibold text-black">
+                                            {data.company_name}
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
+
+            <style jsx>{`
+                @keyframes slideIn {
+                    from {
+                        opacity: 0;
+                        transform: scale(0.95) translateY(20px);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: scale(1) translateY(0);
+                    }
+                }
+                .animate-slideIn {
+                    animation: slideIn 0.3s ease-out;
+                }
+            `}</style>
         </div>
     );
 }

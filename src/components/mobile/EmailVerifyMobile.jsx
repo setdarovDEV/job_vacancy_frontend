@@ -1,4 +1,3 @@
-// src/components/mobile/EmailVerifyMobile.jsx
 import React from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -13,13 +12,15 @@ export default function EmailVerifyMobile({
     const navigate = useNavigate();
 
     return (
-        <div className="min-h-screen bg-white text-black flex items-center justify-center px-4">
-            <div className="w-full max-w-[360px] bg-[#F6F8FC] rounded-2xl p-6 shadow text-center">
-                <h1 className="text-[22px] leading-[30px] font-bold mb-6">Ваш E-mail</h1>
+        <div className="min-h-screen bg-white flex items-center justify-center px-5 py-8">
+            <div className="w-full max-w-[340px]">
+                <div className="bg-[#F8F9FB] rounded-[24px] px-8 py-10">
+                    <h1 className="text-center text-[22px] font-bold mb-8 text-black">
+                        Ваш E-mail
+                    </h1>
 
-                <form onSubmit={onSubmit} className="space-y-5">
-                    <div className="text-left flex justify-center">
-                        <div className="w-full max-w-[300px]">
+                    <form onSubmit={onSubmit} className="space-y-6">
+                        <div>
                             <input
                                 type="email"
                                 inputMode="email"
@@ -28,69 +29,54 @@ export default function EmailVerifyMobile({
                                 onChange={onChangeEmail}
                                 disabled={isLoading}
                                 required
-                                className={`w-full bg-[#F6F8FC] placeholder-[#585858]
-                                    border-0 border-b focus:outline-none py-2 text-[14px]
-                                    ${error ? 'border-red-500' : successMessage ? 'border-green-500' : 'border-black/90'}
+                                className={`w-full bg-[#F8F9FB] placeholder-gray-500
+                                    border-0 border-b focus:outline-none py-3 text-[15px] transition-colors
+                                    ${error ? 'border-red-500' : successMessage ? 'border-green-500' : 'border-gray-300 focus:border-black'}
                                     ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                             />
-                        </div>
-                    </div>
 
-                    {/* Error */}
-                    {error && (
-                        <div className="bg-red-50 border border-red-200 rounded-lg p-2 text-center text-xs text-red-600">
-                            {error}
-                        </div>
-                    )}
-
-                    {/* Success */}
-                    {successMessage && (
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-2 text-center text-xs text-green-600 font-semibold">
-                            {successMessage}
-                        </div>
-                    )}
-
-                    {/* Loading message */}
-                    {isLoading && (
-                        <p className="text-blue-600 text-xs text-center">
-                            Отправляем код на ваш E-mail...
-                        </p>
-                    )}
-
-                    <div className="flex justify-center pt-1">
-                        <button
-                            type="submit"
-                            disabled={isLoading}
-                            className="w-[177px] h-[52px] bg-[#3066BE] text-white text-[15px]
-                                font-semibold rounded-xl active:scale-[0.99] transition
-                                flex items-center justify-center gap-2
-                                disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {isLoading ? (
-                                "Отправка..."
-                            ) : successMessage ? (
-                                "Переход..."
-                            ) : (
-                                <>
-                                    Следующий
-                                    <img src="/next.png" alt="next icon" className="w-4 h-4" />
-                                </>
+                            {error && (
+                                <p className="text-xs text-red-500 mt-2">{error}</p>
                             )}
-                        </button>
-                    </div>
 
-                    {/* Back button */}
-                    <div className="text-center">
-                        <button
-                            type="button"
-                            onClick={() => navigate("/register")}
-                            disabled={isLoading}
-                            className="text-[12px] text-[#3066BE] font-semibold hover:underline disabled:opacity-50"
-                        >
-                            ← Назад к регистрации
-                        </button>
-                    </div>
-                </form>
+                            {successMessage && (
+                                <p className="text-xs text-green-600 mt-2 font-semibold">
+                                    {successMessage}
+                                </p>
+                            )}
+                        </div>
+
+                        {isLoading && (
+                            <p className="text-blue-600 text-xs text-center">
+                                Отправляем код на ваш E-mail...
+                            </p>
+                        )}
+
+                        <div className="flex justify-center pt-2">
+                            <button
+                                type="submit"
+                                disabled={isLoading}
+                                className="w-[190px] h-[52px] bg-[#3066BE] text-white text-[15px]
+                                    font-semibold rounded-[12px] active:scale-[0.98] transition-all
+                                    flex items-center justify-center gap-2 shadow-sm
+                                    disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#2856a8]"
+                            >
+                                {isLoading ? (
+                                    "Отправка..."
+                                ) : successMessage ? (
+                                    "Переход..."
+                                ) : (
+                                    <>
+                                        Следующий
+                                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="rotate-180">
+                                            <path d="M10 4L6 8L10 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                        </svg>
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     );

@@ -1,6 +1,6 @@
 // src/pages/ChatPage.jsx
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { Search, Bell, Send, ArrowLeft, ChevronRight } from "lucide-react";
 import { toast } from "react-toastify";
 import api from "../utils/api";
@@ -30,34 +30,18 @@ const formatTime = (iso) => {
 // TEXTS
 // ============================================
 const TEXTS = {
-    RU: {
-        community: "Сообщество",
-        vacancies: "Вакансии",
-        chat: "Чат",
-        companies: "Компании",
-        login: "Войти",
-        messages: "Сообщения",
-        search: "Поиск...",
-        writeMessage: "Напишите сообщение...",
-        noMessages: "Хозирча хабар йўқ",
-        logo: "Logo",
-        links: ["Помощь", "Наши вакансии", "Реклама на сайте", "Требования к ПО", "Инвесторам", "Каталог компаний", "Работа по профессиям"],
-        copyright: "© 2025 «HeadHunter – Вакансии». Все права защищены. Карта сайта",
-    },
-    UZ: {
-        community: "Jamiyat",
-        vacancies: "Vakansiyalar",
-        chat: "Chat",
-        companies: "Kompaniyalar",
-        login: "Kirish",
-        messages: "Xabarlar",
-        search: "Qidiruv...",
-        writeMessage: "Xabar yozing...",
-        noMessages: "Xabarlar yo'q",
-        logo: "Logo",
-        links: ["Yordam", "Bizning vakantiyalar", "Saytda reklama", "Dasturiy ta'minot talablari", "Investorlar uchun", "Kompaniyalar katalogi", "Kasblar bo'yicha ishlar"],
-        copyright: "© 2025 «HeadHunter – Vakansiyalar». Barcha huquqlar himoyalangan. Sayt xaritasi",
-    },
+    community: "Сообщество",
+    vacancies: "Вакансии",
+    chat: "Чат",
+    companies: "Компании",
+    login: "Войти",
+    messages: "Сообщения",
+    search: "Поиск...",
+    writeMessage: "Напишите сообщение...",
+    noMessages: "Хозирча хабар йўқ",
+    logo: "Logo",
+    links: ["Помощь", "Наши вакансии", "Реклама на сайте", "Требования к ПО", "Инвесторам", "Каталог компаний", "Работа по профессиям"],
+    copyright: "© 2025 «HeadHunter – Вакансии». Все права защищены. Карта сайта",
 };
 
 // ============================================
@@ -147,11 +131,13 @@ function MobileConversation({ open, peer, onClose }) {
                     onClick={handleAvatarClick}
                     className="flex items-center gap-3 active:scale-95 transition"
                 >
-                    <img
-                        src={makeAbsUrl(peer?.avatar_url) || "/user1.png"}
-                        alt={peer?.full_name || "User"}
-                        className="w-10 h-10 rounded-full object-cover cursor-pointer"
-                    />
+                    <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
+                        <img
+                            src={makeAbsUrl(peer?.avatar_url) || "/user1.png"}
+                            alt={peer?.full_name || "User"}
+                            className="w-full h-full object-cover cursor-pointer"
+                        />
+                    </div>
                     <div className="text-left">
                         <p className="text-[15px] font-semibold text-black cursor-pointer hover:text-[#3066BE]">
                             {peer?.full_name || peer?.username || "—"}
@@ -213,9 +199,9 @@ function MobileConversation({ open, peer, onClose }) {
 // ============================================
 export default function ChatPage() {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const location = useLocation();
 
-    const [selectedLang, setSelectedLang] = useState({ flag: "/ru.png", code: "RU" });
-    const [showLang, setShowLang] = useState(false);
     const [showMobileMenu, setShowMobileMenu] = useState(false);
 
     const [user, setUser] = useState(null);
@@ -236,10 +222,48 @@ export default function ChatPage() {
     const fileRef = useRef(null);
     const endRef = useRef(null);
 
-    const langCode = selectedLang?.code === "GB" ? "EN" : selectedLang?.code || "RU";
-    const t = TEXTS[langCode] || TEXTS.RU;
+    const t = TEXTS;
 
     const meIdStr = String(localStorage.getItem("user_id") || "");
+
+    // ✅ URL'dan room parametrini o'qib, chatni ochish
+    useEffect(() => {
+        const roomId = searchParams.get("room");
+        const peerFromState = location.state?.peer;
+
+        if (roomId) {
+            // Chatni yuklash
+            const loadChat = async () => {
+                try {
+                    // Chat ma'lumotlarini olish
+                    const chatRes = await api.get(`/api/chats/${roomId}/`);
+                    const chat = chatRes.data;
+                    
+                    setActiveChat(chat);
+                    
+                    // Agar state'dan peer kelsa, uni ham o'rnatamiz (mobile uchun)
+                    if (peerFromState) {
+                        setActivePeer(peerFromState);
+                    }
+
+                    // Xabarlarni yuklash
+                    const msgRes = await api.get(`/api/chats/${roomId}/messages/`);
+                    setMessages(msgRes.data || []);
+                    
+                    // Chats ro'yxatini yangilash (yangi chat yaratilgan bo'lishi mumkin)
+                    const chatsRes = await api.get("/api/chats/");
+                    setChats(chatsRes.data || []);
+                    
+                    setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+                } catch (err) {
+                    console.error("Load chat from URL error:", err);
+                    toast.error("Chat yuklashda xatolik");
+                }
+            };
+
+            loadChat();
+        }
+    }, [searchParams, location.state]);
 
     useEffect(() => {
         api.get("/api/auth/me/")
@@ -270,6 +294,64 @@ export default function ChatPage() {
         };
         fetchChats();
     }, []);
+
+    // ✅ URL'dan room parametrini o'qib, chatni ochish
+    useEffect(() => {
+        const roomId = searchParams.get("room");
+        const peerFromState = location.state?.peer;
+
+        if (roomId) {
+            console.log("🔍 Loading chat from URL, roomId:", roomId);
+            
+            // Chatni yuklash
+            const loadChat = async () => {
+                try {
+                    // Avval chats ro'yxatini yuklaymiz
+                    const chatsRes = await api.get("/api/chats/");
+                    const allChats = chatsRes.data || [];
+                    setChats(allChats);
+                    
+                    // Chats ro'yxatidan chatni topishga harakat qilamiz
+                    let chat = allChats.find(c => String(c.id) === String(roomId));
+                    
+                    // Agar topilmasa, to'g'ridan-to'g'ri API'dan olishga harakat qilamiz
+                    if (!chat) {
+                        try {
+                            const chatRes = await api.get(`/api/chats/${roomId}/`);
+                            chat = chatRes.data;
+                        } catch (getErr) {
+                            console.warn("Could not get chat by ID, using from list:", getErr);
+                            // Agar hali ham topilmasa, xatolik
+                            if (!chat) {
+                                throw new Error("Chat topilmadi");
+                            }
+                        }
+                    }
+                    
+                    console.log("✅ Chat found:", chat);
+                    setActiveChat(chat);
+                    
+                    // Agar state'dan peer kelsa, uni ham o'rnatamiz (mobile uchun)
+                    if (peerFromState) {
+                        console.log("👥 Setting peer from state:", peerFromState);
+                        setActivePeer(peerFromState);
+                    }
+
+                    // Xabarlarni yuklash
+                    const msgRes = await api.get(`/api/chats/${roomId}/messages/`);
+                    setMessages(msgRes.data || []);
+                    
+                    setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+                } catch (err) {
+                    console.error("❌ Load chat from URL error:", err);
+                    console.error("Error details:", err.response?.data || err.message);
+                    toast.error("Chat yuklashda xatolik: " + (err.message || "Noma'lum xatolik"));
+                }
+            };
+
+            loadChat();
+        }
+    }, [searchParams.get("room"), location.state?.peer]);
 
     useEffect(() => {
         if (!activeChat?.id) return;
@@ -413,7 +495,9 @@ export default function ChatPage() {
                                 <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-lg mt-2 shadow-lg z-50 max-h-64 overflow-y-auto">
                                     {suggests.map((u) => (
                                         <div key={u.id} className="flex items-center gap-3 p-3 hover:bg-gray-100 cursor-pointer" onClick={() => handleSelectUser(u)}>
-                                            <img src={makeAbsUrl(u.avatar_url) || "/user1.png"} alt={u.full_name} className="w-10 h-10 rounded-full object-cover border" />
+                                            <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 border">
+                                                <img src={makeAbsUrl(u.avatar_url) || "/user1.png"} alt={u.full_name} className="w-full h-full object-cover" />
+                                            </div>
                                             <div className="flex flex-col">
                                                 <span className="font-medium text-black">{u.full_name || u.username}</span>
                                                 <span className="text-sm text-gray-500">{u.role}</span>
@@ -424,32 +508,41 @@ export default function ChatPage() {
                             )}
                         </div>
 
+                        {/* DESKTOP - Left sidebar chat list */}
                         <div className="flex-1 overflow-y-auto flex flex-col gap-3">
                             {chats.map((chat) => (
-                                <div key={chat.id} className="flex items-center gap-3 p-3 bg-[#F4F6FA] rounded-xl hover:shadow transition cursor-pointer" onClick={() => setActiveChat(chat)}>
-                                    {/* ✅ Avatar bosiladigan */}
-                                    <img
-                                        src={makeAbsUrl(chat.other_user?.avatar_url) || "/user1.png"}
-                                        className="w-[46px] h-[46px] rounded-full object-cover cursor-pointer hover:ring-2 hover:ring-[#3066BE]"
-                                        onClick={(e) => {
+                                <div
+                                    key={chat.id}
+                                    className="flex items-center gap-3 p-3 bg-[#F4F6FA] rounded-xl hover:shadow transition cursor-pointer"
+                                    onClick={() => setActiveChat(chat)}
+                                >
+                                    {/* Avatar */}
+                                    <div className="w-[46px] h-[46px] rounded-full overflow-hidden flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-[#3066BE]">
+                                        <img
+                                            src={makeAbsUrl(chat.other_user?.avatar_url) || "/user1.png"}
+                                            className="w-full h-full object-cover"
+                                            onClick={(e) => {
                                             e.stopPropagation();
-                                            handleUserClick(chat.other_user?.id);
+                                            handleUserClick(chat.other_user?.id); // ✅ To'g'ri
                                         }}
                                         onError={(e) => (e.currentTarget.src = "/user1.png")}
                                     />
+                                    </div>
+
                                     <div className="flex-1">
-                                        {/* ✅ Ism bosiladigan */}
+                                        {/* Name */}
                                         <h3
                                             className="font-semibold text-black cursor-pointer hover:text-[#3066BE]"
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                handleUserClick(chat.other_user?.id);
+                                                handleUserClick(chat.other_user?.id); // ✅ To'g'ri
                                             }}
                                         >
                                             {chat.other_user?.full_name || chat.other_user?.username || "—"}
                                         </h3>
                                         <p className="text-gray-500 text-sm truncate">{chat.last_message?.text || "—"}</p>
                                     </div>
+
                                     <span className="text-xs text-gray-400">{formatTime(chat.last_message?.created_at)}</span>
                                 </div>
                             ))}
@@ -457,20 +550,24 @@ export default function ChatPage() {
                     </div>
 
                     <div className="flex-1 bg-[#F4F6FA] rounded-2xl flex flex-col">
+                        {/* DESKTOP - Active chat header */}
                         <div className="flex items-center gap-4 p-4 border-b">
-                            {/* ✅ Avatar bosiladigan */}
-                            <img
-                                src={makeAbsUrl(activeChat?.other_user?.avatar_url) || "/user1.png"}
-                                className="w-[50px] h-[50px] rounded-full object-cover cursor-pointer hover:ring-2 hover:ring-[#3066BE]"
-                                alt=""
-                                onClick={() => handleUserClick(activeChat?.other_user?.id)}
-                                onError={(e) => (e.currentTarget.src = "/user1.png")}
-                            />
+                            {/* Avatar */}
+                            <div className="w-[50px] h-[50px] rounded-full overflow-hidden flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-[#3066BE]">
+                                <img
+                                    src={makeAbsUrl(activeChat?.other_user?.avatar_url) || "/user1.png"}
+                                    className="w-full h-full object-cover"
+                                    alt=""
+                                    onClick={() => handleUserClick(activeChat?.other_user?.id)} // ✅ To'g'ri
+                                    onError={(e) => (e.currentTarget.src = "/user1.png")}
+                                />
+                            </div>
+
                             <div>
-                                {/* ✅ Ism bosiladigan */}
+                                {/* Name */}
                                 <h3
                                     className="font-semibold text-lg text-black cursor-pointer hover:text-[#3066BE]"
-                                    onClick={() => handleUserClick(activeChat?.other_user?.id)}
+                                    onClick={() => handleUserClick(activeChat?.other_user?.id)} // ✅ To'g'ri
                                 >
                                     {activeChat?.other_user?.full_name || activeChat?.other_user?.username || "—"}
                                 </h3>
@@ -617,7 +714,9 @@ export default function ChatPage() {
                                     <div className="absolute z-50 bg-white shadow-md rounded-md mt-2 w-full max-h-64 overflow-y-auto border">
                                         {suggests.map((u) => (
                                             <div key={u.id} onClick={() => handleSelectUser(u)} className="flex items-center gap-3 p-2 hover:bg-gray-100 cursor-pointer">
-                                                <img src={makeAbsUrl(u.avatar_url) || "/user.jpg"} className="w-8 h-8 rounded-full" alt="" />
+                                                <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+                                                    <img src={makeAbsUrl(u.avatar_url) || "/user.jpg"} className="w-full h-full object-cover" alt="" />
+                                                </div>
                                                 <div className="flex flex-col">
                                                     <span className="text-sm font-medium">{u.full_name}</span>
                                                     <span className="text-xs text-gray-500">@{u.username}</span>
@@ -632,14 +731,16 @@ export default function ChatPage() {
                                 {chats.map((chat) => (
                                     <div key={chat.id} onClick={() => setActiveChat(chat)} className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition ${activeChat?.id === chat.id ? "bg-[#E8EEFF]" : "bg-[#F4F6FA] hover:shadow"}`}>
                                         {/* ✅ Avatar bosiladigan */}
-                                        <img
-                                            src={makeAbsUrl(chat.other_user?.avatar_url) || "/profile.png"}
-                                            className="w-[42px] h-[42px] rounded-full object-cover cursor-pointer hover:ring-2 hover:ring-[#3066BE]"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleUserClick(chat.other_user?.id);
-                                            }}
-                                        />
+                                        <div className="w-[42px] h-[42px] rounded-full overflow-hidden flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-[#3066BE]">
+                                            <img
+                                                src={makeAbsUrl(chat.other_user?.avatar_url)}
+                                                className="w-full h-full object-cover"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleUserClick(chat.other_user?.id);
+                                                }}
+                                            />
+                                        </div>
                                         <div className="flex-1">
                                             {/* ✅ Ism bosiladigan */}
                                             <h3

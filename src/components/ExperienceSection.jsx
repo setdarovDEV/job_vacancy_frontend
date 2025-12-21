@@ -3,7 +3,7 @@ import { Plus } from "lucide-react";
 import ProfileExperienceModal from "../components/ProfileExperienceModal";
 import api from "../utils/api";
 
-export default function ExperienceSection({ isEditable }) {
+export default function ExperienceSection({ isEditable, viewOnly = false, targetUserId = null }) {
     const [experiences, setExperiences] = useState([]);
     const [isExperienceOpen, setIsExperienceOpen] = useState(false);
     const [editExperience, setEditExperience] = useState(null);
@@ -18,16 +18,34 @@ export default function ExperienceSection({ isEditable }) {
     };
 
     useEffect(() => {
-        setLoading(true);
-        api
-            .get("/api/experiences/")
-            .then((res) => {
-                console.log("Experiences response:", res.data);
-                setExperiences(normalizeList(res.data));
-            })
-            .catch((err) => console.error("Xatolik:", err))
-            .finally(() => setLoading(false));
-    }, []);
+        const fetchExperiences = async () => {
+            setLoading(true);
+            try {
+                // ✅ ViewOnly mode uchun profile API, aks holda experiences API
+                const endpoint = viewOnly && targetUserId
+                    ? `/api/auth/profile/${targetUserId}/`
+                    : "/api/experiences/";
+
+                console.log("✅ Fetching experiences from:", endpoint);
+                const res = await api.get(endpoint);
+                console.log("✅ Experiences response:", res.data);
+
+                // ✅ ViewOnly mode da profile ichidan, aks holda API dan
+                if (viewOnly && targetUserId) {
+                    setExperiences(normalizeList(res.data.experiences || []));
+                } else {
+                    setExperiences(normalizeList(res.data));
+                }
+            } catch (err) {
+                console.error("❌ Experiences fetch error:", err.response?.data);
+                setExperiences([]);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchExperiences();
+    }, [viewOnly, targetUserId]);
 
     const reloadExperiences = async () => {
         try {
@@ -90,15 +108,16 @@ export default function ExperienceSection({ isEditable }) {
                     <h3 className="text-[24px] leading-[36px] font-bold text-[#000000] font-gilroy">
                         Опыт работы
                     </h3>
-                    <button
-                        onClick={() => {
-                            if (isEditable) {
-                                setEditExperience(null);
-                                setIsExperienceOpen(true);
-                            }
-                        }}
-                        className="bg-white border-none w-[10px]"
-                    >
+                    {!viewOnly && (
+                        <button
+                            onClick={() => {
+                                if (isEditable) {
+                                    setEditExperience(null);
+                                    setIsExperienceOpen(true);
+                                }
+                            }}
+                            className="bg-white border-none w-[10px]"
+                        >
                         <div
                             className={`w-[23px] h-[23px] rounded-full flex items-center justify-center transition ${
                                 isEditable
@@ -109,6 +128,7 @@ export default function ExperienceSection({ isEditable }) {
                             <Plus size={25} stroke={isEditable ? "#3066BE" : "#AFAFAF"} />
                         </div>
                     </button>
+                    )}
                 </div>
 
                 {/* Ro'yxat */}
@@ -148,7 +168,7 @@ export default function ExperienceSection({ isEditable }) {
                                     </p>
                                 )}
 
-                                {isEditable && (
+                                {isEditable && !viewOnly && (
                                     <div className="flex justify-end gap-3 mt-3">
                                         <button
                                             onClick={() => {

@@ -28,10 +28,17 @@ export default function EducationSection({ isEditable, viewOnly = false, targetU
             console.log("✅ Fetching education from:", endpoint);
             const res = await api.get(endpoint);
             console.log("✅ Education response:", res.data);
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/56b1ed58-a790-463d-8e9d-601f087de809',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'EducationSection.jsx:29',message:'Education response received',data:{viewOnly,targetUserId,hasEducation:!!res.data.education,educationCount:res.data.education?.length||0,hasEducations:!!res.data.educations,educationsCount:res.data.educations?.length||0,allKeys:Object.keys(res.data)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+            // #endregion
 
             // ✅ ViewOnly mode da profile ichidan, aks holda API dan
             if (viewOnly && targetUserId) {
-                setEducations(res.data.education || []);
+                const educationsData = res.data.education || res.data.educations || [];
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/56b1ed58-a790-463d-8e9d-601f087de809',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'EducationSection.jsx:34',message:'Setting educations',data:{educationsData,count:educationsData.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+                // #endregion
+                setEducations(educationsData);
             } else {
                 setEducations(Array.isArray(res.data) ? res.data : (res.data.results || []));
             }

@@ -33,6 +33,10 @@ import PricingPlans from "./pages/PricingPlans.jsx";
 import AuthGateway from "./pages/AuthGateway.jsx";
 import AnyUserProfile from './pages/AnyUserProfile';
 import EmployerProfilePage from "./pages/EmployerProfilePage.jsx";
+import ProfileSettings from "./pages/ProfileSettings.jsx";
+
+// ✅ NEW: Import EmployerApplications page
+import EmployerApplications from "./pages/ApplicantProfileByApplication.jsx";
 
 // ✅ Responsive komponentlar import
 import HomeEmployerTablet from "./components/tablet/HomeEmployer.jsx";
@@ -149,6 +153,8 @@ export default function App() {
                         </PrivateRoute>
                     }
                 />
+
+                {/* ✅ O'z profilim - role bo'yicha */}
                 <Route
                     path="/profile"
                     element={
@@ -157,38 +163,18 @@ export default function App() {
                         </PrivateRoute>
                     }
                 />
+
+                {/* ✅ BOSHQA userlar profili */}
                 <Route
-                    path="/profiles/:id"
+                    path="/profile/:userId"
                     element={
                         <PrivateRoute>
-                            <ProfilePage />
+                            <AnyUserProfile />
                         </PrivateRoute>
                     }
                 />
-                <Route
-                    path="/employer/applications"
-                    element={
-                        <PrivateRoute>
-                            <EmployerResponsesPage />
-                        </PrivateRoute>
-                    }
-                />
-                <Route
-                    path="/employer/applications/:jobId"
-                    element={
-                        <PrivateRoute>
-                            <EmployerResponsesPage />
-                        </PrivateRoute>
-                    }
-                />
-                <Route
-                    path="/applicants/by-application/:applicationId"
-                    element={
-                        <PrivateRoute>
-                            <ApplicantProfileByApplication />
-                        </PrivateRoute>
-                    }
-                />
+
+                {/* ✅ FIXED: Activity page for JOB_SEEKER */}
                 <Route
                     path="/activity"
                     element={
@@ -197,6 +183,36 @@ export default function App() {
                         </PrivateRoute>
                     }
                 />
+
+                {/* ✅ NEW: Employer Applications page */}
+                <Route
+                    path="/employer/applications"
+                    element={
+                        <PrivateRoute>
+                            <EmployerApplications />
+                        </PrivateRoute>
+                    }
+                />
+
+                {/* ✅ LEGACY: Keep for backward compatibility */}
+                <Route
+                    path="/employer/applications/:jobId"
+                    element={
+                        <PrivateRoute>
+                            <EmployerResponsesPage />
+                        </PrivateRoute>
+                    }
+                />
+
+                <Route
+                    path="/applicants/by-application/:applicationId"
+                    element={
+                        <PrivateRoute>
+                            <ApplicantProfileByApplication />
+                        </PrivateRoute>
+                    }
+                />
+
                 <Route
                     path="/pricing-plans"
                     element={
@@ -206,9 +222,26 @@ export default function App() {
                     }
                 />
 
+                {/* ✅ Profile Settings */}
+                <Route
+                    path="/profile/settings"
+                    element={
+                        <PrivateRoute>
+                            <ProfileSettings />
+                        </PrivateRoute>
+                    }
+                />
+                <Route
+                    path="/settings"
+                    element={
+                        <PrivateRoute>
+                            <ProfileSettings />
+                        </PrivateRoute>
+                    }
+                />
+
                 {/* Other routes */}
                 <Route path="/login/success" element={<LoginSuccess />} />
-                <Route path="/profile/:userId" element={<AnyUserProfile />} />
                 <Route path="/employer/:id" element={<EmployerProfilePage />} />
             </Routes>
         </BrowserRouter>

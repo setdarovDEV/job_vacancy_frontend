@@ -1,5 +1,4 @@
 import React from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
 
 export default function EmailCodeVerifyTablet({
                                                   otp,
@@ -15,116 +14,101 @@ export default function EmailCodeVerifyTablet({
                                                   handleChange,
                                                   handleKeyDown,
                                                   handlePaste,
+                                                  isValidCode,
                                               }) {
-    const navigate = useNavigate();
-    const [searchParams] = useSearchParams();
-    const userId = searchParams.get("uid");
-
-    const code = otp.join("").trim();
-    const isValidCode = /^\d{6}$/.test(code);
-
-    const handleFormSubmit = (e) => {
-        e.preventDefault();
-        if (!submitting) {
-            onSubmit();
-        }
-    };
-
     return (
-        <div className="w-full min-h-screen bg-white flex text-black items-center justify-center px-4">
-            <div className="w-full max-w-[360px] bg-[#F5F8FC] rounded-2xl px-6 py-8 shadow-md">
-                <h2 className="text-center text-[20px] font-semibold mb-2">
+        <div className="w-full min-h-screen bg-[#F5F7FA] flex items-center justify-center px-6 py-10">
+            <div className="w-full max-w-[480px] bg-[#F0F3F8] rounded-[32px] px-12 py-12">
+                <h1 className="text-center text-[26px] font-bold text-black mb-10">
                     Проверьте E-mail
-                </h2>
-                <p className="text-center text-xs text-gray-600 mb-4">
-                    Мы отправили 6-значный код на вашу почту
-                </p>
+                </h1>
 
-                <form
-                    onSubmit={handleFormSubmit}
-                    className="flex flex-col items-center gap-3"
-                >
-                    {/* Code input (6ta) */}
-                    <div
-                        className="flex gap-2 justify-center"
-                        onPaste={handlePaste}
-                    >
-                        {otp.map((val, i) => (
-                            <input
-                                key={i}
-                                type="text"
-                                inputMode="numeric"
-                                maxLength="1"
-                                value={val}
-                                onChange={(e) => handleChange(e.target.value, i)}
-                                onKeyDown={(e) => handleKeyDown(e, i)}
-                                ref={(el) => (inputsRef.current[i] = el)}
-                                disabled={submitting}
-                                className={`w-10 h-12 text-center text-[20px] border rounded-md focus:outline-none transition
-                                    ${error ? "border-red-500" : "border-black"}
-                                    ${submitting ? "opacity-50 cursor-not-allowed" : "focus:border-[#3066BE]"}`}
-                            />
-                        ))}
-                    </div>
+                {/* OTP Inputs */}
+                <div className="flex justify-center gap-2.5 mb-7" onPaste={handlePaste}>
+                    {otp.map((digit, idx) => (
+                        <input
+                            key={idx}
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={1}
+                            value={digit}
+                            onChange={(e) => {
+                                console.log("Tablet input changed:", e.target.value, idx);
+                                handleChange(e.target.value, idx);
+                            }}
+                            onKeyDown={(e) => handleKeyDown(e, idx)}
+                            ref={(el) => (inputsRef.current[idx] = el)}
+                            disabled={submitting}
+                            autoComplete="off"
+                            className={`w-[55px] h-[65px] border-2 rounded-[14px] text-center text-[28px] font-semibold focus:outline-none transition-all bg-white ${
+                                error
+                                    ? 'border-red-500'
+                                    : digit
+                                        ? 'border-[#3066BE]'
+                                        : 'border-[#D1D5DB] focus:border-[#3066BE]'
+                            } ${submitting ? 'opacity-50 cursor-not-allowed' : 'cursor-text'}`}
+                        />
+                    ))}
+                </div>
 
-                    {/* Error */}
-                    {error && (
-                        <div className="bg-red-50 border border-red-200 rounded-lg p-2 text-xs text-red-600 text-center w-full mt-1">
-                            {error}
-                        </div>
-                    )}
-
-                    {/* Success */}
-                    {successMessage && (
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-2 text-xs text-green-600 text-center w-full mt-1 font-semibold">
-                            {successMessage}
-                        </div>
-                    )}
-
-                    {/* Timer / Resend */}
-                    <div className="text-xs text-gray-600 mt-1">
-                        {timer > 0 ? (
-                            <span>Код действителен: {formatTime(timer)}</span>
-                        ) : (
-                            <button
-                                type="button"
-                                onClick={onResend}
-                                disabled={resending}
-                                className="text-[#2F61C9] hover:underline disabled:opacity-50 disabled:cursor-not-allowed bg-transparent border-none cursor-pointer"
-                            >
-                                {resending
-                                    ? "Отправка..."
-                                    : "Не получили код? Отправить повторно"}
-                            </button>
-                        )}
-                    </div>
-
-                    {/* Submit */}
-                    <button
-                        type="submit"
-                        disabled={!isValidCode || submitting}
-                        className={`w-[160px] bg-[#2F61C9] text-white font-semibold py-2 rounded-xl hover:opacity-90 transition mt-2
-                            ${!isValidCode || submitting ? "opacity-50 cursor-not-allowed" : ""}`}
-                    >
-                        {submitting
-                            ? "Проверка..."
-                            : successMessage
-                                ? "Переход..."
-                                : "Следующий →"}
-                    </button>
-
-                    {/* Back button */}
-                    <div className="text-center mt-2">
+                {/* Timer */}
+                <div className="text-center mb-7">
+                    {timer > 0 ? (
+                        <p className="text-[#3066BE] text-[17px] font-semibold">
+                            {formatTime(timer)}
+                        </p>
+                    ) : (
                         <button
                             type="button"
-                            onClick={() => navigate(userId ? `/register/step2?uid=${userId}` : "/register/step2")}
-                            disabled={submitting}
-                            className="text-xs text-[#3066BE] font-semibold hover:underline disabled:opacity-50 bg-transparent border-none"
+                            onClick={onResend}
+                            disabled={resending}
+                            className="text-[14px] text-[#3066BE] font-semibold hover:underline disabled:opacity-50 bg-transparent border-none cursor-pointer transition"
                         >
-                            ← Назад
+                            {resending ? "Отправка..." : "Не получили код?"}
                         </button>
+                    )}
+                </div>
+
+                {/* Error */}
+                {error && (
+                    <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-5 text-center">
+                        <p className="text-sm text-red-600">{error}</p>
                     </div>
-                </form>
+                )}
+
+                {/* Success */}
+                {successMessage && (
+                    <div className="bg-green-50 border border-green-200 rounded-xl p-3 mb-5 text-center">
+                        <p className="text-sm text-green-600 font-semibold">{successMessage}</p>
+                    </div>
+                )}
+
+                {/* Submit Button */}
+                <div className="flex justify-center">
+                    <button
+                        type="button"
+                        onClick={onSubmit}
+                        disabled={!isValidCode || submitting}
+                        className={`w-[210px] h-[54px] bg-[#3066BE] text-white text-[15px] font-semibold rounded-[14px] transition-all flex items-center justify-center gap-2 shadow-md ${
+                            !isValidCode || submitting
+                                ? "opacity-50 cursor-not-allowed"
+                                : "hover:bg-[#2856a8] active:scale-[0.98]"
+                        }`}
+                    >
+                        {submitting ? (
+                            "Проверка..."
+                        ) : successMessage ? (
+                            "Переход..."
+                        ) : (
+                            <>
+                                <span>Следующий</span>
+                                <svg width="17" height="17" viewBox="0 0 16 16" fill="none" className="rotate-180">
+                                    <path d="M10 4L6 8L10 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                            </>
+                        )}
+                    </button>
+                </div>
             </div>
         </div>
     );

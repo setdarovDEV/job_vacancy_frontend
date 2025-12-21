@@ -1,324 +1,224 @@
-// src/pages/EmailVerifyPage.jsx
 import React, { useState, useEffect, useRef } from "react";
-import api from "../utils/api";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import EmailCodeVerifyTablet from "../components/tablet/EmailCodeVerifyTablet";
-import EmailCodeVerifyMobile from "../components/mobile/EmailCodeVerifyMobile";
+import api from "../utils/api";
+import "./EmailVerification.css";
 
-export default function EmailVerifyPage() {
+const EmailVerifyPage = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-    const [otp, setOtp] = useState(Array(6).fill(""));
-    const [timer, setTimer] = useState(1800); // 30 minut = 1800 sekund
+    const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+    const [timer, setTimer] = useState(120);
+    const [canResend, setCanResend] = useState(false);
     const [error, setError] = useState("");
-    const [submitting, setSubmitting] = useState(false);
-    const [resending, setResending] = useState(false);
-    const [successMessage, setSuccessMessage] = useState("");
-    const inputsRef = useRef([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const inputRefs = useRef([]);
 
-    // ✅ URL'dan yoki localStorage'dan user_id olish
     const userId = searchParams.get("uid") || localStorage.getItem("user_id");
 
-    console.log("📍 Step 3 - User ID:", userId);
-
-    // Redirect if no userId
     useEffect(() => {
         if (!userId) {
-            setError("Foydalanuvchi aniqlanmadi. Qaytadan ro'yxatdan o'ting.");
+            setError("Фойдаланувчи аникланмади. Қайтадан рўйхатдан ўтинг.");
             setTimeout(() => navigate("/register"), 2000);
         }
     }, [userId, navigate]);
 
-    // Countdown timer
+    // Timer countdown
     useEffect(() => {
-        if (timer <= 0) return;
-        const t = setInterval(() => setTimer((p) => Math.max(0, p - 1)), 1000);
-        return () => clearInterval(t);
+        if (timer > 0) {
+            const interval = setInterval(() => {
+                setTimer(prev => prev - 1);
+            }, 1000);
+            return () => clearInterval(interval);
+        } else {
+            setCanResend(true);
+        }
     }, [timer]);
 
-    // Autofocus first input
-    useEffect(() => {
-        inputsRef.current?.[0]?.focus?.();
-    }, []);
-
-    const code = otp.join("").trim();
-    const isValidCode = /^\d{6}$/.test(code);
-
-    const handleChange = (val, idx) => {
-        setError("");
-        setSuccessMessage("");
-        const v = String(val || "").replace(/\D/g, "").slice(0, 1);
-        const next = [...otp];
-        next[idx] = v;
-        setOtp(next);
-        if (v && idx < 5) inputsRef.current[idx + 1]?.focus();
-    };
-
-    const handleKeyDown = (e, idx) => {
-        if (e.key === "Backspace") {
-            e.preventDefault();
-            const next = [...otp];
-            if (next[idx]) {
-                next[idx] = "";
-                setOtp(next);
-                return;
-            }
-            if (idx > 0) {
-                inputsRef.current[idx - 1]?.focus();
-                const n2 = [...otp];
-                n2[idx - 1] = "";
-                setOtp(n2);
-            }
-        }
-        if (e.key === "ArrowLeft" && idx > 0) {
-            e.preventDefault();
-            inputsRef.current[idx - 1]?.focus();
-        }
-        if (e.key === "ArrowRight" && idx < 5) {
-            e.preventDefault();
-            inputsRef.current[idx + 1]?.focus();
-        }
-        if (e.key === "Enter") {
-            e.preventDefault();
-            handleSubmit();
-        }
-    };
-
-    const handlePaste = (e) => {
-        const text = (e.clipboardData?.getData("text") || "").replace(/\D/g, "").slice(0, 6);
-        if (!text) return;
-        e.preventDefault();
-        const next = Array(6).fill("");
-        for (let i = 0; i < Math.min(text.length, 6); i++) {
-            next[i] = text[i];
-        }
-        setOtp(next);
-        inputsRef.current[Math.min(text.length, 5)]?.focus();
-    };
-
-    const handleSubmit = async () => {
-        setError("");
-        setSuccessMessage("");
-
-        if (!userId) {
-            setError("Foydalanuvchi aniqlanmadi");
-            return;
-        }
-
-        if (!isValidCode) {
-            setError("Пожалуйста, введите все 6 цифр.");
-            return;
-        }
-
-        try {
-            setSubmitting(true);
-            await api.post(`/api/auth/register/step3/${userId}/`, { code });
-
-            setSuccessMessage("Email подтвержден! ✅");
-
-            console.log("✅ Step 3 - Success, navigating to Step 4 with uid:", userId);
-
-            // ✅ 1.5 sekunddan keyin Step 4 ga o'tish (URL bilan)
-            setTimeout(() => {
-                navigate(`/register/step4?uid=${userId}`);
-            }, 1500);
-        } catch (err) {
-            const data = err?.response?.data || {};
-            const errorMsg = data.error || data.detail || data.non_field_errors;
-
-            if (typeof errorMsg === "string") {
-                setError(errorMsg);
-            } else if (Array.isArray(errorMsg)) {
-                setError(errorMsg[0]);
-            } else {
-                setError("Неверный или истёкший код.");
-            }
-
-            // Agar expired bo'lsa, resend taklif qilish
-            if (errorMsg && errorMsg.includes("истёк")) {
-                setTimer(0);
-            }
-        } finally {
-            setSubmitting(false);
-        }
-    };
-
-    const handleResend = async () => {
-        if (!userId) {
-            setError("Foydalanuvchi aniqlanmadi");
-            return;
-        }
-
-        try {
-            setResending(true);
-            setError("");
-            await api.post(`/api/auth/register/resend-code/${userId}/`);
-
-            setTimer(1800); // Reset to 30 minutes
-            setOtp(Array(6).fill(""));
-            setSuccessMessage("Новый код отправлен на ваш E-mail! ✅");
-            inputsRef.current?.[0]?.focus?.();
-
-            // Success message'ni 3 sekunddan keyin o'chirish
-            setTimeout(() => setSuccessMessage(""), 3000);
-        } catch (err) {
-            const data = err?.response?.data || {};
-            setError(data.error || data.detail || "Не удалось отправить код");
-        } finally {
-            setResending(false);
-        }
-    };
-
-    // Format timer (MM:SS)
+    // Format timer display
     const formatTime = (seconds) => {
         const mins = Math.floor(seconds / 60);
         const secs = seconds % 60;
-        return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    // Handle OTP input change
+    const handleChange = (index, value) => {
+        if (!/^\d*$/.test(value)) return;
+
+        const newOtp = [...otp];
+        newOtp[index] = value;
+        setOtp(newOtp);
+
+        if (error) setError("");
+
+        if (value && index < 5) {
+            inputRefs.current[index + 1]?.focus();
+        }
+    };
+
+    // Handle backspace
+    const handleKeyDown = (index, e) => {
+        if (e.key === 'Backspace' && !otp[index] && index > 0) {
+            inputRefs.current[index - 1]?.focus();
+        }
+    };
+
+    // Handle paste
+    const handlePaste = (e) => {
+        e.preventDefault();
+        const pastedData = e.clipboardData.getData('text').slice(0, 6);
+        if (!/^\d+$/.test(pastedData)) return;
+
+        const newOtp = pastedData.split('');
+        setOtp([...newOtp, ...Array(6 - newOtp.length).fill('')]);
+
+        const focusIndex = Math.min(pastedData.length, 5);
+        inputRefs.current[focusIndex]?.focus();
+    };
+
+    // Handle submit - Backend step3 ga mos
+    const handleSubmit = async () => {
+        const otpCode = otp.join('');
+        if (otpCode.length !== 6) {
+            setError("Илтимос, 6 рақамли кодни киритинг");
+            return;
+        }
+
+        setIsLoading(true);
+        setError("");
+
+        try {
+            console.log('🔵 Verifying code:', otpCode);
+            console.log('🔵 User ID:', userId);
+
+            // ✅ Backend endpoint: /api/auth/register/step3/<uuid:user_id>/
+            const response = await api.post(`/api/auth/register/step3/${userId}/`, {
+                code: otpCode
+            });
+
+            console.log('✅ Verification successful:', response.data);
+
+            // Navigate to step 4 (role selection)
+            setTimeout(() => {
+                navigate(`/register/step4?uid=${userId}`);
+            }, 500);
+
+        } catch (err) {
+            console.error('❌ Verification failed:', err);
+
+            const data = err?.response?.data || {};
+            let errorMsg = "Код нотўғри. Қайтадан уриниб кўринг.";
+
+            if (data.error) {
+                errorMsg = data.error;
+            } else if (data.detail) {
+                errorMsg = data.detail;
+            } else if (data.code) {
+                // Agar code field bo'yicha xato bo'lsa
+                errorMsg = Array.isArray(data.code) ? data.code[0] : data.code;
+            }
+
+            setError(errorMsg);
+
+            // Clear OTP on error
+            setOtp(["", "", "", "", "", ""]);
+            inputRefs.current[0]?.focus();
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Resend code - Backend resend endpoint
+    const handleResend = async () => {
+        if (!canResend) return;
+
+        setIsLoading(true);
+        setError("");
+
+        try {
+            console.log('📧 Resending code to user:', userId);
+
+            // ✅ Backend endpoint: /api/auth/register/resend-code/<uuid:user_id>/
+            const response = await api.post(`/api/auth/register/resend-code/${userId}/`);
+
+            console.log('✅ Code resent:', response.data);
+
+            setTimer(120);
+            setCanResend(false);
+            setOtp(["", "", "", "", "", ""]);
+            inputRefs.current[0]?.focus();
+
+            // Optional: Ko'rsatish uchun success message
+            // setSuccessMessage("Код успешно отправлен повторно!");
+
+        } catch (err) {
+            console.error('❌ Resend failed:', err);
+
+            const data = err?.response?.data || {};
+            const errorMsg = data.error || data.detail || "Кодни қайта жўнатишда хатолик";
+            setError(errorMsg);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
-        <React.Fragment>
-            {/* Desktop (lg+) */}
-            <div className="hidden lg:flex items-center justify-center min-h-screen bg-white text-black">
-                <div className="bg-[#F7F9FC] p-10 rounded-2xl shadow-md w-[450px] text-center">
-                    <h2 className="text-[32px] text-black font-bold mb-2">
-                        Проверьте E-mail
-                    </h2>
-                    <p className="text-gray-600 text-sm mb-6">
-                        Мы отправили 6-значный код на вашу почту
-                    </p>
+        <div className="email-verification-container">
+            <div className="email-verification-card">
+                <h1 className="verification-title">Проверьте E-mail</h1>
 
-                    {/* OTP Inputs */}
-                    <div className="flex justify-center gap-2 mb-4" onPaste={handlePaste}>
-                        {otp.map((digit, idx) => (
-                            <input
-                                key={idx}
-                                type="text"
-                                inputMode="numeric"
-                                pattern="[0-9]*"
-                                maxLength={1}
-                                value={digit}
-                                aria-label={`Digit ${idx + 1}`}
-                                onChange={(e) => handleChange(e.target.value, idx)}
-                                onKeyDown={(e) => handleKeyDown(e, idx)}
-                                ref={(el) => (inputsRef.current[idx] = el)}
-                                disabled={submitting}
-                                className={`w-[50px] h-[60px] border-2 ${
-                                    error ? 'border-red-500' : 'border-gray-300'
-                                } rounded-lg text-center text-2xl font-semibold focus:outline-none focus:border-[#3066BE] transition ${
-                                    submitting ? 'opacity-50 cursor-not-allowed' : ''
-                                }`}
-                            />
-                        ))}
-                    </div>
-
-                    {/* Error Message */}
-                    {error && (
-                        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
-                            <p className="text-red-600 text-sm">{error}</p>
-                        </div>
-                    )}
-
-                    {/* Success Message */}
-                    {successMessage && (
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
-                            <p className="text-green-600 text-sm font-semibold">{successMessage}</p>
-                        </div>
-                    )}
-
-                    {/* Timer / Resend */}
-                    <div className="mb-6">
-                        {timer > 0 ? (
-                            <p className="text-[#3066BE] text-base font-medium">
-                                Код действителен: {formatTime(timer)}
-                            </p>
-                        ) : (
-                            <button
-                                type="button"
-                                onClick={handleResend}
-                                disabled={resending}
-                                className="text-sm text-[#3066BE] font-semibold hover:underline disabled:opacity-50 disabled:cursor-not-allowed bg-transparent border-none cursor-pointer"
-                            >
-                                {resending ? "Отправка..." : "Не получили код? Отправить повторно"}
-                            </button>
-                        )}
-                    </div>
-
-                    {/* Submit Button */}
-                    <button
-                        onClick={handleSubmit}
-                        type="button"
-                        disabled={!isValidCode || submitting}
-                        className={`w-full max-w-[200px] mx-auto h-[57px] bg-[#3066BE] text-white text-base font-semibold rounded-lg px-6 py-4 transition flex items-center justify-center gap-2 ${
-                            !isValidCode || submitting
-                                ? "opacity-50 cursor-not-allowed"
-                                : "hover:bg-[#2a58a6] active:scale-95"
-                        }`}
-                    >
-                        {submitting ? (
-                            <span>Проверка...</span>
-                        ) : successMessage ? (
-                            <span>Переход...</span>
-                        ) : (
-                            <React.Fragment>
-                                Следующий
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                </svg>
-                            </React.Fragment>
-                        )}
-                    </button>
-
-                    {/* Back Button */}
-                    <button
-                        onClick={() => navigate(`/register/step2?uid=${userId}`)}
-                        disabled={submitting}
-                        className="bg-[#F4F6FA] text-[#3066BE] border-none rounded-lg px-5 py-2.5 text-sm font-semibold hover:bg-[#e8ecf4] active:scale-95 transition mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        ← Назад
-                    </button>
+                <div className="otp-input-container">
+                    {otp.map((digit, index) => (
+                        <input
+                            key={index}
+                            ref={el => inputRefs.current[index] = el}
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={1}
+                            value={digit}
+                            onChange={(e) => handleChange(index, e.target.value)}
+                            onKeyDown={(e) => handleKeyDown(index, e)}
+                            onPaste={handlePaste}
+                            className={`otp-input ${error ? 'otp-input-error' : ''}`}
+                            autoFocus={index === 0}
+                            disabled={isLoading}
+                        />
+                    ))}
                 </div>
-            </div>
 
-            {/* Tablet only (md) */}
-            <div className="hidden md:block lg:hidden">
-                <EmailCodeVerifyTablet
-                    otp={otp}
-                    setOtp={setOtp}
-                    timer={timer}
-                    onSubmit={handleSubmit}
-                    onResend={handleResend}
-                    error={error}
-                    successMessage={successMessage}
-                    submitting={submitting}
-                    resending={resending}
-                    formatTime={formatTime}
-                    inputsRef={inputsRef}
-                    handleChange={handleChange}
-                    handleKeyDown={handleKeyDown}
-                    handlePaste={handlePaste}
-                />
-            </div>
+                {error && (
+                    <p className="error-message">{error}</p>
+                )}
 
-            {/* Mobile (sm va past) */}
-            <div className="block md:hidden">
-                <EmailCodeVerifyMobile
-                    otp={otp}
-                    setOtp={setOtp}
-                    timer={timer}
-                    onSubmit={handleSubmit}
-                    onResend={handleResend}
-                    error={error}
-                    successMessage={successMessage}
-                    submitting={submitting}
-                    resending={resending}
-                    formatTime={formatTime}
-                    inputsRef={inputsRef}
-                    handleChange={handleChange}
-                    handleKeyDown={handleKeyDown}
-                    handlePaste={handlePaste}
-                />
+                <div className="timer">{formatTime(timer)}</div>
+
+                <button
+                    className="submit-button"
+                    onClick={handleSubmit}
+                    disabled={otp.join('').length !== 6 || isLoading}
+                >
+                    {isLoading ? (
+                        "Текширилмоқда..."
+                    ) : (
+                        <>
+                            Следующий
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M7.5 15L12.5 10L7.5 5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                        </>
+                    )}
+                </button>
+
+                <button
+                    className={`resend-button ${canResend ? 'active' : ''}`}
+                    onClick={handleResend}
+                    disabled={!canResend || isLoading}
+                >
+                    Не получили код?
+                </button>
             </div>
-        </React.Fragment>
+        </div>
     );
-}
+};
+
+export default EmailVerifyPage;

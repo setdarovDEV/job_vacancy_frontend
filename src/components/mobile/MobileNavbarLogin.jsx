@@ -4,36 +4,14 @@ import ProfileDropdown from "../ProfileDropdown.jsx";
 
 export default function MobileNavbar() {
     const [openMenu, setOpenMenu] = useState(false);
-    const [openLang, setOpenLang] = useState(false);
-
-    const [selectedLang, setSelectedLang] = useState({ flag: "/ru.png", code: "RU" });
-    const langCode = selectedLang?.code === "GB" ? "EN" : (selectedLang?.code || "RU");
 
     const texts = {
-        RU: {
-            community: "Сообщество",
-            vacancies: "Вакансии",
-            chat: "Чат",
-            companies: "Компании",
-            login: "Войти",
-            loginWarn: "Пожалуйста, войдите в систему.",
-        },
-        UZ: {
-            community: "Jamiyat",
-            vacancies: "Vakansiyalar",
-            chat: "Chat",
-            companies: "Kompaniyalar",
-            login: "Kirish",
-            loginWarn: "Tizimga kiring.",
-        },
-        EN: {
-            community: "Community",
-            vacancies: "Vacancies",
-            chat: "Chat",
-            companies: "Companies",
-            login: "Login",
-            loginWarn: "Please log in.",
-        },
+        community: "Сообщество",
+        vacancies: "Вакансии",
+        chat: "Чат",
+        companies: "Компании",
+        login: "Войти",
+        loginWarn: "Пожалуйста, войдите в систему.",
     };
 
     return (
@@ -58,16 +36,16 @@ export default function MobileNavbar() {
                             {openMenu && (
                                 <div className="absolute left-0 top-[calc(100%+8px)] w-48 rounded-lg bg-white shadow-lg border z-50 overflow-hidden">
                                     <a href="/community" className="block px-4 py-3 text-sm text-black hover:text-[#3066BE] mb-[-20px]">
-                                        {texts[langCode].community}
+                                        {texts.community}
                                     </a>
                                     <a href="/vacancies" className="block px-4 py-3 text-sm text-black hover:text-[#3066BE] mb-[-20px]">
-                                        {texts[langCode].vacancies}
+                                        {texts.vacancies}
                                     </a>
                                     <a href="/chat" className="block px-4 py-3 text-sm text-black hover:text-[#3066BE] mb-[-20px]">
-                                        {texts[langCode].chat}
+                                        {texts.chat}
                                     </a>
                                     <a href="/companies" className="block px-4 py-3 text-sm text-black hover:text-[#3066BE]">
-                                        {texts[langCode].companies}
+                                        {texts.companies}
                                     </a>
                                 </div>
                             )}

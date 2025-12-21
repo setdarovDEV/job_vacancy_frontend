@@ -60,12 +60,30 @@ export default function ProfileTabletPage() {
                 const data = res.data;
 
                 if (data.profile_image) {
-                    const fullImage = `http://127.0.0.1:8000${data.profile_image}?t=${Date.now()}`;
+                    const baseURL = api.defaults.baseURL || "https://jobvacancy-api.duckdns.org";
+                    let fullImage;
+
+                    // Agar URL allaqachon to'liq bo'lsa
+                    if (data.profile_image.startsWith("http")) {
+                        fullImage = data.profile_image;
+                    } else {
+                        // Aks holda baseURL qo'shamiz
+                        fullImage = `${baseURL}${data.profile_image}`;
+                    }
+
+                    // Cache bust uchun timestamp
+                    fullImage += `?t=${Date.now()}`;
+
                     setProfileImage(fullImage);
                     localStorage.setItem("profile_image", fullImage);
+                    console.log("✅ Tablet Avatar yuklandi:", fullImage);
+                } else {
+                    setProfileImage("/user.jpg");
+                    console.warn("⚠️ Backend'dan avatar kelmadi, default ishlatilmoqda");
                 }
             } catch (err) {
-                console.error("User ma'lumotini olishda xatolik:", err);
+                console.error("❌ Avatar yuklashda xatolik:", err);
+                setProfileImage("/user.jpg");
             }
         };
 
@@ -490,7 +508,7 @@ export default function ProfileTabletPage() {
                 {/* ========================== */}
                 {/*        NOTIFICATION        */}
                 {/* ========================== */}
-                <div className="bg-white py-3 md:py-2 mb-[-60px] mt-[10px]">
+                <div className="bg-white py-3 md:py-2 mb-[60px] mt-[10px]">
                     <div className="mx-auto w-full max-w-[960px] px-3 md:px-4 flex items-center justify-end">
                         <div className="flex items-center gap-4 md:gap-3">
                             {/* Bell */}
@@ -522,6 +540,10 @@ export default function ProfileTabletPage() {
                                         src={profileImage || "/user.jpg"}
                                         alt="avatar"
                                         className="w-full h-full object-cover rounded-full border"
+                                        onError={(e) => {
+                                            console.error("❌ Avatar rasm ochilmadi:", profileImage);
+                                            e.target.src = "/user.jpg";
+                                        }}
                                     />
                                     <button
                                         className={`absolute bottom-0 right-0 rounded-full border p-[2px] transition 
